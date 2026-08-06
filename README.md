@@ -15,6 +15,8 @@ metadata, manifests, patches, build scripts, source locks, and bring-up notes.
 - `vendor/meizu/m86/`: extraction scripts and proprietary-file metadata.
 - `manifests/`: LineageOS and reference-source declarations.
 - `patches/`: reproducible changes to upstream Android repositories.
+- `legacy/`: immutable imported community baselines kept outside Android's
+  module-discovery paths.
 - `remote/`: builder bootstrap, synchronization, and build control scripts.
 - `locks/`: immutable upstream revisions and generated manifest snapshots.
 - `docs/`: design decisions, hardware findings, and bring-up records.

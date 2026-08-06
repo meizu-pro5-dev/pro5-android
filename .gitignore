@@ -15,8 +15,8 @@ ccache/
 # Keep extraction metadata and generated makefiles, but not redistributability-
 # sensitive stock binaries.
 vendor/meizu/m86/proprietary/
-device/meizu/m86/dtb_cm
-device/meizu/m86/rootdir/sbin/cbd
+legacy/device-meizu-m86-cm14/dtb_cm
+legacy/device-meizu-m86-cm14/rootdir/sbin/cbd
 
 # Device evidence is retained locally but normally too large for Git.
 evidence/*

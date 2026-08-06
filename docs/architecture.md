@@ -6,6 +6,10 @@ The local `pro5-android10` Git repository is authoritative for every authored
 porting change. AutoDL is an execution environment and cache, not the only copy
 of any adaptation code.
 
+Historical m86 sources are stored below `legacy/`, outside the directories
+installed into the Android checkout. This prevents Android 10 from discovering
+obsolete Android.mk modules while retaining the complete reviewable baseline.
+
 | Data | Authoritative location | Remote location |
 | --- | --- | --- |
 | Device tree | `device/meizu/m86` | `src/lineage-17.1/device/meizu/m86` |
