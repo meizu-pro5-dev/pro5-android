@@ -114,7 +114,9 @@ project_checkout_complete() {
   fi
   head_count="$(git -C "$project" ls-tree -r --name-only HEAD | wc -l | tr -d ' ')"
   index_count="$(git -C "$project" ls-files | wc -l | tr -d ' ')"
-  [[ "$head_count" =~ ^[1-9][0-9]*$ ]] || return 1
+  # The Pie manifest contains intentional empty placeholder repositories.
+  # They are complete when both the commit tree and index contain zero paths.
+  [[ "$head_count" =~ ^[0-9]+$ ]] || return 1
   [[ "$index_count" == "$head_count" ]] || return 1
   [[ -z "$(git -C "$project" status --porcelain --untracked-files=normal)" ]]
 }

@@ -98,6 +98,7 @@ require_fixed 'git -C "$project" ls-tree -r --name-only HEAD' \
   "$twrp_sync_worker"
 require_fixed 'git -C "$project" ls-files' "$twrp_sync_worker"
 require_fixed 'status --porcelain --untracked-files=normal' "$twrp_sync_worker"
+require_fixed '[[ "$head_count" =~ ^[0-9]+$ ]]' "$twrp_sync_worker"
 require_fixed 'repair_empty_index_checkout()' "$twrp_sync_worker"
 require_fixed '[[ "$index_count" != 0 ]]' "$twrp_sync_worker"
 require_fixed 'git -C "$project" read-tree HEAD' "$twrp_sync_worker"

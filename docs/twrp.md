@@ -21,7 +21,9 @@ previously interrupted `frameworks/base` checkout whose empty index had left
 more than eleven thousand tracked files absent while `repo sync` still
 reported success. The sync worker can rebuild only this precisely identified
 empty-index state from the already-pinned commit; all other incomplete or
-dirty states are rejected and retried through `repo`.
+dirty states are rejected and retried through `repo`. Upstream's intentional
+empty placeholder repositories remain valid when both the commit tree and
+index contain zero paths.
 
 The official build FAQ normally maps a device that launched on Android 5.1 to
 the Android 6.0 TWRP branch. For m86 that branch would also freeze recovery at
