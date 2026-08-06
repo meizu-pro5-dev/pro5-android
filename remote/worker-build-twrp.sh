@@ -102,6 +102,22 @@ export KBUILD_BUILD_HOST=autodl
 export KBUILD_BUILD_VERSION=1
 export KBUILD_BUILD_TIMESTAMP='Sat Sep 29 16:28:54 UTC 2018'
 
+# Android 9 Soong accepts C.UTF-8, en_US.UTF-8, or en_US.utf8, while this
+# builder exposes only the equivalent C.utf8 spelling. Materialize the
+# standard en_US locale once so the unmodified, pinned TWRP source can select a
+# UTF-8 build locale. This is deterministic host setup, not a source patch.
+if ! locale -a | grep -Eq '^(C\.UTF-8|en_US\.UTF-8|en_US\.utf8)$'; then
+  if ! command -v localedef >/dev/null 2>&1; then
+    printf 'TWRP requires localedef to provide an Android-compatible UTF-8 locale.\n' >&2
+    exit 1
+  fi
+  localedef -i en_US -f UTF-8 en_US.UTF-8
+fi
+if ! locale -a | grep -Eq '^(C\.UTF-8|en_US\.UTF-8|en_US\.utf8)$'; then
+  printf 'Unable to provide C.UTF-8 or en_US.UTF-8 for TWRP Soong.\n' >&2
+  exit 1
+fi
+
 ccache --max-size=25G
 ccache --zero-stats
 

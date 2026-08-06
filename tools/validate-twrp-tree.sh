@@ -79,6 +79,7 @@ require_fixed 'CONFIG_EXFAT_FS=y' "$kernel_config"
 require_fixed 'CONFIG_RTC_CLASS=y' "$kernel_config"
 require_fixed 'CONFIG_RTC_DRV_SEC=y' "$kernel_config"
 require_fixed 'export BUILD_DATETIME=1538238534' "$twrp_build_worker"
+require_fixed "localedef -i en_US -f UTF-8 en_US.UTF-8" "$twrp_build_worker"
 require_fixed 'build_twrp_pass 1 "$first_out"' "$twrp_build_worker"
 require_fixed 'build_twrp_pass 2 "$second_out"' "$twrp_build_worker"
 require_fixed 'cmp --silent "$first_file" "$second_file"' \
