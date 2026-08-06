@@ -149,6 +149,13 @@ PRODUCT_PACKAGES += \
     android.hardware.vibrator@1.0-service \
     vibrator.default
 
+# Lights. A source-built legacy HAL converts framework RGB values and the
+# m86-specific LP5562 mode bits; Android 10's generic HIDL service wraps it.
+PRODUCT_PACKAGES += \
+    android.hardware.light@2.0-impl \
+    android.hardware.light@2.0-service \
+    lights.m86
+
 # TARGET_SYSTEM_PROP is expanded after product makefiles have changed
 # LOCAL_PATH. Use the stable device path so it cannot resolve under
 # build/make/core during Ninja graph generation.

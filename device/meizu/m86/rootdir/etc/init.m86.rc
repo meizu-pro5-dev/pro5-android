@@ -45,6 +45,10 @@ on boot
     chmod 0660 /sys/module/bcmdhd/parameters/firmware_path
     chown system system /sys/devices/13930000.decon_fb/adreg
     chmod 0660 /sys/devices/13930000.decon_fb/adreg
+    chown system system /sys/devices/13930000.decon_fb/backlight/pwm-backlight.0/brightness
+    chmod 0660 /sys/devices/13930000.decon_fb/backlight/pwm-backlight.0/brightness
+    chown system system /sys/class/leds/m86_led/brightness
+    chmod 0660 /sys/class/leds/m86_led/brightness
     chown system system /sys/class/timed_output/vibrator/enable
     chmod 0660 /sys/class/timed_output/vibrator/enable
 

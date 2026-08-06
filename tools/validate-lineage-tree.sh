@@ -18,6 +18,8 @@ audio_mixer="$device_root/audio/mixer_paths.xml"
 gps_conf="$device_root/gps/gps.conf"
 gps_xml="$device_root/gps/gps.xml"
 sensors_service_rc="$device_root/sensors/android.hardware.sensors@1.0-service.rc"
+lights_bp="$device_root/lights/Android.bp"
+lights_source="$device_root/lights/lights.c"
 wifi_sta_overlay="$device_root/wifi/wpa_supplicant_overlay.conf"
 wifi_p2p_overlay="$device_root/wifi/p2p_supplicant_overlay.conf"
 usb_rc="$device_root/rootdir/etc/init.m86.usb.rc"
@@ -53,6 +55,8 @@ for required_file in \
   "$gps_conf" \
   "$gps_xml" \
   "$sensors_service_rc" \
+  "$lights_bp" \
+  "$lights_source" \
   "$wifi_sta_overlay" \
   "$wifi_p2p_overlay" \
   "$usb_rc" \
@@ -249,6 +253,16 @@ require_fixed 'group system wakelock input' "$sensors_service_rc"
 require_fixed 'android.hardware.vibrator@1.0-impl' "$device_makefile"
 require_fixed 'android.hardware.vibrator@1.0-service' "$device_makefile"
 require_fixed 'vibrator.default' "$device_makefile"
+require_fixed 'android.hardware.light@2.0-impl' "$device_makefile"
+require_fixed 'android.hardware.light@2.0-service' "$device_makefile"
+require_fixed 'lights.m86' "$device_makefile"
+require_fixed 'name: "lights.m86"' "$lights_bp"
+require_fixed '#define M86_LED_MODE_CURRENT 0x100' "$lights_source"
+require_fixed '#define M86_LED_MODE_BREATH 0x200' "$lights_source"
+require_fixed '#define M86_LED_MODE_TIMED_BLINK 0x400' "$lights_source"
+require_fixed '/sys/class/leds/m86_led/brightness' "$lights_source"
+require_fixed '/sys/devices/13930000.decon_fb/backlight/pwm-backlight.0/brightness' \
+  "$lights_source"
 for wifi_package in hostapd wpa_supplicant wpa_supplicant.conf; do
   if ! rg -q "^[[:space:]]*${wifi_package}( \\\\)?$" "$device_makefile"; then
     printf 'Required m86 Wi-Fi package is absent: %s\n' "$wifi_package" >&2
@@ -284,6 +298,14 @@ require_fixed 'chmod 0660 /sys/class/rfkill/rfkill0/state' \
 require_fixed 'chown system system /sys/class/timed_output/vibrator/enable' \
   "$init_rc"
 require_fixed 'chmod 0660 /sys/class/timed_output/vibrator/enable' \
+  "$init_rc"
+require_fixed 'chown system system /sys/class/leds/m86_led/brightness' \
+  "$init_rc"
+require_fixed 'chmod 0660 /sys/class/leds/m86_led/brightness' \
+  "$init_rc"
+require_fixed 'chown system system /sys/devices/13930000.decon_fb/backlight/pwm-backlight.0/brightness' \
+  "$init_rc"
+require_fixed 'chmod 0660 /sys/devices/13930000.decon_fb/backlight/pwm-backlight.0/brightness' \
   "$init_rc"
 require_fixed 'mkdir /data/vendor/wifi/wpa/sockets 0770 wifi wifi' "$init_rc"
 require_fixed 'chown wifi wifi /sys/module/bcmdhd/parameters/firmware_path' \
@@ -472,6 +494,8 @@ require_manifest_hal \
 require_manifest_hal \
   android.hardware.gnss 1.0 hwbinder '' IGnss
 require_manifest_hal \
+  android.hardware.light 2.0 hwbinder '' ILight
+require_manifest_hal \
   android.hardware.memtrack 1.0 passthrough 32+64 IMemtrack
 for radio_slot in slot1 slot2; do
   require_manifest_instance \
@@ -539,6 +563,10 @@ if rg -q 'kernel/samsung/universal7420' \
 fi
 if rg -q 'android\.hardware\.sensor\.(barometer|heartrate)' "$device_makefile"; then
   printf 'm86 must not advertise Galaxy-only pressure or heart-rate sensors.\n' >&2
+  exit 1
+fi
+if rg -q 'gpioi2c|led_pattern|my_pattern|fopen' "$lights_source"; then
+  printf 'm86 lights must use stable class nodes and checked file I/O.\n' >&2
   exit 1
 fi
 if rg -q '^[[:space:]]*(wifiloader|macloader)([[:space:]]*\\)?$' \

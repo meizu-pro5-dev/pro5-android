@@ -122,6 +122,16 @@ userspace protocol is not required for ordinary framework vibration. Runtime
 acceptance still requires timed on/off and repeated-notification testing on
 the device.
 
+The LP5562 indicator uses a Meizu-specific integer ABI on the otherwise
+stable `/sys/class/leds/m86_led/brightness` node: bits 8 through 11 select
+direct-current, breathing, or timed-blink operation, while the low byte holds
+brightness. The source-built `lights.m86` HAL encodes those kernel-defined
+modes and uses the verified final-Flyme backlight node. It deliberately avoids
+the old CM14 HAL's private I2C-device paths and unchecked file operations.
+Notifications take priority over attention and battery indication; hardware
+acceptance must cover display brightness, charging breath, steady and blinking
+notifications, priority restoration, suspend, and shutdown.
+
 ## Userspace subsystem plan
 
 ### Graphics and media
