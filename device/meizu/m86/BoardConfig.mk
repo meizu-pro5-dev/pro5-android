@@ -65,11 +65,16 @@ TARGET_UNIFIED_DEVICE :=
 # Partitions, taken from the last booting m86 community tree and checked
 # against the verified Flyme updater paths.
 TARGET_USERIMAGES_USE_EXT4 := true
+TARGET_USERIMAGES_USE_F2FS :=
 BOARD_FLASH_BLOCK_SIZE := 131072
 BOARD_BOOTIMAGE_PARTITION_SIZE := 25161728
 BOARD_RECOVERYIMAGE_PARTITION_SIZE := 33550336
 BOARD_SYSTEMIMAGE_PARTITION_SIZE := 2684350464
 BOARD_USERDATAIMAGE_PARTITION_SIZE := 27241979904
+# Do not inherit Samsung's cache geometry. Its exact size will be recorded
+# when the deferred GPT backup is performed; no cache image is built meanwhile.
+BOARD_CACHEIMAGE_PARTITION_SIZE :=
+BOARD_CACHEIMAGE_FILE_SYSTEM_TYPE :=
 BOARD_ROOT_EXTRA_FOLDERS += custom mnv
 
 # Legacy non-Treble layout: vendor files live below system/vendor.
@@ -79,8 +84,13 @@ TARGET_COPY_OUT_VENDOR := system/vendor
 TARGET_RECOVERY_FSTAB := $(M86_PATH)/rootdir/etc/recovery.fstab
 BOARD_HAS_NO_SELECT_BUTTON := true
 BOARD_HAS_LARGE_FILESYSTEM := true
+# universal7420-common disables misc for Samsung devices, but the verified
+# Meizu ramdisk and recovery fstab both address the UFS misc partition.
+BOARD_HAS_NO_MISC_PARTITION :=
 BOARD_SUPPRESS_SECURE_ERASE := true
 TARGET_RECOVERY_PIXEL_FORMAT := RGBA_8888
+BOARD_HAS_DOWNLOAD_MODE :=
+TARGET_RELEASETOOLS_EXTENSIONS :=
 
 # Hardware
 TARGET_BOARD_PLATFORM := exynos5
