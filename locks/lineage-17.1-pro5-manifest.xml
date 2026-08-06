@@ -390,6 +390,7 @@
   <project name="platform/external/avb" path="external/avb" remote="aosp" revision="1de7bf8e4dac7470ce1d1e04ae8e7594b7c86409" upstream="refs/tags/android-10.0.0_r41" dest-branch="refs/tags/android-10.0.0_r41" groups="pdk"/>
   <project name="platform/external/bcc" path="external/bcc" remote="aosp" revision="db83b156a85bf531c967adb00e649d55d7238dc7" upstream="refs/tags/android-10.0.0_r41" dest-branch="refs/tags/android-10.0.0_r41" groups="pdk"/>
   <project name="platform/external/blktrace" path="external/blktrace" remote="aosp" revision="9c82183ae7fb7dc4db787b8796c652a732b4d552" upstream="refs/tags/android-10.0.0_r41" dest-branch="refs/tags/android-10.0.0_r41" groups="pdk"/>
+  <project name="platform/external/bluetooth/glib" path="external/glib" remote="aosp" revision="1143b9918eab068401b604eb11c3f651f4e38b25" groups="local::pro5"/>
   <project name="platform/external/boringssl" path="external/boringssl" remote="aosp" revision="98697a9a252a4146c61fbb86169b698d71da165d" upstream="refs/tags/android-10.0.0_r41" dest-branch="refs/tags/android-10.0.0_r41" groups="pdk"/>
   <project name="platform/external/bouncycastle" path="external/bouncycastle" remote="aosp" revision="c8aa82daad8c213545fe32ec1c3164446dfaec31" upstream="refs/tags/android-10.0.0_r41" dest-branch="refs/tags/android-10.0.0_r41" groups="pdk"/>
   <project name="platform/external/brotli" path="external/brotli" remote="aosp" revision="e1fc10a642a91c85afb8cba684b75421c53c2288" upstream="refs/tags/android-10.0.0_r41" dest-branch="refs/tags/android-10.0.0_r41" groups="pdk"/>
