@@ -27,10 +27,11 @@ checkout. The 300 GiB persistent volume is sufficient only with a bounded
 25 GiB ccache and periodic build-output accounting.
 
 Manifest URLs stay canonical. Git rewrites LineageOS fetches to TUNA and AOSP
-fetches to USTC without editing the manifest; an individual failed AOSP fetch
-is retried against BFSU, TUNA, and finally the accelerated upstream. Each
-manifest project runs in a bounded `repo sync` process because an aggregate
-repo 2.65 worker pool stalled after a mirror timeout on this builder.
+fetches to USTC without editing the manifest. An individual failed LineageOS
+fetch retries against GitHub directly; failed AOSP fetches rotate through
+BFSU, TUNA, and finally the accelerated upstream. Each manifest project runs
+in a bounded `repo sync` process because an aggregate repo 2.65 worker pool
+stalled after a mirror timeout on this builder.
 
 ## Recovery rule
 

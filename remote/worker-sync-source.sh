@@ -47,19 +47,25 @@ repo_sync_args=(
   --fail-fast
 )
 
+lineage_sources=(tuna direct tuna direct)
 aosp_sources=(ustc bfsu tuna direct)
 project_timeout="${PRO5_SYNC_PROJECT_TIMEOUT:-15m}"
 
 sync_one_project() {
   local project="$1"
   local phase="$2"
+  local route_index
+  local lineage_source
   local aosp_source
   local status
 
-  for aosp_source in "${aosp_sources[@]}"; do
+  for route_index in "${!aosp_sources[@]}"; do
+    lineage_source="${lineage_sources[$route_index]}"
+    aosp_source="${aosp_sources[$route_index]}"
+    configure_builder_lineage_source "$lineage_source"
     configure_builder_aosp_source "$aosp_source"
-    printf '%s: %s via AOSP source %s\n' \
-      "$phase" "$project" "$aosp_source"
+    printf '%s: %s via LineageOS %s / AOSP %s\n' \
+      "$phase" "$project" "$lineage_source" "$aosp_source"
 
     set +e
     timeout \
@@ -76,14 +82,16 @@ sync_one_project() {
     set -e
 
     if [[ "$status" -eq 0 ]]; then
+      configure_builder_lineage_source "${PRO5_LINEAGE_SOURCE:-tuna}"
       configure_builder_aosp_source "${PRO5_AOSP_SOURCE:-ustc}"
       return 0
     fi
 
-    printf 'Sync attempt failed: project=%s source=%s status=%s\n' \
-      "$project" "$aosp_source" "$status" >&2
+    printf 'Sync attempt failed: project=%s lineage=%s aosp=%s status=%s\n' \
+      "$project" "$lineage_source" "$aosp_source" "$status" >&2
   done
 
+  configure_builder_lineage_source "${PRO5_LINEAGE_SOURCE:-tuna}"
   configure_builder_aosp_source "${PRO5_AOSP_SOURCE:-ustc}"
   return 1
 }

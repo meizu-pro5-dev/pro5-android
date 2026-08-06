@@ -1,5 +1,28 @@
 #!/usr/bin/env bash
 
+# Select the LineageOS endpoint used by Git's transparent URL rewrite.
+configure_builder_lineage_source() {
+  local source_name="${1:-tuna}"
+  local source_prefix
+
+  case "$source_name" in
+    tuna)
+      source_prefix='https://mirrors.tuna.tsinghua.edu.cn/git/lineageOS/LineageOS/'
+      ;;
+    direct)
+      # A no-op rewrite overrides the mirror while keeping fixed config slots.
+      source_prefix='https://github.com/LineageOS/'
+      ;;
+    *)
+      printf 'Unsupported LineageOS source: %s\n' "$source_name" >&2
+      return 2
+      ;;
+  esac
+
+  export GIT_CONFIG_KEY_1="url.${source_prefix}.insteadOf"
+  export GIT_CONFIG_VALUE_1=https://github.com/LineageOS/
+}
+
 # Select the AOSP endpoint used by Git's transparent URL rewrite. Keeping the
 # manifest URL untouched preserves provenance while allowing a failed mirror
 # to be changed for one bounded repo-sync attempt.
@@ -18,9 +41,8 @@ configure_builder_aosp_source() {
       mirror_prefix='https://mirrors.tuna.tsinghua.edu.cn/git/AOSP/'
       ;;
     direct)
-      export GIT_CONFIG_COUNT=2
-      unset GIT_CONFIG_KEY_2 GIT_CONFIG_VALUE_2
-      return
+      # As above, the no-op rewrite bypasses mirrors without shifting indices.
+      mirror_prefix='https://android.googlesource.com/'
       ;;
     *)
       printf 'Unsupported AOSP source: %s\n' "$source_name" >&2
@@ -28,7 +50,6 @@ configure_builder_aosp_source() {
       ;;
   esac
 
-  export GIT_CONFIG_COUNT=3
   export GIT_CONFIG_KEY_2="url.${mirror_prefix}.insteadOf"
   export GIT_CONFIG_VALUE_2=https://android.googlesource.com/
 }
@@ -53,14 +74,13 @@ configure_builder_network() {
   fi
   export NO_PROXY="$no_proxy"
 
-  # Keep manifest URLs unchanged for provenance. LineageOS uses TUNA; AOSP
-  # defaults to USTC and can be switched per attempt by the sync worker. Other
-  # GitHub organizations continue to use the direct route.
-  export GIT_CONFIG_COUNT=2
+  # Keep manifest URLs unchanged for provenance. LineageOS defaults to TUNA;
+  # AOSP defaults to USTC. Both can be switched per bounded attempt by the
+  # sync worker. Other GitHub organizations continue to use the direct route.
+  export GIT_CONFIG_COUNT=3
   export GIT_CONFIG_KEY_0=http.version
   export GIT_CONFIG_VALUE_0=HTTP/1.1
-  export GIT_CONFIG_KEY_1=url.https://mirrors.tuna.tsinghua.edu.cn/git/lineageOS/LineageOS/.insteadOf
-  export GIT_CONFIG_VALUE_1=https://github.com/LineageOS/
+  configure_builder_lineage_source "${PRO5_LINEAGE_SOURCE:-tuna}"
   configure_builder_aosp_source "${PRO5_AOSP_SOURCE:-ustc}"
 
   # Bound zero-progress waits so repo can retry a failed project instead of
