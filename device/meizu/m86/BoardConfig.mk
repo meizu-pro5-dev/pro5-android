@@ -39,7 +39,11 @@ TARGET_SEC_FP_CALL_NOTIFY_ON_CANCEL :=
 TARGET_SEC_FP_CALL_CANCEL_ON_ENROLL_COMPLETION :=
 TARGET_SEC_FP_USES_PERCENTAGE_SAMPLES :=
 
-TARGET_LD_SHIM_LIBS :=
+# The final Flyme 8 camera stack is 32-bit. Its exact libexynoscamera imports
+# five symbols no longer exported by Android 10 and expects SensorManager from
+# the old libgui dependency graph. Inject only the source-built m86 shim.
+TARGET_LD_SHIM_LIBS := \
+    /system/lib/libexynoscamera.so|/system/lib/libm86camera_shim.so
 # Flyme gpsd predates Q and still uses legacy linker greylist/APEX behavior.
 # Scope the compatibility level to this one audited executable.
 TARGET_PROCESS_SDK_VERSION_OVERRIDE := /system/bin/gpsd=27

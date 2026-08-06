@@ -1,0 +1,18 @@
+// Copyright (C) 2026 The LineageOS Project
+// SPDX-License-Identifier: Apache-2.0
+
+cc_library_shared {
+    name: "libm86camera_shim",
+    compile_multilib: "32",
+    srcs: ["CameraCompat.cpp"],
+    shared_libs: [
+        "libcutils",
+        "liblog",
+        "libsensor",
+    ],
+    ldflags: ["-Wl,--no-as-needed"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
+}

@@ -49,6 +49,20 @@ on boot
     chmod 0660 /sys/devices/13930000.decon_fb/backlight/pwm-backlight.0/brightness
     chown system system /sys/class/leds/m86_led/brightness
     chmod 0660 /sys/class/leds/m86_led/brightness
+    chown cameraserver camera /sys/class/leds/torch0/brightness
+    chmod 0660 /sys/class/leds/torch0/brightness
+    chown cameraserver camera /sys/class/leds/torch0/hwen
+    chmod 0660 /sys/class/leds/torch0/hwen
+    chown cameraserver camera /sys/class/leds/torch0/onoff
+    chmod 0660 /sys/class/leds/torch0/onoff
+    chown cameraserver camera /sys/class/leds/torch0/enable
+    chmod 0660 /sys/class/leds/torch0/enable
+    chown cameraserver camera /sys/class/leds/torch1/brightness
+    chmod 0660 /sys/class/leds/torch1/brightness
+    chown cameraserver camera /sys/class/leds/torch1/onoff
+    chmod 0660 /sys/class/leds/torch1/onoff
+    chown cameraserver camera /sys/class/leds/torch1/enable
+    chmod 0660 /sys/class/leds/torch1/enable
     chown system system /sys/class/timed_output/vibrator/enable
     chmod 0660 /sys/class/timed_output/vibrator/enable
 

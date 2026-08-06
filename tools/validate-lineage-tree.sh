@@ -18,6 +18,8 @@ audio_mixer="$device_root/audio/mixer_paths.xml"
 gps_conf="$device_root/gps/gps.conf"
 gps_xml="$device_root/gps/gps.xml"
 sensors_service_rc="$device_root/sensors/android.hardware.sensors@1.0-service.rc"
+camera_bp="$device_root/camera/Android.bp"
+camera_shim="$device_root/camera/CameraCompat.cpp"
 lights_bp="$device_root/lights/Android.bp"
 lights_source="$device_root/lights/lights.c"
 wifi_sta_overlay="$device_root/wifi/wpa_supplicant_overlay.conf"
@@ -38,6 +40,7 @@ patch_series="$project_root/patches/series.tsv"
 platform_manifest="$project_root/manifests/pro5.xml"
 build_worker="$project_root/remote/worker-build.sh"
 vendor_worker="$project_root/remote/prepare-vendor.sh"
+camera_audit_tool="$project_root/tools/audit-camera-abi.sh"
 blob_list="$device_root/proprietary-files.txt"
 vendor_definition_root="$project_root/vendor/meizu/m86"
 vendor_android_makefile="$vendor_definition_root/Android.mk"
@@ -58,6 +61,8 @@ for required_file in \
   "$gps_conf" \
   "$gps_xml" \
   "$sensors_service_rc" \
+  "$camera_bp" \
+  "$camera_shim" \
   "$lights_bp" \
   "$lights_source" \
   "$wifi_sta_overlay" \
@@ -78,6 +83,7 @@ for required_file in \
   "$platform_manifest" \
   "$build_worker" \
   "$vendor_worker" \
+  "$camera_audit_tool" \
   "$blob_list" \
   "$vendor_android_makefile" \
   "$vendor_board_config" \
@@ -203,15 +209,22 @@ require_fixed 'WIFI_DRIVER_FW_PATH_PARAM := /sys/module/bcmdhd/parameters/firmwa
 require_fixed 'BOARD_BLUETOOTH_BDROID_BUILDCFG_INCLUDE_DIR := $(M86_PATH)/bluetooth' \
   "$board_config"
 require_fixed 'BOARD_HAVE_BLUETOOTH := true' "$board_config"
+require_fixed '/system/lib/libexynoscamera.so|/system/lib/libm86camera_shim.so' \
+  "$board_config"
 require_fixed 'libncurses5 \' "$project_root/remote/bootstrap-builder.sh"
 require_fixed 'libtinfo5 \' "$project_root/remote/bootstrap-builder.sh"
 require_fixed 'RenderScript Clang is missing host libraries:' "$build_worker"
+require_fixed 'm86 camera ABI closure passed.' "$camera_audit_tool"
 require_fixed 'sys.usb.ffs.aio_compat=1' "$system_prop"
 require_fixed 'TARGET_SYSTEM_PROP := device/meizu/m86/system.prop' \
   "$device_makefile"
 require_fixed 'persist.sys.usb.config=mtp' "$device_makefile"
 require_fixed 'android.hardware.bluetooth_le.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.bluetooth_le.xml' \
   "$device_makefile"
+for camera_feature in camera camera.flash-autofocus camera.front; do
+  require_fixed "android.hardware.${camera_feature}.xml:\$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.${camera_feature}.xml" \
+    "$device_makefile"
+done
 require_fixed 'android.hardware.wifi.direct.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.wifi.direct.xml' \
   "$device_makefile"
 require_fixed 'android.hardware.wifi.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.wifi.xml' \
@@ -241,6 +254,18 @@ require_fixed '$(LOCAL_PATH)/audio/audio_policy_configuration.xml:$(TARGET_COPY_
   "$device_makefile"
 require_fixed '$(LOCAL_PATH)/audio/mixer_paths.xml:$(TARGET_COPY_OUT_SYSTEM)/etc/mixer_paths.xml' \
   "$device_makefile"
+require_fixed 'android.hardware.camera.provider@2.4-impl' "$device_makefile"
+require_fixed 'android.hardware.camera.provider@2.4-service' "$device_makefile"
+require_fixed 'libm86camera_shim' "$device_makefile"
+require_fixed 'name: "libm86camera_shim"' "$camera_bp"
+require_fixed 'compile_multilib: "32"' "$camera_bp"
+require_fixed '"libsensor"' "$camera_bp"
+require_fixed '"-Wl,--no-as-needed"' "$camera_bp"
+require_fixed 'extern "C" pid_t androidGetTid()' "$camera_shim"
+require_fixed 'extern "C" void set_value()' "$camera_shim"
+require_fixed '_ZN7android5FenceD1Ev' "$camera_shim"
+require_fixed 'EFFECT_POINT_BLUE[] = "point-blue"' "$camera_shim"
+require_fixed 'PIXEL_FORMAT_YUV420SP_NV21[] = "nv21"' "$camera_shim"
 require_fixed 'android.hardware.wifi@1.0-service.legacy' "$device_makefile"
 require_fixed '$(LOCAL_PATH)/wifi/p2p_supplicant_overlay.conf:$(TARGET_COPY_OUT_VENDOR)/etc/wifi/p2p_supplicant_overlay.conf' \
   "$device_makefile"
@@ -303,6 +328,14 @@ require_fixed '/dev/adnc2                   0660   system      audio' \
   "$ueventd_rc"
 require_fixed '/dev/video16                 0660   system      audio' \
   "$ueventd_rc"
+require_fixed '/dev/m2m1shot_scaler0        0660   cameraserver graphics' \
+  "$ueventd_rc"
+require_fixed '/dev/m2m1shot_jpeg           0660   cameraserver media' \
+  "$ueventd_rc"
+require_fixed '/dev/video101                0660   cameraserver cameraserver' \
+  "$ueventd_rc"
+require_fixed '/dev/video160                0660   cameraserver cameraserver' \
+  "$ueventd_rc"
 require_fixed 'chown bluetooth bluetooth /sys/class/rfkill/rfkill0/state' \
   "$device_root/rootdir/etc/init.m86.rc"
 require_fixed 'chmod 0660 /sys/class/rfkill/rfkill0/state' \
@@ -315,6 +348,9 @@ require_fixed 'chown system system /sys/class/leds/m86_led/brightness' \
   "$init_rc"
 require_fixed 'chmod 0660 /sys/class/leds/m86_led/brightness' \
   "$init_rc"
+require_fixed 'chown cameraserver camera /sys/class/leds/torch0/hwen' \
+  "$init_rc"
+require_fixed 'chmod 0660 /sys/class/leds/torch1/enable' "$init_rc"
 require_fixed 'chown system system /sys/devices/13930000.decon_fb/backlight/pwm-backlight.0/brightness' \
   "$init_rc"
 require_fixed 'chmod 0660 /sys/devices/13930000.decon_fb/backlight/pwm-backlight.0/brightness' \
@@ -495,6 +531,8 @@ require_manifest_hal \
   android.hardware.audio.effect 5.0 passthrough 32 IEffectsFactory
 require_manifest_hal \
   android.hardware.bluetooth 1.0 hwbinder '' IBluetoothHci
+require_manifest_instance \
+  android.hardware.camera.provider 2.4 ICameraProvider legacy/0
 require_manifest_hal \
   android.hardware.configstore 1.1 hwbinder '' ISurfaceFlingerConfigs
 require_manifest_hal \
@@ -537,7 +575,6 @@ for inherited_variable in \
   TARGET_SEC_FP_CALL_NOTIFY_ON_CANCEL \
   TARGET_SEC_FP_CALL_CANCEL_ON_ENROLL_COMPLETION \
   TARGET_SEC_FP_USES_PERCENTAGE_SAMPLES \
-  TARGET_LD_SHIM_LIBS \
   JAVA_SOURCE_OVERLAYS \
   BOARD_NFC_HAL_SUFFIX \
   BOARD_PROVIDES_LIBRIL \
@@ -575,6 +612,11 @@ if rg -q 'kernel/samsung/universal7420' \
 fi
 if rg -q 'android\.hardware\.sensor\.(barometer|heartrate)' "$device_makefile"; then
   printf 'm86 must not advertise Galaxy-only pressure or heart-rate sensors.\n' >&2
+  exit 1
+fi
+if rg -q 'android\.hardware\.camera\.(full|raw)\.xml|camera\.exynos5' \
+    "$device_makefile"; then
+  printf 'm86 must not advertise unverified FULL/RAW camera or use the Galaxy wrapper.\n' >&2
   exit 1
 fi
 if rg -q 'gpioi2c|led_pattern|my_pattern|fopen' "$lights_source"; then
