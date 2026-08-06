@@ -12,7 +12,10 @@ device_manifest="$device_root/manifest.xml"
 system_prop="$device_root/system.prop"
 bluetooth_buildcfg="$device_root/bluetooth/bdroid_buildcfg.h"
 bluetooth_vendor_conf="$device_root/bluetooth/bt_vendor.conf"
+wifi_sta_overlay="$device_root/wifi/wpa_supplicant_overlay.conf"
+wifi_p2p_overlay="$device_root/wifi/p2p_supplicant_overlay.conf"
 usb_rc="$device_root/rootdir/etc/init.m86.usb.rc"
+init_rc="$device_root/rootdir/etc/init.m86.rc"
 ueventd_rc="$device_root/rootdir/etc/ueventd.m86.rc"
 recovery_fstab="$device_root/rootdir/etc/recovery.fstab"
 releasetools="$device_root/releasetools/releasetools.py"
@@ -32,7 +35,10 @@ for required_file in \
   "$system_prop" \
   "$bluetooth_buildcfg" \
   "$bluetooth_vendor_conf" \
+  "$wifi_sta_overlay" \
+  "$wifi_p2p_overlay" \
   "$usb_rc" \
+  "$init_rc" \
   "$ueventd_rc" \
   "$recovery_fstab" \
   "$releasetools" \
@@ -125,6 +131,10 @@ require_fixed 'sys.usb.ffs.aio_compat=1' "$system_prop"
 require_fixed 'persist.sys.usb.config=mtp' "$device_makefile"
 require_fixed 'android.hardware.bluetooth_le.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.bluetooth_le.xml' \
   "$device_makefile"
+require_fixed 'android.hardware.wifi.direct.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.wifi.direct.xml' \
+  "$device_makefile"
+require_fixed 'android.hardware.wifi.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.wifi.xml' \
+  "$device_makefile"
 require_fixed 'android.hardware.bluetooth@1.0-impl.zero' "$device_makefile"
 require_fixed 'android.hardware.bluetooth@1.0-service' "$device_makefile"
 require_fixed '$(LOCAL_PATH)/bluetooth/bt_vendor.conf:$(TARGET_COPY_OUT_SYSTEM)/etc/bluetooth/bt_vendor.conf' \
@@ -134,6 +144,17 @@ require_fixed 'android.hardware.graphics.composer@2.1-impl' "$device_makefile"
 require_fixed 'android.hardware.graphics.mapper@2.0-impl' "$device_makefile"
 require_fixed 'android.hardware.memtrack@1.0-impl' "$device_makefile"
 require_fixed 'libhwc2on1adapter' "$device_makefile"
+require_fixed 'android.hardware.wifi@1.0-service.legacy' "$device_makefile"
+require_fixed '$(LOCAL_PATH)/wifi/p2p_supplicant_overlay.conf:$(TARGET_COPY_OUT_VENDOR)/etc/wifi/p2p_supplicant_overlay.conf' \
+  "$device_makefile"
+require_fixed '$(LOCAL_PATH)/wifi/wpa_supplicant_overlay.conf:$(TARGET_COPY_OUT_VENDOR)/etc/wifi/wpa_supplicant_overlay.conf' \
+  "$device_makefile"
+for wifi_package in hostapd wpa_supplicant wpa_supplicant.conf; do
+  if ! rg -q "^[[:space:]]*${wifi_package}( \\\\)?$" "$device_makefile"; then
+    printf 'Required m86 Wi-Fi package is absent: %s\n' "$wifi_package" >&2
+    exit 1
+  fi
+done
 require_fixed 'mount functionfs adb /dev/usb-ffs/adb uid=2000,gid=2000' \
   "$usb_rc"
 require_fixed 'write /sys/class/android_usb/android0/f_ffs/aliases adb' \
@@ -153,7 +174,18 @@ require_fixed '/dev/video23                 0660   media       graphics' \
 require_fixed 'chown bluetooth bluetooth /sys/class/rfkill/rfkill0/state' \
   "$device_root/rootdir/etc/init.m86.rc"
 require_fixed 'chmod 0660 /sys/class/rfkill/rfkill0/state' \
-  "$device_root/rootdir/etc/init.m86.rc"
+  "$init_rc"
+require_fixed 'mkdir /data/vendor/wifi/wpa/sockets 0770 wifi wifi' "$init_rc"
+require_fixed 'chown wifi wifi /sys/module/bcmdhd/parameters/firmware_path' \
+  "$init_rc"
+require_fixed 'service wpa_supplicant /vendor/bin/hw/wpa_supplicant \' \
+  "$init_rc"
+require_fixed 'interface android.hardware.wifi.supplicant@1.2::ISupplicant default' \
+  "$init_rc"
+require_fixed 'p2p_disabled=1' "$wifi_sta_overlay"
+require_fixed 'disable_scan_offload=1' "$wifi_sta_overlay"
+require_fixed 'manufacturer=SAMSUNG_ELECTRONICS' "$wifi_p2p_overlay"
+require_fixed 'model_name=SYSTEM_LSI' "$wifi_p2p_overlay"
 require_fixed 'ifneq ($(filter samsung meizu,$(BOARD_VENDOR)),)' "$platform_patch"
 require_fixed 'ifneq ($(TARGET_DEVICE_IS_M86),true)' "$platform_patch"
 require_fixed 'derive_m86_address_from_serial' "$bluetooth_patch"
@@ -168,6 +200,12 @@ require_fixed 'CONFIG_CMDLINE="androidboot.hardware=m86 androidboot.selinux=perm
   "$kernel_config"
 require_fixed 'CONFIG_CMDLINE_EXTEND=y' "$kernel_config"
 require_fixed 'CONFIG_RD_GZIP=y' "$kernel_config"
+require_fixed 'CONFIG_BCMDHD=y' "$kernel_config"
+require_fixed 'CONFIG_BCMDHD_PCIE=y' "$kernel_config"
+require_fixed 'CONFIG_BCMDHD_FW_PATH="/system/vendor/firmware/fw_bcmdhd.bin"' \
+  "$kernel_config"
+require_fixed 'CONFIG_BCMDHD_NVRAM_PATH="/system/etc/wifi/bcmdhd.cal"' \
+  "$kernel_config"
 require_fixed 'export BUILD_DATETIME=1786017600' "$build_worker"
 require_fixed 'vendor_blob_count="$(wc -l < "$vendor_blob_lock"' \
   "$build_worker"
@@ -176,6 +214,9 @@ require_fixed 'm86-proprietary-sha256s.txt' "$build_worker"
 require_fixed 'vendor/lib/libbt-vendor.so' "$blob_list"
 require_fixed 'vendor/lib/egl/libGLES_mali.so' "$blob_list"
 require_fixed 'vendor/lib64/egl/libGLES_mali.so' "$blob_list"
+require_fixed 'etc/wifi/bcmdhd.cal' "$blob_list"
+require_fixed 'vendor/firmware/fw_bcmdhd.bin' "$blob_list"
+require_fixed 'vendor/firmware/fw_bcmdhd_apsta.bin' "$blob_list"
 require_fixed 'copy_rule_count="$(' "$vendor_worker"
 require_fixed 'expected_rule="vendor/meizu/m86/proprietary/$relative_path:$output_path"' \
   "$vendor_worker"
@@ -212,6 +253,12 @@ require_manifest_hal \
   android.hardware.graphics.mapper 2.0 passthrough 32+64 IMapper
 require_manifest_hal \
   android.hardware.memtrack 1.0 passthrough 32+64 IMemtrack
+require_manifest_hal \
+  android.hardware.wifi 1.3 hwbinder '' IWifi
+require_manifest_hal \
+  android.hardware.wifi.hostapd 1.1 hwbinder '' IHostapd
+require_manifest_hal \
+  android.hardware.wifi.supplicant 1.2 hwbinder '' ISupplicant
 
 for inherited_variable in \
   TARGET_UNOFFICIAL_BUILD_ID \
@@ -255,6 +302,11 @@ fi
 
 if rg -q 'inherit-product[^\n]*universal7420-common\.mk' "$device_makefile"; then
   printf 'The Galaxy universal7420 product must not be inherited by m86.\n' >&2
+  exit 1
+fi
+if rg -q '^[[:space:]]*(wifiloader|macloader)([[:space:]]*\\)?$' \
+    "$device_makefile"; then
+  printf 'm86 must not package Samsung /efs Wi-Fi loader utilities.\n' >&2
   exit 1
 fi
 if rg -q '(^|/)egl\.cfg([:;|]|$)' "$blob_list"; then
