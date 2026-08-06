@@ -64,6 +64,16 @@ Each runtime group must pass a standalone kernel build before it is combined
 with recovery or boot-image changes. A donor commit that touches a Samsung
 peripheral is not accepted solely because the SoC matches.
 
+## Standalone build evidence
+
+The first unchanged-tree attempt on 2026-08-06 reached the host `dtc` link and
+failed because both the shipped lexer and parser defined `yylloc`. Modern host
+GCC defaults to `-fno-common`, so the duplicate tentative definition is a hard
+link error. The lexer declaration is made `extern` in both its source and
+shipped generated file; the parser remains the single owner. This is a
+host-build-only compatibility change and does not alter target kernel code or
+configuration.
+
 ## Explicit non-decisions
 
 - The donor's forced permissive SELinux change is not a production solution.
