@@ -37,4 +37,33 @@ for relative_path in \
   rsync -a --delete-delay "$local_tree/" "$build_tree/"
   printf 'Installed: %s\n' "$relative_path"
 done
+
+overlay_root="$local_root/overlays/kernel-meizu-m86-case-sensitive"
+overlay_hashes="$overlay_root/SHA256SUMS"
+if [[ -f "$overlay_hashes" ]]; then
+  overlay_count="$(
+    find "$overlay_root/upper" "$overlay_root/lower" -type f -print |
+      wc -l |
+      tr -d ' '
+  )"
+  if [[ "$overlay_count" != "24" ]]; then
+    printf 'Expected 24 case-sensitive kernel files, found %s\n' \
+      "$overlay_count" >&2
+    exit 1
+  fi
+
+  (
+    cd "$overlay_root"
+    sha256sum --quiet -c SHA256SUMS
+  )
+
+  for variant in upper lower; do
+    while IFS= read -r -d '' overlay_file; do
+      relative_path="${overlay_file#"$overlay_root/$variant/"}"
+      target_file="$source_root/kernel/meizu/m86/$relative_path"
+      install -D -m 0644 "$overlay_file" "$target_file"
+    done < <(find "$overlay_root/$variant" -type f -print0)
+  done
+  printf 'Installed: 24 case-sensitive m86 kernel files\n'
+fi
 REMOTE

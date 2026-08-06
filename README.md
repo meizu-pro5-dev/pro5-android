@@ -14,6 +14,8 @@ metadata, manifests, patches, build scripts, source locks, and bring-up notes.
 - `kernel/meizu/m86/`: maintained kernel source used by the port.
 - `vendor/meizu/m86/`: extraction scripts and proprietary-file metadata.
 - `manifests/`: LineageOS and reference-source declarations.
+- `overlays/`: case-sensitive source fragments that cannot coexist directly
+  in the default macOS working tree.
 - `patches/`: reproducible changes to upstream Android repositories.
 - `legacy/`: immutable imported community baselines kept outside Android's
   module-discovery paths.
