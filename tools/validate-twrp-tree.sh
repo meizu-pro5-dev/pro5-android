@@ -144,6 +144,10 @@ require_fixed 'export BUILD_DATETIME=1538238534' "$twrp_build_worker"
 require_fixed 'jobs="${PRO5_TWRP_BUILD_JOBS:-8}"' \
   "$project_root/remote/start-twrp-build.sh"
 require_fixed 'jobs="${1:-8}"' "$twrp_build_worker"
+require_fixed 'jobs="${PRO5_KERNEL_BUILD_JOBS:-8}"' \
+  "$project_root/remote/start-kernel-build.sh"
+require_fixed 'jobs="${1:-8}"' \
+  "$project_root/remote/worker-build-kernel.sh"
 require_fixed "localedef -i en_US -f UTF-8 en_US.UTF-8" "$twrp_build_worker"
 require_fixed 'external/python/cpython2' "$twrp_build_worker"
 require_fixed 'gcc -m32 -O2 -fPIC -shared' "$twrp_build_worker"

@@ -171,6 +171,9 @@ require_absent() {
 
 require_fixed 'jobs="${PRO5_BUILD_JOBS:-8}"' "$start_build"
 require_fixed 'jobs="${2:-8}"' "$build_worker"
+require_fixed 'jobs="${PRO5_KERNEL_BUILD_JOBS:-8}"' \
+  "$project_root/remote/start-kernel-build.sh"
+require_fixed 'jobs="${1:-8}"' "$kernel_build_worker"
 require_fixed 'audit-camera-abi.sh' "$build_worker"
 require_fixed 'audit-fingerprint-output.sh' "$build_worker"
 require_fixed 'fingerprint output audit passed.' "$fingerprint_audit_tool"

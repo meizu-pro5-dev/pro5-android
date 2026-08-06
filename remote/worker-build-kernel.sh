@@ -11,7 +11,7 @@ out_root="$remote_root/out/kernel-m86"
 run_root="$remote_root/run"
 artifact_root="$remote_root/artifacts"
 
-jobs="${1:-24}"
+jobs="${1:-8}"
 status_file="${2:-$run_root/kernel-latest.status}"
 log_file="${3:-$run_root/kernel-latest.log}"
 build_stamp="${4:-$(date +%Y%m%d-%H%M%S)}"
