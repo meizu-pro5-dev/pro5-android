@@ -1,0 +1,11 @@
+# <src> <mnt_point> <type> <mnt_flags> <fs_mgr_flags>
+/dev/block/platform/15570000.ufs/by-name/system    /system   ext4  ro,noatime,discard,barrier=0                                         wait
+/dev/block/platform/15570000.ufs/by-name/cache     /cache    ext4  noatime,nosuid,nodev,nomblk_io_submit,errors=panic                   wait,check
+/dev/block/platform/15570000.ufs/by-name/efs       /efs      ext4  noatime,nosuid,nodev                                                wait,check
+/dev/block/platform/15570000.ufs/by-name/mnv       /mnv      ext4  ro,noload                                                           wait
+/dev/block/platform/15570000.ufs/by-name/custom    /custom   ext4  ro,noload,errors=panic                                              wait
+/dev/block/platform/15570000.ufs/by-name/userdata  /data     ext4  noatime,nosuid,nodev,nomblk_io_submit,discard,noauto_da_alloc,errors=panic  wait,check,encryptable=/cache/metadata
+
+# Removable storage
+/devices/15560000.dwmmc2/mmc_host/mmc0*  auto  auto  nosuid,nodev  voldmanaged=sdcard1:auto
+/devices/15400000.usb/15400000.dwc3/xhci-hcd*  auto  auto  nosuid,nodev  voldmanaged=usb:auto

@@ -1,0 +1,14 @@
+# Board
+ro.product.board=m86
+ro.board.platform=exynos5
+ro.chipname=exynos7420
+
+# Display
+ro.opengles.version=196610
+
+# Storage
+persist.sys.isolated_storage=false
+
+# Wi-Fi
+wifi.interface=wlan0
+wifi.direct.interface=p2p-dev-wlan0

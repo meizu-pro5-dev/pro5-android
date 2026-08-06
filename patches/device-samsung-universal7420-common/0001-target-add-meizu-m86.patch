@@ -1,0 +1,56 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: PRO 5 Android 10 Port <pro5-port@localhost>
+Date: Thu, 6 Aug 2026 20:00:00 +0800
+Subject: [PATCH] universal7420: recognize the Meizu m86 target
+
+The common Exynos 7420 BoardConfig deliberately rejects unknown Samsung
+product names. Allow m86 to reuse the platform definitions without pretending
+that it is a zero or noble/zen variant and without applying their display
+overlays.
+---
+ Android.mk | 2 +-
+ target.mk  | 8 ++++++++
+ 2 files changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/Android.mk b/Android.mk
+--- a/Android.mk
++++ b/Android.mk
+@@ -17,6 +17,6 @@ LOCAL_PATH := $(call my-dir)
+ 
+ ifeq ($(BOARD_VENDOR),samsung)
+-  ifneq ($(filter $(TARGET_DEVICE_IS_ZERO) $(TARGET_DEVICE_IS_NOBLE_ZEN),true),)
++  ifneq ($(filter $(TARGET_DEVICE_IS_ZERO) $(TARGET_DEVICE_IS_NOBLE_ZEN) $(TARGET_DEVICE_IS_M86),true),)
+     include $(call all-subdir-makefiles,$(LOCAL_PATH))
+   endif
+ endif
+diff --git a/target.mk b/target.mk
+--- a/target.mk
++++ b/target.mk
+@@ -20,6 +20,7 @@
+ TARGET_DEVICE_IS_ZERO := false
+ TARGET_DEVICE_IS_NOBLE_ZEN := false
+ TARGET_DEVICE_IS_CDMA := false
++TARGET_DEVICE_IS_M86 := false
+ 
+ # Dynamically set the definitions based on the target device
+ ifneq ($(filter noblelte nobleltecan nobleltedd nobleltedv nobleltejv nobleltektt nobleltelgt noblelteskt nobleltespr nobleltetmo nobleltextc nobleltezt zenlte zenltecan zenltedd zenltedv zenltejv zenltektt zenltelgt zenlteskt zenltetmo zenltexx zenltezt,$(TARGET_DEVICE)),)
+@@ -31,10 +32,16 @@ ifneq ($(filter zerofltespr zeroltespr nobleltespr,$(TARGET_DEVICE)),)
+   TARGET_DEVICE_IS_CDMA = true
+ endif
+ 
++ifneq ($(filter m86,$(TARGET_DEVICE)),)
++  TARGET_DEVICE_IS_M86 = true
++endif
++
+ # Check to make sure we are a supported device
+ ifeq ($(TARGET_DEVICE_IS_NOBLE_ZEN),false)
+   ifeq ($(TARGET_DEVICE_IS_ZERO),false)
+-    $(error Target device is unset)
++    ifeq ($(TARGET_DEVICE_IS_M86),false)
++      $(error Target device is unset)
++    endif
+   endif
+ endif
+ 
+-- 
+2.34.1

@@ -1,0 +1,31 @@
+import /init.m86.usb.rc
+
+on early-init
+    mount debugfs debugfs /sys/kernel/debug mode=755
+
+on init
+    mkdir /custom 0555 root root
+    mkdir /efs 0771 radio system
+    mkdir /mnv 0555 root root
+
+on fs
+    mount_all /fstab.m86
+
+on post-fs-data
+    mkdir /data/calibration 0771 wifi wifi
+    mkdir /data/gps 0770 gps system
+    mkdir /data/nfc 0770 nfc nfc
+    mkdir /data/nfc/param 0770 nfc nfc
+    setprop vold.post_fs_data_done 1
+
+on boot
+    chown bluetooth bluetooth /dev/ttySAC4
+    chmod 0660 /dev/ttySAC4
+    chown gps system /dev/ttySAC1
+    chmod 0660 /dev/ttySAC1
+    chown nfc nfc /dev/pn544
+    chmod 0660 /dev/pn544
+    chown nfc nfc /dev/p61
+    chmod 0660 /dev/p61
+    chown system system /sys/devices/13930000.decon_fb/adreg
+    chmod 0660 /sys/devices/13930000.decon_fb/adreg
