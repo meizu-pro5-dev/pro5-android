@@ -14,6 +14,7 @@ recovery_fstab="$device_root/rootdir/etc/recovery.fstab"
 releasetools="$device_root/releasetools/releasetools.py"
 kernel_config="$project_root/kernel/meizu/m86/arch/arm64/configs/cm_pro5_defconfig"
 platform_patch="$project_root/patches/device-samsung-universal7420-common/0001-target-add-meizu-m86.patch"
+build_worker="$project_root/remote/worker-build.sh"
 
 for required_file in \
   "$board_config" \
@@ -24,7 +25,8 @@ for required_file in \
   "$recovery_fstab" \
   "$releasetools" \
   "$kernel_config" \
-  "$platform_patch"; do
+  "$platform_patch" \
+  "$build_worker"; do
   if [[ ! -s "$required_file" ]]; then
     printf 'Missing required LineageOS source: %s\n' "$required_file" >&2
     exit 1
@@ -91,6 +93,11 @@ require_fixed 'CONFIG_CMDLINE="androidboot.hardware=m86 androidboot.selinux=perm
   "$kernel_config"
 require_fixed 'CONFIG_CMDLINE_EXTEND=y' "$kernel_config"
 require_fixed 'CONFIG_RD_GZIP=y' "$kernel_config"
+require_fixed 'export BUILD_DATETIME=1786017600' "$build_worker"
+require_fixed 'vendor_blob_count="$(wc -l < "$vendor_blob_lock"' \
+  "$build_worker"
+require_fixed 'sha256sum --quiet -c "$vendor_blob_lock"' "$build_worker"
+require_fixed 'm86-proprietary-sha256s.txt' "$build_worker"
 
 for inherited_variable in \
   TARGET_UNOFFICIAL_BUILD_ID \

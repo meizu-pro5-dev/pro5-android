@@ -62,6 +62,13 @@ acceptable.
    platform library. A shim must name the exact missing symbols and calling
    blob; broad compatibility libraries are rejected.
 
+Before every full `bacon` build, the remote worker requires the 219-line hash
+lock produced by extraction and verifies every staged proprietary input in
+place. The lock is copied into the artifact directory, alongside the pinned
+source manifest and stock-image lock. This proves the full build consumed the
+audited Flyme 8 byte set; output-side ELF/symbol comparison remains a separate
+post-build ABI gate.
+
 `tools/audit-elf-deps.sh` reproduces the class and SONAME counts on the Linux
 builder. After the first system build, its output is combined with
 `readelf --dyn-syms` checks against the actual product libraries to produce the

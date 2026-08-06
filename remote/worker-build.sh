@@ -72,6 +72,11 @@ export CCACHE_BASEDIR="$source_root"
 export CCACHE_EXEC="$(command -v ccache)"
 export OUT_DIR="$out_root"
 export LC_ALL=C
+export BUILD_DATETIME=1786017600
+export BUILD_NUMBER=pro5-a10-20260806
+export BUILD_USERNAME=pro5-port
+export BUILD_HOSTNAME=autodl
+export SOURCE_DATE_EPOCH=1786017600
 export KBUILD_BUILD_USER=pro5-port
 export KBUILD_BUILD_HOST=autodl
 export KBUILD_BUILD_VERSION=1
@@ -83,6 +88,32 @@ ccache --zero-stats
 printf 'Build started at %s\n' "$(date --iso-8601=seconds)"
 printf 'Source: %s\nTarget: %s\nJobs: %s\nOutput: %s\nLocal revision: %s\n' \
   "$source_root" "$target" "$jobs" "$out_root" "$local_revision"
+
+vendor_blob_count=0
+vendor_blob_lock="$remote_root/logs/m86-proprietary-sha256s.txt"
+if [[ "$target" == bacon ]]; then
+  vendor_proprietary="$source_root/vendor/meizu/m86/proprietary"
+  for vendor_input in "$vendor_blob_lock" "$vendor_proprietary"; do
+    if [[ ! -e "$vendor_input" ]]; then
+      printf 'Verified m86 vendor input is missing: %s\n' \
+        "$vendor_input" >&2
+      exit 1
+    fi
+  done
+
+  vendor_blob_count="$(wc -l < "$vendor_blob_lock" | tr -d ' ')"
+  if [[ "$vendor_blob_count" != "219" ]]; then
+    printf 'Expected 219 locked m86 blobs, found %s.\n' \
+      "$vendor_blob_count" >&2
+    exit 1
+  fi
+  (
+    cd "$vendor_proprietary"
+    sha256sum --quiet -c "$vendor_blob_lock"
+  )
+  printf 'Verified %s Flyme 8 proprietary inputs before full build.\n' \
+    "$vendor_blob_count"
+fi
 
 cd "$source_root"
 # Android's envsetup and shell functions are not nounset-safe.
@@ -219,6 +250,9 @@ copy_required \
   "$source_root/kernel/meizu/m86/arch/arm64/configs/cm_pro5_defconfig"
 cp -a "$product_out/obj/KERNEL_OBJ/.config" "$artifact_dir/kernel.config"
 copy_required "$local_root/locks/stock-flyme-8.0.5.0A.sha256"
+if [[ "$target" == bacon ]]; then
+  cp -a "$vendor_blob_lock" "$artifact_dir/m86-proprietary-sha256s.txt"
+fi
 repo manifest -r -o "$artifact_dir/lineage-17.1-m86-lock.xml"
 
 {
@@ -228,7 +262,10 @@ repo manifest -r -o "$artifact_dir/lineage-17.1-m86-lock.xml"
   printf 'source_root=%s\n' "$source_root"
   printf 'out_root=%s\n' "$out_root"
   printf 'jobs=%s\n' "$jobs"
+  printf 'build_datetime=%s\n' "$BUILD_DATETIME"
+  printf 'build_number=%s\n' "$BUILD_NUMBER"
   printf 'stock_base=Flyme 8.0.5.0A / Android 7 / API 24\n'
+  printf 'verified_vendor_blob_count=%s\n' "$vendor_blob_count"
   printf 'boot_header_cmdline=empty\n'
   printf 'dtb_packaging=raw separate partition\n'
   printf 'ramdisk_compression=gzip\n'
@@ -236,6 +273,7 @@ repo manifest -r -o "$artifact_dir/lineage-17.1-m86-lock.xml"
 
 printf 'Build completed at %s\n' "$(date --iso-8601=seconds)"
 printf 'Artifacts: %s\n' "$artifact_dir"
+ccache --show-stats
 cp -a "$log_file" "$artifact_dir/"
 
 (
@@ -245,5 +283,3 @@ cp -a "$log_file" "$artifact_dir/"
     xargs -0 sha256sum
 ) > "$artifact_dir/SHA256SUMS"
 ln -sfn "$(basename "$artifact_dir")" "$artifact_root/lineage-latest"
-
-ccache --show-stats
