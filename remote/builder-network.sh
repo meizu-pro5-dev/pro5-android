@@ -2,7 +2,7 @@
 
 # Select the LineageOS endpoint used by Git's transparent URL rewrite.
 configure_builder_lineage_source() {
-  local source_name="${1:-tuna}"
+  local source_name="${1:-direct}"
   local source_prefix
 
   case "$source_name" in
@@ -55,7 +55,8 @@ configure_builder_aosp_source() {
 }
 
 # Configure the builder's academic proxy, use mirrors for LineageOS/AOSP, and
-# route Chinese mirrors plus unmatched GitHub traffic directly.
+# route only the Chinese mirrors directly. GitHub is substantially faster and
+# more reliable through /etc/network_turbo on this builder.
 configure_builder_network() {
   local direct_bypass
 
@@ -66,7 +67,7 @@ configure_builder_network() {
     set -u
   fi
 
-  direct_bypass='github.com,.github.com,githubusercontent.com,.githubusercontent.com,mirrors.ustc.edu.cn,.mirrors.ustc.edu.cn,mirrors.bfsu.edu.cn,.mirrors.bfsu.edu.cn,mirrors.tuna.tsinghua.edu.cn,.mirrors.tuna.tsinghua.edu.cn'
+  direct_bypass='mirrors.ustc.edu.cn,.mirrors.ustc.edu.cn,mirrors.bfsu.edu.cn,.mirrors.bfsu.edu.cn,mirrors.tuna.tsinghua.edu.cn,.mirrors.tuna.tsinghua.edu.cn'
   if [[ -n "${no_proxy:-}" ]]; then
     export no_proxy="${no_proxy},${direct_bypass}"
   else
@@ -74,13 +75,13 @@ configure_builder_network() {
   fi
   export NO_PROXY="$no_proxy"
 
-  # Keep manifest URLs unchanged for provenance. LineageOS defaults to TUNA;
-  # AOSP defaults to USTC. Both can be switched per bounded attempt by the
-  # sync worker. Other GitHub organizations continue to use the direct route.
+  # Keep manifest URLs unchanged for provenance. LineageOS defaults to GitHub
+  # through the academic proxy; AOSP defaults to USTC. Both can be switched
+  # per bounded attempt by the sync worker.
   export GIT_CONFIG_COUNT=3
   export GIT_CONFIG_KEY_0=http.version
   export GIT_CONFIG_VALUE_0=HTTP/1.1
-  configure_builder_lineage_source "${PRO5_LINEAGE_SOURCE:-tuna}"
+  configure_builder_lineage_source "${PRO5_LINEAGE_SOURCE:-direct}"
   configure_builder_aosp_source "${PRO5_AOSP_SOURCE:-ustc}"
 
   # Bound zero-progress waits so repo can retry a failed project instead of

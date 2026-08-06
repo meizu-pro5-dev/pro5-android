@@ -34,15 +34,17 @@ The default builder is `REDACTED_BUILDER_ENDPOINT`. Persistent
 state is kept below `/root/autodl-tmp/pro5-android10`; the small root overlay is
 never used for Android source or build output. `/etc/network_turbo` is sourced
 on the builder when available, without printing its contents. LineageOS Git
-URLs default to TUNA and retry against GitHub directly. AOSP defaults to USTC,
-then retries through BFSU, TUNA, and the accelerated original endpoint.
-Manifest URLs remain unchanged for provenance; mirrors and unmatched GitHub
-traffic bypass the proxy.
+URLs default to GitHub through that acceleration and retry against TUNA. AOSP
+defaults to USTC, then retries through BFSU, TUNA, and the accelerated original
+endpoint. Manifest URLs remain unchanged for provenance; Chinese mirrors
+bypass the proxy while GitHub uses the acceleration.
 Source synchronization checks out the two GCC 4.9 kernel toolchains first and
 then processes each full-manifest project in a separately bounded serial
 `repo sync`. `repo 2.65` repeatedly deadlocked its worker pool on this builder
 after a project fetch failed, even at `-j1`; per-project processes preserve the
 existing object cache, isolate timeouts, and record progress under `run/`.
+Interrupted runs reuse completed checkouts only when the stored manifest hash
+still matches, so a source refresh cannot accidentally consume stale progress.
 
 Typical control flow:
 

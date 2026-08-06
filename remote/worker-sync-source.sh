@@ -9,6 +9,7 @@ source_root="$remote_root/src/lineage-17.1"
 log_dir="$remote_root/logs"
 manifest_lock="$log_dir/lineage-17.1-manifest.xml"
 progress_file="$remote_root/run/source-sync-progress.tsv"
+progress_manifest_file="$remote_root/run/source-sync-progress.manifest.sha256"
 
 mkdir -p "$source_root" "$log_dir" "$remote_root/run"
 exec > >(tee -a "$log_dir/source-sync.log") 2>&1
@@ -47,7 +48,7 @@ repo_sync_args=(
   --fail-fast
 )
 
-lineage_sources=(tuna direct tuna direct)
+lineage_sources=(direct tuna direct tuna)
 aosp_sources=(ustc bfsu tuna direct)
 project_timeout="${PRO5_SYNC_PROJECT_TIMEOUT:-15m}"
 
@@ -82,7 +83,7 @@ sync_one_project() {
     set -e
 
     if [[ "$status" -eq 0 ]]; then
-      configure_builder_lineage_source "${PRO5_LINEAGE_SOURCE:-tuna}"
+      configure_builder_lineage_source "${PRO5_LINEAGE_SOURCE:-direct}"
       configure_builder_aosp_source "${PRO5_AOSP_SOURCE:-ustc}"
       return 0
     fi
@@ -91,7 +92,7 @@ sync_one_project() {
       "$project" "$lineage_source" "$aosp_source" "$status" >&2
   done
 
-  configure_builder_lineage_source "${PRO5_LINEAGE_SOURCE:-tuna}"
+  configure_builder_lineage_source "${PRO5_LINEAGE_SOURCE:-direct}"
   configure_builder_aosp_source "${PRO5_AOSP_SOURCE:-ustc}"
   return 1
 }
@@ -121,16 +122,43 @@ fi
 mapfile -t projects < <(repo list --all -p | LC_ALL=C sort)
 project_total="${#projects[@]}"
 failed_projects=()
+declare -A completed_projects=()
+
+# A full manifest has hundreds of projects, so a failed late fetch must not
+# force all successful checkouts through another network pass. Resume only
+# when the prior progress belongs to this exact manifest and the checkout is
+# still present. A changed manifest automatically invalidates this cache.
+manifest_identity="$(repo manifest | sha256sum | cut -d' ' -f1)"
+if [[ -s "$progress_manifest_file" ]] && \
+    [[ "$(<"$progress_manifest_file")" == "$manifest_identity" ]] && \
+    [[ -s "$progress_file" ]]; then
+  while IFS=$'\t' read -r _ prior_total prior_state prior_project _; do
+    [[ "$prior_state" == complete ]] || continue
+    [[ "$prior_total" == "$project_total" ]] || continue
+    [[ -d "$prior_project" ]] || continue
+    if git -C "$prior_project" rev-parse --verify HEAD >/dev/null 2>&1; then
+      completed_projects["$prior_project"]=1
+    fi
+  done < "$progress_file"
+fi
 
 printf '# index\ttotal\tstate\tproject\tfinished_at\n' > "$progress_file"
+printf '%s\n' "$manifest_identity" > "$progress_manifest_file"
 printf 'Syncing %s manifest projects one at a time\n' "$project_total"
+if [[ "${#completed_projects[@]}" -ne 0 ]]; then
+  printf 'Resuming %s completed projects from the matching manifest\n' \
+    "${#completed_projects[@]}"
+fi
 
 for index in "${!projects[@]}"; do
   project="${projects[$index]}"
   project_number=$((index + 1))
   phase="Project ${project_number}/${project_total}"
 
-  if [[ "$project" == "${kernel_toolchains[0]}" ]] || \
+  if [[ -n "${completed_projects[$project]+complete}" ]]; then
+    printf '%s: %s retained from matching progress\n' "$phase" "$project"
+    state=complete
+  elif [[ "$project" == "${kernel_toolchains[0]}" ]] || \
       [[ "$project" == "${kernel_toolchains[1]}" ]]; then
     printf '%s: %s already completed by the toolchain gate\n' \
       "$phase" "$project"

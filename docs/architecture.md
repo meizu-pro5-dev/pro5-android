@@ -26,12 +26,13 @@ builder's approximately 30 GiB root overlay is not suitable for an Android
 checkout. The 300 GiB persistent volume is sufficient only with a bounded
 25 GiB ccache and periodic build-output accounting.
 
-Manifest URLs stay canonical. Git rewrites LineageOS fetches to TUNA and AOSP
-fetches to USTC without editing the manifest. An individual failed LineageOS
-fetch retries against GitHub directly; failed AOSP fetches rotate through
-BFSU, TUNA, and finally the accelerated upstream. Each manifest project runs
-in a bounded `repo sync` process because an aggregate repo 2.65 worker pool
-stalled after a mirror timeout on this builder.
+Manifest URLs stay canonical. LineageOS fetches use GitHub through
+`/etc/network_turbo` first and TUNA as the fallback; AOSP fetches use USTC,
+then BFSU, TUNA, and finally the accelerated upstream. Each manifest project
+runs in a bounded `repo sync` process because an aggregate repo 2.65 worker
+pool stalled after a mirror timeout on this builder. A manifest hash keys the
+progress checkpoint, allowing an interrupted run to retain completed projects
+without reusing that state after an intentional source refresh.
 
 ## Recovery rule
 

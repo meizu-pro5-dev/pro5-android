@@ -45,7 +45,7 @@ repo_sync_args=(
   --fail-fast
 )
 
-lineage_sources=(tuna direct tuna direct)
+lineage_sources=(direct tuna direct tuna)
 aosp_sources=(ustc bfsu tuna direct)
 project_timeout="${PRO5_SYNC_PROJECT_TIMEOUT:-15m}"
 
@@ -80,7 +80,7 @@ sync_one_project() {
     set -e
 
     if [[ "$status" -eq 0 ]]; then
-      configure_builder_lineage_source "${PRO5_LINEAGE_SOURCE:-tuna}"
+      configure_builder_lineage_source "${PRO5_LINEAGE_SOURCE:-direct}"
       configure_builder_aosp_source "${PRO5_AOSP_SOURCE:-ustc}"
       return 0
     fi
@@ -89,7 +89,7 @@ sync_one_project() {
       "$project" "$lineage_source" "$aosp_source" "$status" >&2
   done
 
-  configure_builder_lineage_source "${PRO5_LINEAGE_SOURCE:-tuna}"
+  configure_builder_lineage_source "${PRO5_LINEAGE_SOURCE:-direct}"
   configure_builder_aosp_source "${PRO5_AOSP_SOURCE:-ustc}"
   return 1
 }
