@@ -106,6 +106,20 @@ PYTHONPATH=../work/pro5-flyme-8.0.5.0A/python-deps \
   /dev/mem /dev/kmem
 ```
 
+Two clean builds of `58c5a5c353b6` confirm both options remain unset and
+produce byte-identical target artifacts:
+
+| Artifact | Size | SHA-256 |
+| --- | ---: | --- |
+| `Image` | 17,117,528 | `dd55cd5b3f23041e9a0bf7a57166305fdc362ddfe5d17c9d655e2357936b1df4` |
+| config-aware DTB | 146,172 | `0b537be248ed155a925d58c9a6b927ec1c4cdfaa0624ea714e848abddfba7d84` |
+| generated config | 99,802 | `77d05e1f275e00cf09beb29311933435d80b07583ca64c1d96d765af9db2c064` |
+
+The retained local evidence directories are
+`artifacts/pro5-a10-kernel-20260807-003632-no-devmem` and
+`artifacts/pro5-a10-kernel-20260807-003738-no-devmem-repro` in the parent
+Android workspace.
+
 ## Port order and gates
 
 1. Build the unchanged `cm_pro5_defconfig` with the LineageOS 17.1 GCC 4.9
