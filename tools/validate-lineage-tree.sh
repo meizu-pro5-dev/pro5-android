@@ -158,6 +158,17 @@ require_fixed() {
   fi
 }
 
+require_absent() {
+  local pattern="$1"
+  local source_file="$2"
+
+  if rg -F -q -- "$pattern" "$source_file"; then
+    printf 'Unsupported LineageOS setting is present in %s: %s\n' \
+      "$source_file" "$pattern" >&2
+    exit 1
+  fi
+}
+
 require_fixed 'jobs="${PRO5_BUILD_JOBS:-8}"' "$start_build"
 require_fixed 'jobs="${2:-8}"' "$build_worker"
 require_fixed 'audit-camera-abi.sh' "$build_worker"
@@ -167,7 +178,13 @@ require_fixed 'CONFIG_EXFAT_FS=y' "$kernel_config"
 require_fixed 'CONFIG_EXFAT_VIRTUAL_XATTR=y' "$kernel_config"
 require_fixed 'CONFIG_EXFAT_VIRTUAL_XATTR_SELINUX_LABEL="u:object_r:sdcard_external:s0"' \
   "$kernel_config"
-require_fixed 'CONFIG_EXFAT_SUPPORT_STLOG=y' "$kernel_config"
+for stale_fs_option in \
+  CONFIG_FAT_VIRTUAL_XATTR \
+  CONFIG_FAT_VIRTUAL_XATTR_SELINUX_LABEL \
+  CONFIG_FAT_SUPPORT_STLOG \
+  CONFIG_EXFAT_SUPPORT_STLOG; do
+  require_absent "$stale_fs_option" "$kernel_config"
+done
 require_fixed 'source "fs/exfat/Kconfig"' "$kernel_fs_kconfig"
 require_fixed 'obj-$(CONFIG_EXFAT_FS)' "$kernel_fs_makefile"
 require_fixed 'fs/exfat/exfat_core.o' "$build_worker"

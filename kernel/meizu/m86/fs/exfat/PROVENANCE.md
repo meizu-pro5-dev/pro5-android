@@ -10,9 +10,12 @@ at:
 - source-introduction commit: `0637e90f17aea8aca4356b63b786328a3ca1224a`
 - donor package noted by that commit: `A810FXXU2CRL1`
 
-That donor is Linux 3.10 on the same Exynos 7420 platform. Its Kconfig names
-exactly match the four symbols retained by Meizu's archived defconfig. The
-source files carry Samsung's GPL-2.0 notices. The only maintained delta is an
+That donor is Linux 3.10 on the same Exynos 7420 platform. Its Kconfig provides
+the three functional exFAT symbols retained here. The archived defconfig also
+selected `CONFIG_EXFAT_SUPPORT_STLOG`, but that donor-only diagnostic depends
+on `PROC_STLOG`, which m86 does not implement, so generated configurations
+always discarded it and the stale selection was removed. The source files
+carry Samsung's GPL-2.0 notices. The only maintained code delta is an
 `rcu_barrier()` before destroying the inode slab, matching the same Linux RCU
 teardown fix already present in m86's FAT driver. The per-file maintained
 source lock is `locks/kernel-exfat-exynos7420.sha256`; this provenance note is

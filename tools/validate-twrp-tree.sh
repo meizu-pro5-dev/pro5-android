@@ -75,6 +75,17 @@ require_fixed() {
   fi
 }
 
+require_absent() {
+  local pattern="$1"
+  local source_file="$2"
+
+  if rg -F -q -- "$pattern" "$source_file"; then
+    printf 'Unsupported TWRP setting is present in %s: %s\n' \
+      "$source_file" "$pattern" >&2
+    exit 1
+  fi
+}
+
 require_fixed 'BOARD_KERNEL_BASE := 0x40000000' "$board_config"
 require_fixed 'BOARD_KERNEL_PAGESIZE := 4096' "$board_config"
 require_fixed '--kernel_offset 0x00080000' "$board_config"
@@ -118,7 +129,13 @@ require_fixed 'CONFIG_EXFAT_FS=y' "$kernel_config"
 require_fixed 'CONFIG_EXFAT_VIRTUAL_XATTR=y' "$kernel_config"
 require_fixed 'CONFIG_EXFAT_VIRTUAL_XATTR_SELINUX_LABEL="u:object_r:sdcard_external:s0"' \
   "$kernel_config"
-require_fixed 'CONFIG_EXFAT_SUPPORT_STLOG=y' "$kernel_config"
+for stale_fs_option in \
+  CONFIG_FAT_VIRTUAL_XATTR \
+  CONFIG_FAT_VIRTUAL_XATTR_SELINUX_LABEL \
+  CONFIG_FAT_SUPPORT_STLOG \
+  CONFIG_EXFAT_SUPPORT_STLOG; do
+  require_absent "$stale_fs_option" "$kernel_config"
+done
 require_fixed 'source "fs/exfat/Kconfig"' "$kernel_fs_kconfig"
 require_fixed 'obj-$(CONFIG_EXFAT_FS)' "$kernel_fs_makefile"
 require_fixed 'CONFIG_RTC_CLASS=y' "$kernel_config"

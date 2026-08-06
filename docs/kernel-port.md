@@ -372,9 +372,12 @@ must be reconciled by subsystem testing before the generated DTB is flashed.
 
 The archived `cm_pro5_defconfig` selected Samsung's `CONFIG_EXFAT_FS` plus its
 virtual-xattr and storage-log options, but Meizu's published tree omitted the
-entire driver. Android 10 vold only declares exFAT supported when the kernel
-reports an `exfat` filesystem and then performs a kernel mount; packaging
-`fsck.exfat` and `mkfs.exfat` alone is therefore insufficient.
+entire driver. The storage-log selection depended on donor-only `PROC_STLOG`,
+so generated m86 configurations silently discarded it; that stale option and
+three similarly undefined FAT options are now absent by validation. Android
+10 vold only declares exFAT supported when the kernel reports an `exfat`
+filesystem and then performs a kernel mount; packaging `fsck.exfat` and
+`mkfs.exfat` alone is therefore insufficient.
 
 The missing 25-file GPL implementation is restored from the locked
 Exynos7420 Linux 3.10 tree at
