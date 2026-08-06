@@ -8,6 +8,7 @@ device_root="$project_root/twrp/device/meizu/m86"
 board_config="$device_root/BoardConfig.mk"
 device_makefile="$device_root/device.mk"
 recovery_fstab="$device_root/recovery.fstab"
+recovery_init="$device_root/recovery/root/init.recovery.m86.rc"
 kernel_config="$project_root/kernel/meizu/m86/arch/arm64/configs/cm_pro5_defconfig"
 stock_lock="$project_root/locks/stock-flyme-8.0.5.0A.sha256"
 
@@ -51,6 +52,7 @@ require_fixed 'TW_INCLUDE_NTFS_3G := true' "$board_config"
 require_fixed 'TW_NO_EXFAT_FUSE := true' "$board_config"
 require_fixed 'TW_EXTRA_LANGUAGES := true' "$board_config"
 require_fixed 'encryptable=/cache/metadata' "$recovery_fstab"
+require_fixed 'setprop sys.usb.ffs.aio_compat 1' "$recovery_init"
 require_fixed 'recovery/root/etc/firmware/st_fts.bin:recovery/root/etc/firmware/st_fts.bin' \
   "$device_makefile"
 require_fixed 'CONFIG_RD_GZIP=y' "$kernel_config"
@@ -58,6 +60,22 @@ require_fixed '# CONFIG_RD_LZMA is not set' "$kernel_config"
 require_fixed 'CONFIG_DM_CRYPT=y' "$kernel_config"
 require_fixed 'CONFIG_FMP=y' "$kernel_config"
 require_fixed 'CONFIG_UFS_FMP_DM_CRYPT=y' "$kernel_config"
+require_fixed 'CONFIG_INPUT_EVDEV=y' "$kernel_config"
+require_fixed 'CONFIG_TOUCHSCREEN_FTS=y' "$kernel_config"
+require_fixed 'CONFIG_USB_DWC3_DUAL_ROLE=y' "$kernel_config"
+require_fixed 'CONFIG_USB_G_ANDROID=y' "$kernel_config"
+require_fixed 'CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE=y' "$kernel_config"
+require_fixed 'CONFIG_USB_STORAGE=y' "$kernel_config"
+require_fixed 'CONFIG_SCSI=y' "$kernel_config"
+require_fixed 'CONFIG_BLK_DEV_SD=y' "$kernel_config"
+require_fixed 'CONFIG_MMC=y' "$kernel_config"
+require_fixed 'CONFIG_MMC_DW_EXYNOS=y' "$kernel_config"
+require_fixed 'CONFIG_EXT4_FS=y' "$kernel_config"
+require_fixed 'CONFIG_FAT_FS=y' "$kernel_config"
+require_fixed 'CONFIG_VFAT_FS=y' "$kernel_config"
+require_fixed 'CONFIG_EXFAT_FS=y' "$kernel_config"
+require_fixed 'CONFIG_RTC_CLASS=y' "$kernel_config"
+require_fixed 'CONFIG_RTC_DRV_SEC=y' "$kernel_config"
 require_fixed \
   '6362b3058217451a29638c6538ec2dc0f8910702679363bf0a4a96e11c63896d  system.img/vendor/firmware/st_fts.bin' \
   "$stock_lock"
@@ -70,6 +88,12 @@ fi
 
 if [[ -e "$device_root/recovery/root/etc/firmware/st_fts.bin" ]]; then
   printf 'The proprietary STM firmware must be injected from verified stock.\n' >&2
+  exit 1
+fi
+
+if rg -q 'mount[[:space:]]+functionfs|on property:sys\.usb\.config=' \
+    "$recovery_init"; then
+  printf 'Device rc must not duplicate TWRP upstream USB state handling.\n' >&2
   exit 1
 fi
 

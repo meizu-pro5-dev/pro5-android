@@ -55,6 +55,15 @@ and `req-crypt` target. This establishes a coherent static path, but the
 actual handset metadata KDF and password/PIN decryption remain runtime gates
 after backup access resumes.
 
+Android 9 adbd first tries FunctionFS v2 descriptors and AIO, while this
+Samsung 3.10 gadget accepts v1 descriptors and has no FunctionFS AIO support.
+Both AOSP adbd and TWRP's MTP implementation contain v1/synchronous fallbacks;
+the device rc selects them with `sys.usb.ffs.aio_compat=1`. It otherwise leaves
+the FunctionFS mount and `sys.usb.config` state machine to upstream TWRP, so
+there are no duplicate mounts or competing property actions. On m86, TWRP MTP
+uses its `/dev/mtp_usb` fallback supplied by `CONFIG_USB_G_ANDROID`; ADB uses
+the same gadget's FunctionFS function.
+
 ## Boot and partition contract
 
 The recovery image must satisfy all of these static checks:

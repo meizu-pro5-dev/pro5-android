@@ -4,43 +4,16 @@ on init
     mkdir /mnv 0555 root root
     mkdir /external_sd 0770 root root
     mkdir /usb-otg 0770 root root
+    # Android 9 adbd and TWRP MTP otherwise attempt FunctionFS AIO, which the
+    # maintained 3.10 kernel does not provide. Both userspaces retain a
+    # synchronous-I/O and v1-descriptor compatibility path.
+    setprop sys.usb.ffs.aio_compat 1
 
 on fs
-    mount pstore pstore /sys/fs/pstore
-    write /sys/class/android_usb/android0/enable 0
+    # Keep TWRP's upstream FunctionFS mount and USB property state machine.
+    # Only override the identifiers proven by the old working m86 recovery.
     write /sys/class/android_usb/android0/idVendor 18D1
     write /sys/class/android_usb/android0/idProduct 4EE2
-    write /sys/class/android_usb/android0/f_ffs/aliases adb
-    write /sys/class/android_usb/android0/functions adb
     write /sys/class/android_usb/android0/iManufacturer MEIZU
     write /sys/class/android_usb/android0/iProduct "PRO 5 TWRP"
     write /sys/class/android_usb/android0/iSerial ${ro.serialno}
-
-on post-fs
-    mkdir /dev/usb-ffs 0770 shell shell
-    mkdir /dev/usb-ffs/adb 0770 shell shell
-    mount functionfs adb /dev/usb-ffs/adb uid=2000,gid=2000
-    write /sys/class/android_usb/android0/f_ffs/aliases adb
-    setprop sys.usb.ffs.aio_compat 1
-
-on property:sys.usb.config=none
-    stop adbd
-    write /sys/class/android_usb/android0/enable 0
-    write /sys/class/android_usb/android0/bDeviceClass 0
-    setprop sys.usb.state ${sys.usb.config}
-
-on property:sys.usb.config=adb
-    write /sys/class/android_usb/android0/enable 0
-    write /sys/class/android_usb/android0/idProduct 4EE7
-    write /sys/class/android_usb/android0/functions adb
-    write /sys/class/android_usb/android0/enable 1
-    start adbd
-    setprop sys.usb.state ${sys.usb.config}
-
-on property:sys.usb.config=mtp,adb
-    write /sys/class/android_usb/android0/enable 0
-    write /sys/class/android_usb/android0/idProduct 4EE2
-    write /sys/class/android_usb/android0/functions mtp,adb
-    write /sys/class/android_usb/android0/enable 1
-    start adbd
-    setprop sys.usb.state ${sys.usb.config}
