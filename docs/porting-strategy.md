@@ -19,7 +19,7 @@ its Android 7 vendor binaries require a device-specific compatibility layer.
 | Flyme 8.0.5.0A | firmware ABI, boot geometry, partitions, production blobs | `locks/stock-flyme-8.0.5.0A.sha256`, `docs/stock-base.md` |
 | m86 cm-14.1-latest | last community hardware implementation and blob inventory | `legacy/device-meizu-m86-cm14` at commit `26c4527...` |
 | m86 kernel cm-14.1 | first-boot kernel and Meizu drivers/DT | imported into `kernel/meizu/m86` at the locked reference SHA |
-| universal7420 17.1 | Android 10 Exynos 7420 build, kernel, graphics/media and common HAL reference | `manifests/pro5.xml`, generated source locks |
+| universal7420 17.1 | Android 10 Exynos 7420 build, graphics/media and common HAL reference; kernel revision is research-only | `manifests/pro5.xml`, generated source locks and `locks/reference-revisions.tsv` |
 | LineageOS 17.1 | Android 10 framework and build system | remote full checkout plus pinned manifest XML |
 
 No generated image is considered reproducible unless its Lineage manifest,
@@ -62,8 +62,8 @@ outside the ROM installer.
 
 The first kernel branch is the hardware-proven m86 3.10 tree. The repository's
 `staging/lineage-15.1` branch is behind `cm-14.1`, not ahead, so it is not a
-better base. The universal7420 LineageOS 17.1 kernel is a patch donor and
-behavioral reference.
+better base. The universal7420 LineageOS 17.1 kernel is a revision-locked patch
+donor and behavioral reference, not a build-manifest dependency.
 
 Kernel work is split into reviewable groups:
 

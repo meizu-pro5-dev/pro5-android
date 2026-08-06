@@ -30,6 +30,7 @@ kernel_config="$project_root/kernel/meizu/m86/arch/arm64/configs/cm_pro5_defconf
 platform_patch="$project_root/patches/device-samsung-universal7420-common/0001-target-add-meizu-m86.patch"
 bluetooth_patch="$project_root/patches/device-samsung-universal7420-common/0002-bluetooth-add-m86-address-fallback.patch"
 patch_series="$project_root/patches/series.tsv"
+platform_manifest="$project_root/manifests/pro5.xml"
 build_worker="$project_root/remote/worker-build.sh"
 vendor_worker="$project_root/remote/prepare-vendor.sh"
 blob_list="$device_root/proprietary-files.txt"
@@ -60,6 +61,7 @@ for required_file in \
   "$platform_patch" \
   "$bluetooth_patch" \
   "$patch_series" \
+  "$platform_manifest" \
   "$build_worker" \
   "$vendor_worker" \
   "$blob_list"; do
@@ -465,6 +467,11 @@ fi
 
 if rg -q 'inherit-product[^\n]*universal7420-common\.mk' "$device_makefile"; then
   printf 'The Galaxy universal7420 product must not be inherited by m86.\n' >&2
+  exit 1
+fi
+if rg -q 'kernel/samsung/universal7420' \
+    "$platform_manifest" "$project_root/remote/worker-sync-platform.sh"; then
+  printf 'The research-only Galaxy kernel must not enter the m86 build manifest.\n' >&2
   exit 1
 fi
 if rg -q 'android\.hardware\.sensor\.(barometer|heartrate)' "$device_makefile"; then

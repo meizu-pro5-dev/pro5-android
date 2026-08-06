@@ -110,7 +110,6 @@ platform_projects=(
   hardware/samsung_slsi/exynos5
   hardware/samsung_slsi/exynos7420
   hardware/samsung_slsi/openmax
-  kernel/samsung/universal7420
 )
 
 for index in "${!platform_projects[@]}"; do
@@ -137,5 +136,4 @@ printf 'Platform sync completed at %s\n' "$(date --iso-8601=seconds)"
 du -sh \
   device/samsung/universal7420-common \
   hardware/samsung \
-  hardware/samsung_slsi \
-  kernel/samsung/universal7420
+  hardware/samsung_slsi
