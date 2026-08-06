@@ -1,0 +1,2257 @@
+diff --git a/tools/stats_log_api_gen/Android.bp b/tools/stats_log_api_gen/Android.bp
+new file mode 100644
+index 0000000000000000000000000000000000000000..703a67b791be40201438200c1022da94c951933b
+--- /dev/null
++++ b/tools/stats_log_api_gen/Android.bp
+@@ -0,0 +1,112 @@
++//
++// Copyright (C) 2017 The Android Open Source Project
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++//
++
++// ==========================================================
++// Build the host executable: stats-log-api-gen
++// ==========================================================
++cc_binary_host {
++    name: "stats-log-api-gen",
++    srcs: [
++        "Collation.cpp",
++        "main.cpp",
++    ],
++    cflags: [
++        "-Wall",
++        "-Werror",
++    ],
++
++    shared_libs: [
++        "libstats_proto_host",
++        "libprotobuf-cpp-full",
++    ],
++
++    proto: {
++        type: "full",
++    },
++}
++
++// ==========================================================
++// Build the host test executable: stats-log-api-gen
++// ==========================================================
++cc_test_host {
++    name: "stats-log-api-gen-test",
++    cflags: [
++        "-Wall",
++        "-Wextra",
++        "-Werror",
++        "-g",
++        "-DUNIT_TEST",
++    ],
++    srcs: [
++        "Collation.cpp",
++        "test_collation.cpp",
++        "test.proto",
++    ],
++
++    static_libs: [
++        "libgmock_host",
++    ],
++
++    shared_libs: [
++        "libstats_proto_host",
++        "libprotobuf-cpp-full",
++    ],
++
++    proto: {
++        type: "full",
++        include_dirs: [
++            "external/protobuf/src",
++        ],
++    },
++}
++
++// ==========================================================
++// Native library
++// ==========================================================
++genrule {
++    name: "statslog.h",
++    tools: ["stats-log-api-gen"],
++    cmd: "$(location stats-log-api-gen) --header $(genDir)/statslog.h",
++    out: [
++        "statslog.h",
++    ],
++}
++
++genrule {
++    name: "statslog.cpp",
++    tools: ["stats-log-api-gen"],
++    cmd: "$(location stats-log-api-gen) --cpp $(genDir)/statslog.cpp",
++    out: [
++        "statslog.cpp",
++    ],
++}
++
++cc_library_shared {
++    name: "libstatslog",
++    generated_sources: ["statslog.cpp"],
++    generated_headers: ["statslog.h"],
++    cflags: [
++        "-Wall",
++        "-Werror",
++    ],
++    export_generated_headers: ["statslog.h"],
++    shared_libs: [
++        "liblog",
++        "libutils",
++        "libcutils",
++    ],
++    static_libs: ["libstatssocket"],
++}
+diff --git a/tools/stats_log_api_gen/Collation.cpp b/tools/stats_log_api_gen/Collation.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..ebdcdfdd6c500fb617dc76398eaca16ca9007ec0
+--- /dev/null
++++ b/tools/stats_log_api_gen/Collation.cpp
+@@ -0,0 +1,392 @@
++/*
++ * Copyright (C) 2017, The Android Open Source Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include "Collation.h"
++#include "frameworks/base/cmds/statsd/src/atoms.pb.h"
++
++#include <stdio.h>
++#include <map>
++
++namespace android {
++namespace stats_log_api_gen {
++
++using google::protobuf::EnumDescriptor;
++using google::protobuf::FieldDescriptor;
++using google::protobuf::FileDescriptor;
++using google::protobuf::SourceLocation;
++using std::map;
++
++
++//
++// AtomDecl class
++//
++
++AtomDecl::AtomDecl()
++    :code(0),
++     name()
++{
++}
++
++AtomDecl::AtomDecl(const AtomDecl& that)
++    : code(that.code),
++      name(that.name),
++      message(that.message),
++      fields(that.fields),
++      primaryFields(that.primaryFields),
++      exclusiveField(that.exclusiveField),
++      uidField(that.uidField) {}
++
++AtomDecl::AtomDecl(int c, const string& n, const string& m)
++    :code(c),
++     name(n),
++     message(m)
++{
++}
++
++AtomDecl::~AtomDecl()
++{
++}
++
++
++/**
++ * Print an error message for a FieldDescriptor, including the file name and line number.
++ */
++static void
++print_error(const FieldDescriptor* field, const char* format, ...)
++{
++    const Descriptor* message = field->containing_type();
++    const FileDescriptor* file = message->file();
++
++    SourceLocation loc;
++    if (field->GetSourceLocation(&loc)) {
++        // TODO: this will work if we can figure out how to pass --include_source_info to protoc
++        fprintf(stderr, "%s:%d: ", file->name().c_str(), loc.start_line);
++    } else {
++        fprintf(stderr, "%s: ", file->name().c_str());
++    }
++    va_list args;
++    va_start(args, format);
++    vfprintf(stderr, format, args);
++    va_end (args);
++}
++
++/**
++ * Convert a protobuf type into a java type.
++ */
++static java_type_t
++java_type(const FieldDescriptor* field)
++{
++    int protoType = field->type();
++    switch (protoType) {
++        case FieldDescriptor::TYPE_DOUBLE:
++            return JAVA_TYPE_DOUBLE;
++        case FieldDescriptor::TYPE_FLOAT:
++            return JAVA_TYPE_FLOAT;
++        case FieldDescriptor::TYPE_INT64:
++            return JAVA_TYPE_LONG;
++        case FieldDescriptor::TYPE_UINT64:
++            return JAVA_TYPE_LONG;
++        case FieldDescriptor::TYPE_INT32:
++            return JAVA_TYPE_INT;
++        case FieldDescriptor::TYPE_FIXED64:
++            return JAVA_TYPE_LONG;
++        case FieldDescriptor::TYPE_FIXED32:
++            return JAVA_TYPE_INT;
++        case FieldDescriptor::TYPE_BOOL:
++            return JAVA_TYPE_BOOLEAN;
++        case FieldDescriptor::TYPE_STRING:
++            return JAVA_TYPE_STRING;
++        case FieldDescriptor::TYPE_GROUP:
++            return JAVA_TYPE_UNKNOWN;
++        case FieldDescriptor::TYPE_MESSAGE:
++            // TODO: not the final package name
++            if (field->message_type()->full_name() ==
++                "android.os.statsd.AttributionNode") {
++              return JAVA_TYPE_ATTRIBUTION_CHAIN;
++            } else {
++                return JAVA_TYPE_OBJECT;
++            }
++        case FieldDescriptor::TYPE_BYTES:
++            return JAVA_TYPE_BYTE_ARRAY;
++        case FieldDescriptor::TYPE_UINT32:
++            return JAVA_TYPE_INT;
++        case FieldDescriptor::TYPE_ENUM:
++            return JAVA_TYPE_ENUM;
++        case FieldDescriptor::TYPE_SFIXED32:
++            return JAVA_TYPE_INT;
++        case FieldDescriptor::TYPE_SFIXED64:
++            return JAVA_TYPE_LONG;
++        case FieldDescriptor::TYPE_SINT32:
++            return JAVA_TYPE_INT;
++        case FieldDescriptor::TYPE_SINT64:
++            return JAVA_TYPE_LONG;
++        default:
++            return JAVA_TYPE_UNKNOWN;
++    }
++}
++
++/**
++ * Gather the enums info.
++ */
++void collate_enums(const EnumDescriptor &enumDescriptor, AtomField *atomField) {
++    for (int i = 0; i < enumDescriptor.value_count(); i++) {
++        atomField->enumValues[enumDescriptor.value(i)->number()] =
++            enumDescriptor.value(i)->name().c_str();
++    }
++}
++
++/**
++ * Gather the info about an atom proto.
++ */
++int collate_atom(const Descriptor *atom, AtomDecl *atomDecl,
++                 vector<java_type_t> *signature) {
++
++  int errorCount = 0;
++  // Build a sorted list of the fields. Descriptor has them in source file
++  // order.
++  map<int, const FieldDescriptor *> fields;
++  for (int j = 0; j < atom->field_count(); j++) {
++    const FieldDescriptor *field = atom->field(j);
++    fields[field->number()] = field;
++  }
++
++  // Check that the parameters start at 1 and go up sequentially.
++  int expectedNumber = 1;
++  for (map<int, const FieldDescriptor *>::const_iterator it = fields.begin();
++       it != fields.end(); it++) {
++    const int number = it->first;
++    const FieldDescriptor *field = it->second;
++    if (number != expectedNumber) {
++      print_error(field,
++                  "Fields must be numbered consecutively starting at 1:"
++                  " '%s' is %d but should be %d\n",
++                  field->name().c_str(), number, expectedNumber);
++      errorCount++;
++      expectedNumber = number;
++      continue;
++    }
++    expectedNumber++;
++  }
++
++  // Check that only allowed types are present. Remove any invalid ones.
++  for (map<int, const FieldDescriptor *>::const_iterator it = fields.begin();
++       it != fields.end(); it++) {
++    const FieldDescriptor *field = it->second;
++
++    java_type_t javaType = java_type(field);
++
++    if (javaType == JAVA_TYPE_UNKNOWN) {
++      print_error(field, "Unkown type for field: %s\n", field->name().c_str());
++      errorCount++;
++      continue;
++    } else if (javaType == JAVA_TYPE_OBJECT) {
++      // Allow attribution chain, but only at position 1.
++      print_error(field, "Message type not allowed for field: %s\n",
++                  field->name().c_str());
++      errorCount++;
++      continue;
++    } else if (javaType == JAVA_TYPE_BYTE_ARRAY) {
++      print_error(field, "Raw bytes type not allowed for field: %s\n",
++                  field->name().c_str());
++      errorCount++;
++      continue;
++    }
++  }
++
++  // Check that if there's an attribution chain, it's at position 1.
++  for (map<int, const FieldDescriptor *>::const_iterator it = fields.begin();
++       it != fields.end(); it++) {
++    int number = it->first;
++    if (number != 1) {
++      const FieldDescriptor *field = it->second;
++      java_type_t javaType = java_type(field);
++      if (javaType == JAVA_TYPE_ATTRIBUTION_CHAIN) {
++        print_error(
++            field,
++            "AttributionChain fields must have field id 1, in message: '%s'\n",
++            atom->name().c_str());
++        errorCount++;
++      }
++    }
++  }
++
++  // Build the type signature and the atom data.
++  for (map<int, const FieldDescriptor *>::const_iterator it = fields.begin();
++       it != fields.end(); it++) {
++    const FieldDescriptor *field = it->second;
++    java_type_t javaType = java_type(field);
++
++    AtomField atField(field->name(), javaType);
++    if (javaType == JAVA_TYPE_ENUM) {
++      // All enums are treated as ints when it comes to function signatures.
++      signature->push_back(JAVA_TYPE_INT);
++      collate_enums(*field->enum_type(), &atField);
++    } else {
++      signature->push_back(javaType);
++    }
++    atomDecl->fields.push_back(atField);
++
++    if (field->options().GetExtension(os::statsd::stateFieldOption).option() ==
++        os::statsd::StateField::PRIMARY) {
++        if (javaType == JAVA_TYPE_UNKNOWN ||
++            javaType == JAVA_TYPE_ATTRIBUTION_CHAIN ||
++            javaType == JAVA_TYPE_OBJECT || javaType == JAVA_TYPE_BYTE_ARRAY) {
++            errorCount++;
++        }
++        atomDecl->primaryFields.push_back(it->first);
++    }
++
++    if (field->options().GetExtension(os::statsd::stateFieldOption).option() ==
++        os::statsd::StateField::EXCLUSIVE) {
++        if (javaType == JAVA_TYPE_UNKNOWN ||
++            javaType == JAVA_TYPE_ATTRIBUTION_CHAIN ||
++            javaType == JAVA_TYPE_OBJECT || javaType == JAVA_TYPE_BYTE_ARRAY) {
++            errorCount++;
++        }
++
++        if (atomDecl->exclusiveField == 0) {
++            atomDecl->exclusiveField = it->first;
++        } else {
++            errorCount++;
++        }
++    }
++
++    if (field->options().GetExtension(os::statsd::is_uid) == true) {
++        if (javaType != JAVA_TYPE_INT) {
++            errorCount++;
++        }
++
++        if (atomDecl->uidField == 0) {
++            atomDecl->uidField = it->first;
++        } else {
++            errorCount++;
++        }
++    }
++  }
++
++  return errorCount;
++}
++
++// This function flattens the fields of the AttributionNode proto in an Atom proto and generates
++// the corresponding atom decl and signature.
++bool get_non_chained_node(const Descriptor *atom, AtomDecl *atomDecl,
++                          vector<java_type_t> *signature) {
++    // Build a sorted list of the fields. Descriptor has them in source file
++    // order.
++    map<int, const FieldDescriptor *> fields;
++    for (int j = 0; j < atom->field_count(); j++) {
++        const FieldDescriptor *field = atom->field(j);
++        fields[field->number()] = field;
++    }
++
++    AtomDecl attributionDecl;
++    vector<java_type_t> attributionSignature;
++    collate_atom(android::os::statsd::AttributionNode::descriptor(),
++                 &attributionDecl, &attributionSignature);
++
++    // Build the type signature and the atom data.
++    bool has_attribution_node = false;
++    for (map<int, const FieldDescriptor *>::const_iterator it = fields.begin();
++        it != fields.end(); it++) {
++        const FieldDescriptor *field = it->second;
++        java_type_t javaType = java_type(field);
++        if (javaType == JAVA_TYPE_ATTRIBUTION_CHAIN) {
++            atomDecl->fields.insert(
++                atomDecl->fields.end(),
++                attributionDecl.fields.begin(), attributionDecl.fields.end());
++            signature->insert(
++                signature->end(),
++                attributionSignature.begin(), attributionSignature.end());
++            has_attribution_node = true;
++
++        } else {
++            AtomField atField(field->name(), javaType);
++            if (javaType == JAVA_TYPE_ENUM) {
++                // All enums are treated as ints when it comes to function signatures.
++                signature->push_back(JAVA_TYPE_INT);
++                collate_enums(*field->enum_type(), &atField);
++            } else {
++                signature->push_back(javaType);
++            }
++            atomDecl->fields.push_back(atField);
++        }
++    }
++    return has_attribution_node;
++}
++
++/**
++ * Gather the info about the atoms.
++ */
++int collate_atoms(const Descriptor *descriptor, Atoms *atoms) {
++  int errorCount = 0;
++  const bool dbg = false;
++
++  for (int i = 0; i < descriptor->field_count(); i++) {
++    const FieldDescriptor *atomField = descriptor->field(i);
++
++    if (dbg) {
++      printf("   %s (%d)\n", atomField->name().c_str(), atomField->number());
++    }
++
++    // StatsEvent only has one oneof, which contains only messages. Don't allow
++    // other types.
++    if (atomField->type() != FieldDescriptor::TYPE_MESSAGE) {
++      print_error(atomField,
++                  "Bad type for atom. StatsEvent can only have message type "
++                  "fields: %s\n",
++                  atomField->name().c_str());
++      errorCount++;
++      continue;
++    }
++
++    const Descriptor *atom = atomField->message_type();
++    AtomDecl atomDecl(atomField->number(), atomField->name(), atom->name());
++    vector<java_type_t> signature;
++    errorCount += collate_atom(atom, &atomDecl, &signature);
++    if (atomDecl.primaryFields.size() != 0 && atomDecl.exclusiveField == 0) {
++        errorCount++;
++    }
++    atoms->signatures.insert(signature);
++    atoms->decls.insert(atomDecl);
++
++    AtomDecl nonChainedAtomDecl(atomField->number(), atomField->name(), atom->name());
++    vector<java_type_t> nonChainedSignature;
++    if (get_non_chained_node(atom, &nonChainedAtomDecl, &nonChainedSignature)) {
++        atoms->non_chained_signatures.insert(nonChainedSignature);
++        atoms->non_chained_decls.insert(nonChainedAtomDecl);
++    }
++  }
++
++  if (dbg) {
++    printf("signatures = [\n");
++    for (set<vector<java_type_t>>::const_iterator it =
++             atoms->signatures.begin();
++         it != atoms->signatures.end(); it++) {
++      printf("   ");
++      for (vector<java_type_t>::const_iterator jt = it->begin();
++           jt != it->end(); jt++) {
++        printf(" %d", (int)*jt);
++      }
++      printf("\n");
++    }
++    printf("]\n");
++  }
++
++  return errorCount;
++}
++
++}  // namespace stats_log_api_gen
++}  // namespace android
+diff --git a/tools/stats_log_api_gen/Collation.h b/tools/stats_log_api_gen/Collation.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..5d2c30292c9c6b4027ace94de272ce9c33706fb3
+--- /dev/null
++++ b/tools/stats_log_api_gen/Collation.h
+@@ -0,0 +1,116 @@
++/*
++ * Copyright (C) 2017, The Android Open Source Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef ANDROID_STATS_LOG_API_GEN_COLLATION_H
++#define ANDROID_STATS_LOG_API_GEN_COLLATION_H
++
++
++#include <google/protobuf/descriptor.h>
++
++#include <set>
++#include <vector>
++#include <map>
++
++namespace android {
++namespace stats_log_api_gen {
++
++using std::map;
++using std::set;
++using std::string;
++using std::vector;
++using google::protobuf::Descriptor;
++using google::protobuf::FieldDescriptor;
++
++/**
++ * The types for atom parameters.
++ */
++typedef enum {
++  JAVA_TYPE_UNKNOWN = 0,
++
++  JAVA_TYPE_ATTRIBUTION_CHAIN = 1,
++  JAVA_TYPE_BOOLEAN = 2,
++  JAVA_TYPE_INT = 3,
++  JAVA_TYPE_LONG = 4,
++  JAVA_TYPE_FLOAT = 5,
++  JAVA_TYPE_DOUBLE = 6,
++  JAVA_TYPE_STRING = 7,
++  JAVA_TYPE_ENUM = 8,
++
++  JAVA_TYPE_OBJECT = -1,
++  JAVA_TYPE_BYTE_ARRAY = -2,
++} java_type_t;
++
++/**
++ * The name and type for an atom field.
++ */
++struct AtomField {
++    string name;
++    java_type_t javaType;
++
++    // If the field is of type enum, the following map contains the list of enum values.
++    map<int /* numeric value */, string /* value name */> enumValues;
++
++    inline AtomField() :name(), javaType(JAVA_TYPE_UNKNOWN) {}
++    inline AtomField(const AtomField& that) :name(that.name),
++                                             javaType(that.javaType),
++                                             enumValues(that.enumValues) {}
++    inline AtomField(string n, java_type_t jt) :name(n), javaType(jt) {}
++    inline ~AtomField() {}
++};
++
++/**
++ * The name and code for an atom.
++ */
++struct AtomDecl {
++    int code;
++    string name;
++
++    string message;
++    vector<AtomField> fields;
++
++    vector<int> primaryFields;
++    int exclusiveField = 0;
++
++    int uidField = 0;
++
++    AtomDecl();
++    AtomDecl(const AtomDecl& that);
++    AtomDecl(int code, const string& name, const string& message);
++    ~AtomDecl();
++
++    inline bool operator<(const AtomDecl& that) const {
++        return (code == that.code) ? (name < that.name) : (code < that.code);
++    }
++};
++
++struct Atoms {
++    set<vector<java_type_t>> signatures;
++    set<AtomDecl> decls;
++    set<AtomDecl> non_chained_decls;
++    set<vector<java_type_t>> non_chained_signatures;
++};
++
++/**
++ * Gather the information about the atoms.  Returns the number of errors.
++ */
++int collate_atoms(const Descriptor* descriptor, Atoms* atoms);
++int collate_atom(const Descriptor *atom, AtomDecl *atomDecl, vector<java_type_t> *signature);
++
++}  // namespace stats_log_api_gen
++}  // namespace android
++
++
++#endif // ANDROID_STATS_LOG_API_GEN_COLLATION_H
+\ No newline at end of file
+diff --git a/tools/stats_log_api_gen/main.cpp b/tools/stats_log_api_gen/main.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..140653a490e1b177f581d8bd07a4858cd264fc77
+--- /dev/null
++++ b/tools/stats_log_api_gen/main.cpp
+@@ -0,0 +1,1206 @@
++
++
++#include "Collation.h"
++
++#include "frameworks/base/cmds/statsd/src/atoms.pb.h"
++
++#include <set>
++#include <vector>
++
++#include <getopt.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++
++using namespace google::protobuf;
++using namespace std;
++
++namespace android {
++namespace stats_log_api_gen {
++
++const int PULL_ATOM_START_ID = 1000;
++
++int maxPushedAtomId = 2;
++
++using android::os::statsd::Atom;
++
++/**
++ * Turn lower and camel case into upper case with underscores.
++ */
++static string
++make_constant_name(const string& str)
++{
++    string result;
++    const int N = str.size();
++    bool underscore_next = false;
++    for (int i=0; i<N; i++) {
++        char c = str[i];
++        if (c >= 'A' && c <= 'Z') {
++            if (underscore_next) {
++                result += '_';
++                underscore_next = false;
++            }
++        } else if (c >= 'a' && c <= 'z') {
++            c = 'A' + c - 'a';
++            underscore_next = true;
++        } else if (c == '_') {
++            underscore_next = false;
++        }
++        result += c;
++    }
++    return result;
++}
++
++static const char*
++cpp_type_name(java_type_t type)
++{
++    switch (type) {
++        case JAVA_TYPE_BOOLEAN:
++            return "bool";
++        case JAVA_TYPE_INT:
++        case JAVA_TYPE_ENUM:
++            return "int32_t";
++        case JAVA_TYPE_LONG:
++            return "int64_t";
++        case JAVA_TYPE_FLOAT:
++            return "float";
++        case JAVA_TYPE_DOUBLE:
++            return "double";
++        case JAVA_TYPE_STRING:
++            return "char const*";
++        default:
++            return "UNKNOWN";
++    }
++}
++
++static const char*
++java_type_name(java_type_t type)
++{
++    switch (type) {
++        case JAVA_TYPE_BOOLEAN:
++            return "boolean";
++        case JAVA_TYPE_INT:
++        case JAVA_TYPE_ENUM:
++            return "int";
++        case JAVA_TYPE_LONG:
++            return "long";
++        case JAVA_TYPE_FLOAT:
++            return "float";
++        case JAVA_TYPE_DOUBLE:
++            return "double";
++        case JAVA_TYPE_STRING:
++            return "java.lang.String";
++        default:
++            return "UNKNOWN";
++    }
++}
++
++static int write_stats_log_cpp(FILE *out, const Atoms &atoms,
++                               const AtomDecl &attributionDecl) {
++    // Print prelude
++    fprintf(out, "// This file is autogenerated\n");
++    fprintf(out, "\n");
++
++    fprintf(out, "#include <mutex>\n");
++    fprintf(out, "#include <chrono>\n");
++    fprintf(out, "#include <thread>\n");
++    fprintf(out, "#include <cutils/properties.h>\n");
++    fprintf(out, "#include <stats_event_list.h>\n");
++    fprintf(out, "#include <log/log.h>\n");
++    fprintf(out, "#include <statslog.h>\n");
++    fprintf(out, "#include <utils/SystemClock.h>\n");
++    fprintf(out, "\n");
++
++    fprintf(out, "namespace android {\n");
++    fprintf(out, "namespace util {\n");
++    fprintf(out, "// the single event tag id for all stats logs\n");
++    fprintf(out, "const static int kStatsEventTag = 1937006964;\n");
++    fprintf(out, "const static bool kStatsdEnabled = property_get_bool(\"ro.statsd.enable\", true);\n");
++
++    std::set<string> kTruncatingAtomNames = {"mobile_radio_power_state_changed",
++                                             "audio_state_changed",
++                                             "call_state_changed",
++                                             "phone_signal_strength_changed",
++                                             "mobile_bytes_transfer_by_fg_bg",
++                                             "mobile_bytes_transfer"};
++    fprintf(out,
++            "const std::set<int> "
++            "AtomsInfo::kNotTruncatingTimestampAtomWhiteList = {\n");
++    for (set<AtomDecl>::const_iterator atom = atoms.decls.begin();
++         atom != atoms.decls.end(); atom++) {
++        if (kTruncatingAtomNames.find(atom->name) ==
++            kTruncatingAtomNames.end()) {
++            string constant = make_constant_name(atom->name);
++            fprintf(out, " %s,\n", constant.c_str());
++        }
++    }
++    fprintf(out, "};\n");
++    fprintf(out, "\n");
++
++    fprintf(out,
++            "const std::set<int> AtomsInfo::kAtomsWithAttributionChain = {\n");
++    for (set<AtomDecl>::const_iterator atom = atoms.decls.begin();
++         atom != atoms.decls.end(); atom++) {
++        for (vector<AtomField>::const_iterator field = atom->fields.begin();
++             field != atom->fields.end(); field++) {
++            if (field->javaType == JAVA_TYPE_ATTRIBUTION_CHAIN) {
++                string constant = make_constant_name(atom->name);
++                fprintf(out, " %s,\n", constant.c_str());
++                break;
++            }
++        }
++    }
++    fprintf(out, "};\n");
++    fprintf(out, "\n");
++
++    fprintf(out, "static std::map<int, int> getAtomUidField() {\n");
++    fprintf(out, "  std::map<int, int> uidField;\n");
++    for (set<AtomDecl>::const_iterator atom = atoms.decls.begin();
++         atom != atoms.decls.end(); atom++) {
++        if (atom->uidField == 0) {
++            continue;
++        }
++        fprintf(out,
++                "\n    // Adding uid field for atom "
++                "(%d)%s\n",
++                atom->code, atom->name.c_str());
++        fprintf(out, "    uidField[static_cast<int>(%s)] = %d;\n",
++                make_constant_name(atom->name).c_str(), atom->uidField);
++    }
++
++    fprintf(out, "    return uidField;\n");
++    fprintf(out, "};\n");
++
++    fprintf(out,
++            "const std::map<int, int> AtomsInfo::kAtomsWithUidField = "
++            "getAtomUidField();\n");
++
++    fprintf(out,
++            "static std::map<int, StateAtomFieldOptions> "
++            "getStateAtomFieldOptions() {\n");
++    fprintf(out, "    std::map<int, StateAtomFieldOptions> options;\n");
++    fprintf(out, "    StateAtomFieldOptions opt;\n");
++    for (set<AtomDecl>::const_iterator atom = atoms.decls.begin();
++         atom != atoms.decls.end(); atom++) {
++        if (atom->primaryFields.size() == 0 && atom->exclusiveField == 0) {
++            continue;
++        }
++        fprintf(out,
++                "\n    // Adding primary and exclusive fields for atom "
++                "(%d)%s\n",
++                atom->code, atom->name.c_str());
++        fprintf(out, "    opt.primaryFields.clear();\n");
++        for (const auto& field : atom->primaryFields) {
++            fprintf(out, "    opt.primaryFields.push_back(%d);\n", field);
++        }
++
++        fprintf(out, "    opt.exclusiveField = %d;\n", atom->exclusiveField);
++        fprintf(out, "    options[static_cast<int>(%s)] = opt;\n",
++                make_constant_name(atom->name).c_str());
++    }
++
++    fprintf(out, "    return options;\n");
++    fprintf(out, "  }\n");
++
++    fprintf(out,
++            "const std::map<int, StateAtomFieldOptions> "
++            "AtomsInfo::kStateAtomsFieldOptions = "
++            "getStateAtomFieldOptions();\n");
++
++
++    fprintf(out, "int64_t lastRetryTimestampNs = -1;\n");
++    fprintf(out, "const int64_t kMinRetryIntervalNs = NS_PER_SEC * 60 * 20; // 20 minutes\n");
++    fprintf(out, "static std::mutex mLogdRetryMutex;\n");
++
++    // Print write methods
++    fprintf(out, "\n");
++    for (set<vector<java_type_t>>::const_iterator signature = atoms.signatures.begin();
++        signature != atoms.signatures.end(); signature++) {
++        int argIndex;
++
++        fprintf(out, "int\n");
++        fprintf(out, "try_stats_write(int32_t code");
++        argIndex = 1;
++        for (vector<java_type_t>::const_iterator arg = signature->begin();
++            arg != signature->end(); arg++) {
++            if (*arg == JAVA_TYPE_ATTRIBUTION_CHAIN) {
++                for (auto chainField : attributionDecl.fields) {
++                    if (chainField.javaType == JAVA_TYPE_STRING) {
++                            fprintf(out, ", const std::vector<%s>& %s",
++                                 cpp_type_name(chainField.javaType),
++                                 chainField.name.c_str());
++                    } else {
++                            fprintf(out, ", const %s* %s, size_t %s_length",
++                                 cpp_type_name(chainField.javaType),
++                                 chainField.name.c_str(), chainField.name.c_str());
++                    }
++                }
++            } else {
++                fprintf(out, ", %s arg%d", cpp_type_name(*arg), argIndex);
++            }
++            argIndex++;
++        }
++        fprintf(out, ")\n");
++
++        fprintf(out, "{\n");
++        argIndex = 1;
++        fprintf(out, "  if (kStatsdEnabled) {\n");
++        fprintf(out, "    stats_event_list event(kStatsEventTag);\n");
++        fprintf(out, "    event << android::elapsedRealtimeNano();\n\n");
++        fprintf(out, "    event << code;\n\n");
++        for (vector<java_type_t>::const_iterator arg = signature->begin();
++            arg != signature->end(); arg++) {
++            if (*arg == JAVA_TYPE_ATTRIBUTION_CHAIN) {
++                for (const auto &chainField : attributionDecl.fields) {
++                    if (chainField.javaType == JAVA_TYPE_STRING) {
++                        fprintf(out, "    if (%s_length != %s.size()) {\n",
++                            attributionDecl.fields.front().name.c_str(), chainField.name.c_str());
++                        fprintf(out, "        return -EINVAL;\n");
++                        fprintf(out, "    }\n");
++                    }
++                }
++                fprintf(out, "\n    event.begin();\n");
++                fprintf(out, "    for (size_t i = 0; i < %s_length; ++i) {\n",
++                    attributionDecl.fields.front().name.c_str());
++                fprintf(out, "        event.begin();\n");
++                for (const auto &chainField : attributionDecl.fields) {
++                    if (chainField.javaType == JAVA_TYPE_STRING) {
++                        fprintf(out, "        if (%s[i] != NULL) {\n", chainField.name.c_str());
++                        fprintf(out, "           event << %s[i];\n", chainField.name.c_str());
++                        fprintf(out, "        } else {\n");
++                        fprintf(out, "           event << \"\";\n");
++                        fprintf(out, "        }\n");
++                    } else {
++                        fprintf(out, "        event << %s[i];\n", chainField.name.c_str());
++                    }
++                }
++                fprintf(out, "        event.end();\n");
++                fprintf(out, "    }\n");
++                fprintf(out, "    event.end();\n\n");
++            } else {
++                if (*arg == JAVA_TYPE_STRING) {
++                    fprintf(out, "    if (arg%d == NULL) {\n", argIndex);
++                    fprintf(out, "        arg%d = \"\";\n", argIndex);
++                    fprintf(out, "    }\n");
++                }
++                fprintf(out, "    event << arg%d;\n", argIndex);
++            }
++            argIndex++;
++        }
++
++        fprintf(out, "    return event.write(LOG_ID_STATS);\n");
++        fprintf(out, "  } else {\n");
++        fprintf(out, "    return 1;\n");
++        fprintf(out, "  }\n");
++        fprintf(out, "}\n");
++        fprintf(out, "\n");
++    }
++
++   for (set<vector<java_type_t>>::const_iterator signature = atoms.signatures.begin();
++       signature != atoms.signatures.end(); signature++) {
++       int argIndex;
++
++       fprintf(out, "int \n");
++       fprintf(out, "stats_write(int32_t code");
++       argIndex = 1;
++       for (vector<java_type_t>::const_iterator arg = signature->begin();
++           arg != signature->end(); arg++) {
++           if (*arg == JAVA_TYPE_ATTRIBUTION_CHAIN) {
++               for (auto chainField : attributionDecl.fields) {
++                   if (chainField.javaType == JAVA_TYPE_STRING) {
++                           fprintf(out, ", const std::vector<%s>& %s",
++                                cpp_type_name(chainField.javaType),
++                                chainField.name.c_str());
++                   } else {
++                           fprintf(out, ", const %s* %s, size_t %s_length",
++                                cpp_type_name(chainField.javaType),
++                                chainField.name.c_str(), chainField.name.c_str());
++                   }
++               }
++           } else {
++               fprintf(out, ", %s arg%d", cpp_type_name(*arg), argIndex);
++           }
++           argIndex++;
++       }
++       fprintf(out, ")\n");
++
++       fprintf(out, "{\n");
++       fprintf(out, "  int ret = 0;\n");
++
++       fprintf(out, "  for(int retry = 0; retry < 2; ++retry) {\n");
++       fprintf(out, "      ret =  try_stats_write(code");
++
++       argIndex = 1;
++       for (vector<java_type_t>::const_iterator arg = signature->begin();
++           arg != signature->end(); arg++) {
++           if (*arg == JAVA_TYPE_ATTRIBUTION_CHAIN) {
++               for (auto chainField : attributionDecl.fields) {
++                   if (chainField.javaType == JAVA_TYPE_STRING) {
++                           fprintf(out, ", %s",
++                                chainField.name.c_str());
++                   } else {
++                           fprintf(out, ",  %s,  %s_length",
++                                chainField.name.c_str(), chainField.name.c_str());
++                   }
++               }
++           } else {
++               fprintf(out, ", arg%d", argIndex);
++           }
++           argIndex++;
++       }
++       fprintf(out, ");\n");
++       fprintf(out, "      if (ret >= 0) { return retry; }\n");
++
++
++       fprintf(out, "      {\n");
++       fprintf(out, "          std::lock_guard<std::mutex> lock(mLogdRetryMutex);\n");
++       fprintf(out, "          if ((android::elapsedRealtimeNano() - lastRetryTimestampNs) <= "
++                                "kMinRetryIntervalNs) break;\n");
++       fprintf(out, "          lastRetryTimestampNs = android::elapsedRealtimeNano();\n");
++       fprintf(out, "      }\n");
++       fprintf(out, "      std::this_thread::sleep_for(std::chrono::milliseconds(10));\n");
++       fprintf(out, "  }\n");
++       fprintf(out, "  return ret;\n");
++       fprintf(out, "}\n");
++       fprintf(out, "\n");
++   }
++
++    for (set<vector<java_type_t>>::const_iterator signature = atoms.non_chained_signatures.begin();
++        signature != atoms.non_chained_signatures.end(); signature++) {
++        int argIndex;
++
++        fprintf(out, "int\n");
++        fprintf(out, "try_stats_write_non_chained(int32_t code");
++        argIndex = 1;
++        for (vector<java_type_t>::const_iterator arg = signature->begin();
++            arg != signature->end(); arg++) {
++            fprintf(out, ", %s arg%d", cpp_type_name(*arg), argIndex);
++            argIndex++;
++        }
++        fprintf(out, ")\n");
++
++        fprintf(out, "{\n");
++        argIndex = 1;
++        fprintf(out, "  if (kStatsdEnabled) {\n");
++        fprintf(out, "    stats_event_list event(kStatsEventTag);\n");
++        fprintf(out, "    event << android::elapsedRealtimeNano();\n\n");
++        fprintf(out, "    event << code;\n\n");
++        for (vector<java_type_t>::const_iterator arg = signature->begin();
++            arg != signature->end(); arg++) {
++            if (argIndex == 1) {
++                fprintf(out, "    event.begin();\n\n");
++                fprintf(out, "    event.begin();\n");
++            }
++            if (*arg == JAVA_TYPE_STRING) {
++                fprintf(out, "    if (arg%d == NULL) {\n", argIndex);
++                fprintf(out, "        arg%d = \"\";\n", argIndex);
++                fprintf(out, "    }\n");
++            }
++            fprintf(out, "    event << arg%d;\n", argIndex);
++            if (argIndex == 2) {
++                fprintf(out, "    event.end();\n\n");
++                fprintf(out, "    event.end();\n\n");
++            }
++            argIndex++;
++        }
++
++        fprintf(out, "    return event.write(LOG_ID_STATS);\n");
++        fprintf(out, "  } else {\n");
++        fprintf(out, "    return 1;\n");
++        fprintf(out, "  }\n");
++        fprintf(out, "}\n");
++        fprintf(out, "\n");
++    }
++
++   for (set<vector<java_type_t>>::const_iterator signature = atoms.non_chained_signatures.begin();
++       signature != atoms.non_chained_signatures.end(); signature++) {
++       int argIndex;
++
++       fprintf(out, "int\n");
++       fprintf(out, "stats_write_non_chained(int32_t code");
++       argIndex = 1;
++       for (vector<java_type_t>::const_iterator arg = signature->begin();
++           arg != signature->end(); arg++) {
++           fprintf(out, ", %s arg%d", cpp_type_name(*arg), argIndex);
++           argIndex++;
++       }
++       fprintf(out, ")\n");
++
++       fprintf(out, "{\n");
++
++       fprintf(out, "  int ret = 0;\n");
++       fprintf(out, "  for(int retry = 0; retry < 2; ++retry) {\n");
++       fprintf(out, "      ret =  try_stats_write_non_chained(code");
++
++       argIndex = 1;
++       for (vector<java_type_t>::const_iterator arg = signature->begin();
++           arg != signature->end(); arg++) {
++           fprintf(out, ", arg%d",   argIndex);
++           argIndex++;
++       }
++       fprintf(out, ");\n");
++       fprintf(out, "      if (ret >= 0) { return retry; }\n");
++
++       fprintf(out, "      {\n");
++       fprintf(out, "          std::lock_guard<std::mutex> lock(mLogdRetryMutex);\n");
++       fprintf(out, "          if ((android::elapsedRealtimeNano() - lastRetryTimestampNs) <= "
++                                "kMinRetryIntervalNs) break;\n");
++       fprintf(out, "          lastRetryTimestampNs = android::elapsedRealtimeNano();\n");
++       fprintf(out, "      }\n");
++
++       fprintf(out, "      std::this_thread::sleep_for(std::chrono::milliseconds(10));\n");
++       fprintf(out, "  }\n");
++       fprintf(out, "  return ret;\n");
++       fprintf(out, "}\n");
++
++       fprintf(out, "\n");
++   }
++
++
++    // Print footer
++    fprintf(out, "\n");
++    fprintf(out, "} // namespace util\n");
++    fprintf(out, "} // namespace android\n");
++
++    return 0;
++}
++
++void build_non_chained_decl_map(const Atoms& atoms,
++                                std::map<int, set<AtomDecl>::const_iterator>* decl_map){
++    for (set<AtomDecl>::const_iterator atom = atoms.non_chained_decls.begin();
++        atom != atoms.non_chained_decls.end(); atom++) {
++        decl_map->insert(std::make_pair(atom->code, atom));
++    }
++}
++
++static void write_cpp_usage(
++    FILE* out, const string& method_name, const string& atom_code_name,
++    const AtomDecl& atom, const AtomDecl &attributionDecl) {
++    fprintf(out, "     * Usage: %s(StatsLog.%s", method_name.c_str(), atom_code_name.c_str());
++    for (vector<AtomField>::const_iterator field = atom.fields.begin();
++            field != atom.fields.end(); field++) {
++        if (field->javaType == JAVA_TYPE_ATTRIBUTION_CHAIN) {
++            for (auto chainField : attributionDecl.fields) {
++                if (chainField.javaType == JAVA_TYPE_STRING) {
++                    fprintf(out, ", const std::vector<%s>& %s",
++                         cpp_type_name(chainField.javaType),
++                         chainField.name.c_str());
++                } else {
++                    fprintf(out, ", const %s* %s, size_t %s_length",
++                         cpp_type_name(chainField.javaType),
++                         chainField.name.c_str(), chainField.name.c_str());
++                }
++            }
++        } else {
++            fprintf(out, ", %s %s", cpp_type_name(field->javaType), field->name.c_str());
++        }
++    }
++    fprintf(out, ");\n");
++}
++
++static void write_cpp_method_header(
++    FILE* out, const string& method_name, const set<vector<java_type_t>>& signatures,
++    const AtomDecl &attributionDecl) {
++    for (set<vector<java_type_t>>::const_iterator signature = signatures.begin();
++            signature != signatures.end(); signature++) {
++        fprintf(out, "int %s(int32_t code ", method_name.c_str());
++        int argIndex = 1;
++        for (vector<java_type_t>::const_iterator arg = signature->begin();
++            arg != signature->end(); arg++) {
++            if (*arg == JAVA_TYPE_ATTRIBUTION_CHAIN) {
++                for (auto chainField : attributionDecl.fields) {
++                    if (chainField.javaType == JAVA_TYPE_STRING) {
++                        fprintf(out, ", const std::vector<%s>& %s",
++                            cpp_type_name(chainField.javaType), chainField.name.c_str());
++                    } else {
++                        fprintf(out, ", const %s* %s, size_t %s_length",
++                            cpp_type_name(chainField.javaType),
++                            chainField.name.c_str(), chainField.name.c_str());
++                    }
++                }
++            } else {
++                fprintf(out, ", %s arg%d", cpp_type_name(*arg), argIndex);
++            }
++            argIndex++;
++        }
++        fprintf(out, ");\n");
++
++    }
++}
++
++static int
++write_stats_log_header(FILE* out, const Atoms& atoms, const AtomDecl &attributionDecl)
++{
++    // Print prelude
++    fprintf(out, "// This file is autogenerated\n");
++    fprintf(out, "\n");
++    fprintf(out, "#pragma once\n");
++    fprintf(out, "\n");
++    fprintf(out, "#include <stdint.h>\n");
++    fprintf(out, "#include <vector>\n");
++    fprintf(out, "#include <map>\n");
++    fprintf(out, "#include <set>\n");
++    fprintf(out, "\n");
++
++    fprintf(out, "namespace android {\n");
++    fprintf(out, "namespace util {\n");
++    fprintf(out, "\n");
++    fprintf(out, "/*\n");
++    fprintf(out, " * API For logging statistics events.\n");
++    fprintf(out, " */\n");
++    fprintf(out, "\n");
++    fprintf(out, "/**\n");
++    fprintf(out, " * Constants for atom codes.\n");
++    fprintf(out, " */\n");
++    fprintf(out, "enum {\n");
++
++    std::map<int, set<AtomDecl>::const_iterator> atom_code_to_non_chained_decl_map;
++    build_non_chained_decl_map(atoms, &atom_code_to_non_chained_decl_map);
++
++    size_t i = 0;
++    // Print constants
++    for (set<AtomDecl>::const_iterator atom = atoms.decls.begin();
++        atom != atoms.decls.end(); atom++) {
++        string constant = make_constant_name(atom->name);
++        fprintf(out, "\n");
++        fprintf(out, "    /**\n");
++        fprintf(out, "     * %s %s\n", atom->message.c_str(), atom->name.c_str());
++        write_cpp_usage(out, "stats_write", constant, *atom, attributionDecl);
++
++        auto non_chained_decl = atom_code_to_non_chained_decl_map.find(atom->code);
++        if (non_chained_decl != atom_code_to_non_chained_decl_map.end()) {
++            write_cpp_usage(out, "stats_write_non_chained", constant, *non_chained_decl->second,
++                attributionDecl);
++        }
++        fprintf(out, "     */\n");
++        char const* const comma = (i == atoms.decls.size() - 1) ? "" : ",";
++        fprintf(out, "    %s = %d%s\n", constant.c_str(), atom->code, comma);
++        if (atom->code < PULL_ATOM_START_ID && atom->code > maxPushedAtomId) {
++            maxPushedAtomId = atom->code;
++        }
++        i++;
++    }
++    fprintf(out, "\n");
++    fprintf(out, "};\n");
++    fprintf(out, "\n");
++
++    fprintf(out, "struct StateAtomFieldOptions {\n");
++    fprintf(out, "  std::vector<int> primaryFields;\n");
++    fprintf(out, "  int exclusiveField;\n");
++    fprintf(out, "};\n");
++    fprintf(out, "\n");
++
++    fprintf(out, "struct AtomsInfo {\n");
++    fprintf(out,
++            "  const static std::set<int> "
++            "kNotTruncatingTimestampAtomWhiteList;\n");
++    fprintf(out, "  const static std::map<int, int> kAtomsWithUidField;\n");
++    fprintf(out,
++            "  const static std::set<int> kAtomsWithAttributionChain;\n");
++    fprintf(out,
++            "  const static std::map<int, StateAtomFieldOptions> "
++            "kStateAtomsFieldOptions;\n");
++    fprintf(out, "};\n");
++
++    fprintf(out, "const static int kMaxPushedAtomId = %d;\n\n",
++            maxPushedAtomId);
++
++    // Print write methods
++    fprintf(out, "//\n");
++    fprintf(out, "// Write methods\n");
++    fprintf(out, "//\n");
++    write_cpp_method_header(out, "stats_write", atoms.signatures, attributionDecl);
++
++    fprintf(out, "//\n");
++    fprintf(out, "// Write flattened methods\n");
++    fprintf(out, "//\n");
++    write_cpp_method_header(out, "stats_write_non_chained", atoms.non_chained_signatures,
++        attributionDecl);
++
++    fprintf(out, "\n");
++    fprintf(out, "} // namespace util\n");
++    fprintf(out, "} // namespace android\n");
++
++    return 0;
++}
++
++static void write_java_usage(
++    FILE* out, const string& method_name, const string& atom_code_name,
++    const AtomDecl& atom, const AtomDecl &attributionDecl) {
++    fprintf(out, "     * Usage: StatsLog.%s(StatsLog.%s",
++        method_name.c_str(), atom_code_name.c_str());
++    for (vector<AtomField>::const_iterator field = atom.fields.begin();
++        field != atom.fields.end(); field++) {
++        if (field->javaType == JAVA_TYPE_ATTRIBUTION_CHAIN) {
++            for (auto chainField : attributionDecl.fields) {
++                fprintf(out, ", %s[] %s",
++                    java_type_name(chainField.javaType), chainField.name.c_str());
++            }
++        } else {
++            fprintf(out, ", %s %s", java_type_name(field->javaType), field->name.c_str());
++        }
++    }
++    fprintf(out, ");\n");
++}
++
++static void write_java_method(
++    FILE* out, const string& method_name, const set<vector<java_type_t>>& signatures,
++    const AtomDecl &attributionDecl) {
++    for (set<vector<java_type_t>>::const_iterator signature = signatures.begin();
++        signature != signatures.end(); signature++) {
++        fprintf(out, "    public static native int %s(int code", method_name.c_str());
++        int argIndex = 1;
++        for (vector<java_type_t>::const_iterator arg = signature->begin();
++            arg != signature->end(); arg++) {
++            if (*arg == JAVA_TYPE_ATTRIBUTION_CHAIN) {
++                for (auto chainField : attributionDecl.fields) {
++                    fprintf(out, ", %s[] %s",
++                        java_type_name(chainField.javaType), chainField.name.c_str());
++                }
++            } else {
++                fprintf(out, ", %s arg%d", java_type_name(*arg), argIndex);
++            }
++            argIndex++;
++        }
++        fprintf(out, ");\n");
++    }
++}
++
++
++static int
++write_stats_log_java(FILE* out, const Atoms& atoms, const AtomDecl &attributionDecl)
++{
++    // Print prelude
++    fprintf(out, "// This file is autogenerated\n");
++    fprintf(out, "\n");
++    fprintf(out, "package android.util;\n");
++    fprintf(out, "\n");
++    fprintf(out, "\n");
++    fprintf(out, "/**\n");
++    fprintf(out, " * API For logging statistics events.\n");
++    fprintf(out, " * @hide\n");
++    fprintf(out, " */\n");
++    fprintf(out, "public class StatsLogInternal {\n");
++    fprintf(out, "    // Constants for atom codes.\n");
++
++    std::map<int, set<AtomDecl>::const_iterator> atom_code_to_non_chained_decl_map;
++    build_non_chained_decl_map(atoms, &atom_code_to_non_chained_decl_map);
++
++    // Print constants for the atom codes.
++    for (set<AtomDecl>::const_iterator atom = atoms.decls.begin();
++            atom != atoms.decls.end(); atom++) {
++        string constant = make_constant_name(atom->name);
++        fprintf(out, "\n");
++        fprintf(out, "    /**\n");
++        fprintf(out, "     * %s %s\n", atom->message.c_str(), atom->name.c_str());
++        write_java_usage(out, "write", constant, *atom, attributionDecl);
++        auto non_chained_decl = atom_code_to_non_chained_decl_map.find(atom->code);
++        if (non_chained_decl != atom_code_to_non_chained_decl_map.end()) {
++            write_java_usage(out, "write_non_chained", constant, *non_chained_decl->second,
++             attributionDecl);
++        }
++        fprintf(out, "     */\n");
++        fprintf(out, "    public static final int %s = %d;\n", constant.c_str(), atom->code);
++    }
++    fprintf(out, "\n");
++
++    // Print constants for the enum values.
++    fprintf(out, "    // Constants for enum values.\n\n");
++    for (set<AtomDecl>::const_iterator atom = atoms.decls.begin();
++        atom != atoms.decls.end(); atom++) {
++        for (vector<AtomField>::const_iterator field = atom->fields.begin();
++            field != atom->fields.end(); field++) {
++            if (field->javaType == JAVA_TYPE_ENUM) {
++                fprintf(out, "    // Values for %s.%s\n", atom->message.c_str(),
++                    field->name.c_str());
++                for (map<int, string>::const_iterator value = field->enumValues.begin();
++                    value != field->enumValues.end(); value++) {
++                    fprintf(out, "    public static final int %s__%s__%s = %d;\n",
++                        make_constant_name(atom->message).c_str(),
++                        make_constant_name(field->name).c_str(),
++                        make_constant_name(value->second).c_str(),
++                        value->first);
++                }
++                fprintf(out, "\n");
++            }
++        }
++    }
++
++    // Print write methods
++    fprintf(out, "    // Write methods\n");
++    write_java_method(out, "write", atoms.signatures, attributionDecl);
++    write_java_method(out, "write_non_chained", atoms.non_chained_signatures, attributionDecl);
++
++    fprintf(out, "}\n");
++
++    return 0;
++}
++
++static const char*
++jni_type_name(java_type_t type)
++{
++    switch (type) {
++        case JAVA_TYPE_BOOLEAN:
++            return "jboolean";
++        case JAVA_TYPE_INT:
++        case JAVA_TYPE_ENUM:
++            return "jint";
++        case JAVA_TYPE_LONG:
++            return "jlong";
++        case JAVA_TYPE_FLOAT:
++            return "jfloat";
++        case JAVA_TYPE_DOUBLE:
++            return "jdouble";
++        case JAVA_TYPE_STRING:
++            return "jstring";
++        default:
++            return "UNKNOWN";
++    }
++}
++
++static const char*
++jni_array_type_name(java_type_t type)
++{
++    switch (type) {
++        case JAVA_TYPE_INT:
++            return "jintArray";
++        case JAVA_TYPE_STRING:
++            return "jobjectArray";
++        default:
++            return "UNKNOWN";
++    }
++}
++
++static string
++jni_function_name(const string& method_name, const vector<java_type_t>& signature)
++{
++    string result("StatsLog_" + method_name);
++    for (vector<java_type_t>::const_iterator arg = signature.begin();
++        arg != signature.end(); arg++) {
++        switch (*arg) {
++            case JAVA_TYPE_BOOLEAN:
++                result += "_boolean";
++                break;
++            case JAVA_TYPE_INT:
++            case JAVA_TYPE_ENUM:
++                result += "_int";
++                break;
++            case JAVA_TYPE_LONG:
++                result += "_long";
++                break;
++            case JAVA_TYPE_FLOAT:
++                result += "_float";
++                break;
++            case JAVA_TYPE_DOUBLE:
++                result += "_double";
++                break;
++            case JAVA_TYPE_STRING:
++                result += "_String";
++                break;
++            case JAVA_TYPE_ATTRIBUTION_CHAIN:
++              result += "_AttributionChain";
++              break;
++            default:
++                result += "_UNKNOWN";
++                break;
++        }
++    }
++    return result;
++}
++
++static const char*
++java_type_signature(java_type_t type)
++{
++    switch (type) {
++        case JAVA_TYPE_BOOLEAN:
++            return "Z";
++        case JAVA_TYPE_INT:
++        case JAVA_TYPE_ENUM:
++            return "I";
++        case JAVA_TYPE_LONG:
++            return "J";
++        case JAVA_TYPE_FLOAT:
++            return "F";
++        case JAVA_TYPE_DOUBLE:
++            return "D";
++        case JAVA_TYPE_STRING:
++            return "Ljava/lang/String;";
++        default:
++            return "UNKNOWN";
++    }
++}
++
++static string
++jni_function_signature(const vector<java_type_t>& signature, const AtomDecl &attributionDecl)
++{
++    string result("(I");
++    for (vector<java_type_t>::const_iterator arg = signature.begin();
++        arg != signature.end(); arg++) {
++        if (*arg == JAVA_TYPE_ATTRIBUTION_CHAIN) {
++            for (auto chainField : attributionDecl.fields) {
++                result += "[";
++                result += java_type_signature(chainField.javaType);
++            }
++        } else {
++            result += java_type_signature(*arg);
++        }
++    }
++    result += ")I";
++    return result;
++}
++
++static int
++write_stats_log_jni(FILE* out, const string& java_method_name, const string& cpp_method_name,
++    const set<vector<java_type_t>>& signatures, const AtomDecl &attributionDecl)
++{
++    // Print write methods
++    for (set<vector<java_type_t>>::const_iterator signature = signatures.begin();
++        signature != signatures.end(); signature++) {
++        int argIndex;
++
++        fprintf(out, "static int\n");
++        fprintf(out, "%s(JNIEnv* env, jobject clazz UNUSED, jint code",
++                jni_function_name(java_method_name, *signature).c_str());
++        argIndex = 1;
++        for (vector<java_type_t>::const_iterator arg = signature->begin();
++                arg != signature->end(); arg++) {
++            if (*arg == JAVA_TYPE_ATTRIBUTION_CHAIN) {
++                for (auto chainField : attributionDecl.fields) {
++                    fprintf(out, ", %s %s", jni_array_type_name(chainField.javaType),
++                        chainField.name.c_str());
++                }
++            } else {
++                fprintf(out, ", %s arg%d", jni_type_name(*arg), argIndex);
++            }
++            argIndex++;
++        }
++        fprintf(out, ")\n");
++
++        fprintf(out, "{\n");
++
++        // Prepare strings
++        argIndex = 1;
++        bool hadStringOrChain = false;
++        for (vector<java_type_t>::const_iterator arg = signature->begin();
++                arg != signature->end(); arg++) {
++            if (*arg == JAVA_TYPE_STRING) {
++                hadStringOrChain = true;
++                fprintf(out, "    const char* str%d;\n", argIndex);
++                fprintf(out, "    if (arg%d != NULL) {\n", argIndex);
++                fprintf(out, "        str%d = env->GetStringUTFChars(arg%d, NULL);\n",
++                        argIndex, argIndex);
++                fprintf(out, "    } else {\n");
++                fprintf(out, "        str%d = NULL;\n", argIndex);
++                fprintf(out, "    }\n");
++            } else if (*arg == JAVA_TYPE_ATTRIBUTION_CHAIN) {
++                hadStringOrChain = true;
++                for (auto chainField : attributionDecl.fields) {
++                    fprintf(out, "    size_t %s_length = env->GetArrayLength(%s);\n",
++                        chainField.name.c_str(), chainField.name.c_str());
++                    if (chainField.name != attributionDecl.fields.front().name) {
++                        fprintf(out, "    if (%s_length != %s_length) {\n",
++                            chainField.name.c_str(),
++                            attributionDecl.fields.front().name.c_str());
++                        fprintf(out, "        return -EINVAL;\n");
++                        fprintf(out, "    }\n");
++                    }
++                    if (chainField.javaType == JAVA_TYPE_INT) {
++                        fprintf(out, "    jint* %s_array = env->GetIntArrayElements(%s, NULL);\n",
++                            chainField.name.c_str(), chainField.name.c_str());
++                    } else if (chainField.javaType == JAVA_TYPE_STRING) {
++                        fprintf(out, "    std::vector<%s> %s_vec;\n",
++                            cpp_type_name(chainField.javaType), chainField.name.c_str());
++                        fprintf(out, "    std::vector<ScopedUtfChars*> scoped_%s_vec;\n",
++                            chainField.name.c_str());
++                        fprintf(out, "    for (size_t i = 0; i < %s_length; ++i) {\n",
++                            chainField.name.c_str());
++                        fprintf(out, "        jstring jstr = "
++                            "(jstring)env->GetObjectArrayElement(%s, i);\n",
++                             chainField.name.c_str());
++                        fprintf(out, "        if (jstr == NULL) {\n");
++                        fprintf(out, "            %s_vec.push_back(NULL);\n",
++                            chainField.name.c_str());
++                        fprintf(out, "        } else {\n");
++                        fprintf(out, "            ScopedUtfChars* scoped_%s = "
++                            "new ScopedUtfChars(env, jstr);\n",
++                             chainField.name.c_str());
++                        fprintf(out, "            %s_vec.push_back(scoped_%s->c_str());\n",
++                                chainField.name.c_str(), chainField.name.c_str());
++                        fprintf(out, "            scoped_%s_vec.push_back(scoped_%s);\n",
++                                chainField.name.c_str(), chainField.name.c_str());
++                        fprintf(out, "        }\n");
++                        fprintf(out, "    }\n");
++                    }
++                    fprintf(out, "\n");
++                }
++            }
++            argIndex++;
++        }
++        // Emit this to quiet the unused parameter warning if there were no strings or attribution
++        // chains.
++        if (!hadStringOrChain) {
++            fprintf(out, "    (void)env;\n");
++        }
++
++        // stats_write call
++        argIndex = 1;
++        fprintf(out, "   int ret =  android::util::%s(code", cpp_method_name.c_str());
++        for (vector<java_type_t>::const_iterator arg = signature->begin();
++                arg != signature->end(); arg++) {
++            if (*arg == JAVA_TYPE_ATTRIBUTION_CHAIN) {
++                for (auto chainField : attributionDecl.fields) {
++                    if (chainField.javaType == JAVA_TYPE_INT) {
++                        fprintf(out, ", (const %s*)%s_array, %s_length",
++                            cpp_type_name(chainField.javaType),
++                            chainField.name.c_str(), chainField.name.c_str());
++                    } else if (chainField.javaType == JAVA_TYPE_STRING) {
++                        fprintf(out, ", %s_vec", chainField.name.c_str());
++                    }
++                }
++            } else {
++                const char *argName = (*arg == JAVA_TYPE_STRING) ? "str" : "arg";
++                fprintf(out, ", (%s)%s%d", cpp_type_name(*arg), argName, argIndex);
++            }
++            argIndex++;
++        }
++        fprintf(out, ");\n");
++        fprintf(out, "\n");
++
++        // Clean up strings
++        argIndex = 1;
++        for (vector<java_type_t>::const_iterator arg = signature->begin();
++                arg != signature->end(); arg++) {
++            if (*arg == JAVA_TYPE_STRING) {
++                fprintf(out, "    if (str%d != NULL) {\n", argIndex);
++                fprintf(out, "        env->ReleaseStringUTFChars(arg%d, str%d);\n",
++                        argIndex, argIndex);
++                fprintf(out, "    }\n");
++            } else if (*arg == JAVA_TYPE_ATTRIBUTION_CHAIN) {
++                for (auto chainField : attributionDecl.fields) {
++                    if (chainField.javaType == JAVA_TYPE_INT) {
++                        fprintf(out, "    env->ReleaseIntArrayElements(%s, %s_array, 0);\n",
++                            chainField.name.c_str(), chainField.name.c_str());
++                    } else if (chainField.javaType == JAVA_TYPE_STRING) {
++                        fprintf(out, "    for (size_t i = 0; i < scoped_%s_vec.size(); ++i) {\n",
++                            chainField.name.c_str());
++                        fprintf(out, "        delete scoped_%s_vec[i];\n", chainField.name.c_str());
++                        fprintf(out, "    }\n");
++                    }
++                }
++            }
++            argIndex++;
++        }
++        fprintf(out, "    return ret;\n");
++
++        fprintf(out, "}\n");
++        fprintf(out, "\n");
++    }
++
++
++    return 0;
++}
++
++void write_jni_registration(FILE* out, const string& java_method_name,
++    const set<vector<java_type_t>>& signatures, const AtomDecl &attributionDecl) {
++    for (set<vector<java_type_t>>::const_iterator signature = signatures.begin();
++            signature != signatures.end(); signature++) {
++        fprintf(out, "    { \"%s\", \"%s\", (void*)%s },\n",
++            java_method_name.c_str(),
++            jni_function_signature(*signature, attributionDecl).c_str(),
++            jni_function_name(java_method_name, *signature).c_str());
++    }
++}
++
++static int
++write_stats_log_jni(FILE* out, const Atoms& atoms, const AtomDecl &attributionDecl)
++{
++    // Print prelude
++    fprintf(out, "// This file is autogenerated\n");
++    fprintf(out, "\n");
++
++    fprintf(out, "#include <statslog.h>\n");
++    fprintf(out, "\n");
++    fprintf(out, "#include <nativehelper/JNIHelp.h>\n");
++    fprintf(out, "#include <nativehelper/ScopedUtfChars.h>\n");
++    fprintf(out, "#include <utils/Vector.h>\n");
++    fprintf(out, "#include \"core_jni_helpers.h\"\n");
++    fprintf(out, "#include \"jni.h\"\n");
++    fprintf(out, "\n");
++    fprintf(out, "#define UNUSED  __attribute__((__unused__))\n");
++    fprintf(out, "\n");
++
++    fprintf(out, "namespace android {\n");
++    fprintf(out, "\n");
++
++    write_stats_log_jni(out, "write", "stats_write", atoms.signatures, attributionDecl);
++    write_stats_log_jni(out, "write_non_chained", "stats_write_non_chained",
++        atoms.non_chained_signatures, attributionDecl);
++
++    // Print registration function table
++    fprintf(out, "/*\n");
++    fprintf(out, " * JNI registration.\n");
++    fprintf(out, " */\n");
++    fprintf(out, "static const JNINativeMethod gRegisterMethods[] = {\n");
++    write_jni_registration(out, "write", atoms.signatures, attributionDecl);
++    write_jni_registration(out, "write_non_chained", atoms.non_chained_signatures, attributionDecl);
++    fprintf(out, "};\n");
++    fprintf(out, "\n");
++
++    // Print registration function
++    fprintf(out, "int register_android_util_StatsLog(JNIEnv* env) {\n");
++    fprintf(out, "    return RegisterMethodsOrDie(\n");
++    fprintf(out, "            env,\n");
++    fprintf(out, "            \"android/util/StatsLog\",\n");
++    fprintf(out, "            gRegisterMethods, NELEM(gRegisterMethods));\n");
++    fprintf(out, "}\n");
++
++    fprintf(out, "\n");
++    fprintf(out, "} // namespace android\n");
++    return 0;
++}
++
++static void
++print_usage()
++{
++    fprintf(stderr, "usage: stats-log-api-gen OPTIONS\n");
++    fprintf(stderr, "\n");
++    fprintf(stderr, "OPTIONS\n");
++    fprintf(stderr, "  --cpp FILENAME       the header file to output\n");
++    fprintf(stderr, "  --header FILENAME    the cpp file to output\n");
++    fprintf(stderr, "  --help               this message\n");
++    fprintf(stderr, "  --java FILENAME      the java file to output\n");
++    fprintf(stderr, "  --jni FILENAME       the jni file to output\n");
++}
++
++/**
++ * Do the argument parsing and execute the tasks.
++ */
++static int
++run(int argc, char const*const* argv)
++{
++    string cppFilename;
++    string headerFilename;
++    string javaFilename;
++    string jniFilename;
++
++    int index = 1;
++    while (index < argc) {
++        if (0 == strcmp("--help", argv[index])) {
++            print_usage();
++            return 0;
++        } else if (0 == strcmp("--cpp", argv[index])) {
++            index++;
++            if (index >= argc) {
++                print_usage();
++                return 1;
++            }
++            cppFilename = argv[index];
++        } else if (0 == strcmp("--header", argv[index])) {
++            index++;
++            if (index >= argc) {
++                print_usage();
++                return 1;
++            }
++            headerFilename = argv[index];
++        } else if (0 == strcmp("--java", argv[index])) {
++            index++;
++            if (index >= argc) {
++                print_usage();
++                return 1;
++            }
++            javaFilename = argv[index];
++        } else if (0 == strcmp("--jni", argv[index])) {
++            index++;
++            if (index >= argc) {
++                print_usage();
++                return 1;
++            }
++            jniFilename = argv[index];
++        }
++        index++;
++    }
++
++    if (cppFilename.size() == 0
++            && headerFilename.size() == 0
++            && javaFilename.size() == 0
++            && jniFilename.size() == 0) {
++        print_usage();
++        return 1;
++    }
++
++    // Collate the parameters
++    Atoms atoms;
++    int errorCount = collate_atoms(Atom::descriptor(), &atoms);
++    if (errorCount != 0) {
++        return 1;
++    }
++
++    AtomDecl attributionDecl;
++    vector<java_type_t> attributionSignature;
++    collate_atom(android::os::statsd::AttributionNode::descriptor(),
++                 &attributionDecl, &attributionSignature);
++
++    // Write the .cpp file
++    if (cppFilename.size() != 0) {
++        FILE* out = fopen(cppFilename.c_str(), "w");
++        if (out == NULL) {
++            fprintf(stderr, "Unable to open file for write: %s\n", cppFilename.c_str());
++            return 1;
++        }
++        errorCount = android::stats_log_api_gen::write_stats_log_cpp(
++            out, atoms, attributionDecl);
++        fclose(out);
++    }
++
++    // Write the .h file
++    if (headerFilename.size() != 0) {
++        FILE* out = fopen(headerFilename.c_str(), "w");
++        if (out == NULL) {
++            fprintf(stderr, "Unable to open file for write: %s\n", headerFilename.c_str());
++            return 1;
++        }
++        errorCount = android::stats_log_api_gen::write_stats_log_header(
++            out, atoms, attributionDecl);
++        fclose(out);
++    }
++
++    // Write the .java file
++    if (javaFilename.size() != 0) {
++        FILE* out = fopen(javaFilename.c_str(), "w");
++        if (out == NULL) {
++            fprintf(stderr, "Unable to open file for write: %s\n", javaFilename.c_str());
++            return 1;
++        }
++        errorCount = android::stats_log_api_gen::write_stats_log_java(
++            out, atoms, attributionDecl);
++        fclose(out);
++    }
++
++    // Write the jni file
++    if (jniFilename.size() != 0) {
++        FILE* out = fopen(jniFilename.c_str(), "w");
++        if (out == NULL) {
++            fprintf(stderr, "Unable to open file for write: %s\n", jniFilename.c_str());
++            return 1;
++        }
++        errorCount = android::stats_log_api_gen::write_stats_log_jni(
++            out, atoms, attributionDecl);
++        fclose(out);
++    }
++
++    return 0;
++}
++
++}
++}
++
++/**
++ * Main.
++ */
++int
++main(int argc, char const*const* argv)
++{
++    GOOGLE_PROTOBUF_VERIFY_VERSION;
++
++    return android::stats_log_api_gen::run(argc, argv);
++}
+diff --git a/tools/stats_log_api_gen/test.proto b/tools/stats_log_api_gen/test.proto
+new file mode 100644
+index 0000000000000000000000000000000000000000..264a865e3b3993721f0ad1fedefdfcb18b24e2d7
+--- /dev/null
++++ b/tools/stats_log_api_gen/test.proto
+@@ -0,0 +1,176 @@
++/*
++ * Copyright (C) 2017 The Android Open Source Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++syntax = "proto2";
++
++import "frameworks/base/cmds/statsd/src/atoms.proto";
++import "frameworks/base/cmds/statsd/src/atom_field_options.proto";
++
++package android.stats_log_api_gen;
++
++message IntAtom {
++    optional int32 field1 = 1;
++}
++
++message AnotherIntAtom {
++    optional int32 field1 = 1;
++}
++
++message OutOfOrderAtom {
++    optional int32 field2 = 2;
++    optional int32 field1 = 1;
++}
++
++enum AnEnum {
++    VALUE0 = 0;
++    VALUE1 = 1;
++}
++
++message AllTypesAtom {
++  repeated android.os.statsd.AttributionNode attribution_chain = 1;
++  optional double double_field = 2;
++  optional float float_field = 3;
++  optional int64 int64_field = 4;
++  optional uint64 uint64_field = 5;
++  optional int32 int32_field = 6;
++  optional fixed64 fixed64_field = 7;
++  optional fixed32 fixed32_field = 8;
++  optional bool bool_field = 9;
++  optional string string_field = 10;
++  optional uint32 uint32_field = 11;
++  optional AnEnum enum_field = 12;
++  optional sfixed32 sfixed32_field = 13;
++  optional sfixed64 sfixed64_field = 14;
++  optional sint32 sint32_field = 15;
++  optional sint64 sint64_field = 16;
++}
++
++message Event {
++    oneof event {
++        OutOfOrderAtom out_of_order_atom = 2;
++        IntAtom int_atom = 1;
++        AnotherIntAtom another_int_atom = 3;
++        AllTypesAtom all_types_atom = 4;
++    }
++}
++
++message BadTypesAtom {
++    optional IntAtom bad_int_atom = 1;
++    optional bytes bad_bytes = 2;
++}
++
++message BadTypesEvent {
++    oneof event {
++        BadTypesAtom bad_types_atom = 1;
++    }
++}
++
++message BadSkippedFieldSingleAtom {
++    optional int32 field2 = 2;
++}
++
++message BadSkippedFieldSingle {
++    oneof event {
++        BadSkippedFieldSingleAtom bad = 1;
++    }
++}
++
++message BadSkippedFieldMultipleAtom {
++    optional int32 field1 = 1;
++    optional int32 field3 = 3;
++    optional int32 field5 = 5;
++}
++
++message BadSkippedFieldMultiple {
++    oneof event {
++        BadSkippedFieldMultipleAtom bad = 1;
++    }
++}
++
++message BadAttributionNodePositionAtom {
++  optional int32 field1 = 1;
++  repeated android.os.statsd.AttributionNode attribution = 2;
++}
++
++message BadAttributionNodePosition {
++  oneof event { BadAttributionNodePositionAtom bad = 1; }
++}
++
++message BadStateAtoms {
++    oneof event {
++        BadStateAtom1 bad1 = 1;
++        BadStateAtom2 bad2 = 2;
++        BadStateAtom3 bad3 = 3;
++    }
++}
++
++message GoodStateAtoms {
++    oneof event {
++        GoodStateAtom1 good1 = 1;
++        GoodStateAtom2 good2 = 2;
++    }
++}
++
++// The atom has only primary field but no exclusive state field.
++message BadStateAtom1 {
++    optional int32 uid = 1
++            [(android.os.statsd.stateFieldOption).option = PRIMARY];
++}
++
++// Only primative types can be annotated.
++message BadStateAtom2 {
++    repeated android.os.statsd.AttributionNode attribution = 1
++            [(android.os.statsd.stateFieldOption).option = PRIMARY];
++    optional int32 state = 2
++            [(android.os.statsd.stateFieldOption).option = EXCLUSIVE];
++}
++
++// Having 2 exclusive state field in the atom means the atom is badly designed.
++// E.g., putting bluetooth state and wifi state in the same atom.
++message BadStateAtom3 {
++    optional int32 uid = 1
++            [(android.os.statsd.stateFieldOption).option = PRIMARY];
++    optional int32 state = 2
++            [(android.os.statsd.stateFieldOption).option = EXCLUSIVE];
++    optional int32 state2 = 3
++            [(android.os.statsd.stateFieldOption).option = EXCLUSIVE];
++}
++
++message GoodStateAtom1 {
++    optional int32 uid = 1
++            [(android.os.statsd.stateFieldOption).option = PRIMARY];
++    optional int32 state = 2
++            [(android.os.statsd.stateFieldOption).option = EXCLUSIVE];
++}
++
++// Atoms can have exclusive state field, but no primary field. That means
++// the state is globally exclusive (e.g., DisplayState).
++message GoodStateAtom2 {
++    optional int32 uid = 1;
++    optional int32 state = 2
++            [(android.os.statsd.stateFieldOption).option = EXCLUSIVE];
++}
++
++// We can have more than one primary fields. That means their combination is a
++// primary key.
++message GoodStateAtom3 {
++    optional int32 uid = 1
++            [(android.os.statsd.stateFieldOption).option = PRIMARY];
++    optional int32 tid = 2
++            [(android.os.statsd.stateFieldOption).option = PRIMARY];
++    optional int32 state = 3
++            [(android.os.statsd.stateFieldOption).option = EXCLUSIVE];
++}
+\ No newline at end of file
+diff --git a/tools/stats_log_api_gen/test_collation.cpp b/tools/stats_log_api_gen/test_collation.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..1936d9667948b8b447dba16360b1e1858713d9cc
+--- /dev/null
++++ b/tools/stats_log_api_gen/test_collation.cpp
+@@ -0,0 +1,216 @@
++/*
++ * Copyright (C) 2017, The Android Open Source Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include <gtest/gtest.h>
++
++#include "frameworks/base/tools/stats_log_api_gen/test.pb.h"
++#include "Collation.h"
++
++#include <stdio.h>
++
++namespace android {
++namespace stats_log_api_gen {
++
++using std::map;
++using std::set;
++using std::vector;
++
++/**
++ * Return whether the set contains a vector of the elements provided.
++ */
++static bool
++set_contains_vector(const set<vector<java_type_t>>& s, int count, ...)
++{
++    va_list args;
++    vector<java_type_t> v;
++
++    va_start(args, count);
++    for (int i=0; i<count; i++) {
++        v.push_back((java_type_t)va_arg(args, int));
++    }
++    va_end(args);
++
++    return s.find(v) != s.end();
++}
++
++/**
++ * Expect that the provided set contains the elements provided.
++ */
++#define EXPECT_SET_CONTAINS_SIGNATURE(s, ...) \
++    do { \
++        int count = sizeof((int[]){__VA_ARGS__})/sizeof(int); \
++        EXPECT_TRUE(set_contains_vector(s, count, __VA_ARGS__)); \
++    } while(0)
++
++/** Expects that the provided atom has no enum values for any field. */
++#define EXPECT_NO_ENUM_FIELD(atom) \
++    do { \
++        for (vector<AtomField>::const_iterator field = atom->fields.begin(); \
++             field != atom->fields.end(); field++) { \
++            EXPECT_TRUE(field->enumValues.empty()); \
++        } \
++    } while(0)
++
++/** Expects that exactly one specific field has expected enum values. */
++#define EXPECT_HAS_ENUM_FIELD(atom, field_name, values)        \
++    do { \
++        for (vector<AtomField>::const_iterator field = atom->fields.begin(); \
++             field != atom->fields.end(); field++) { \
++            if (field->name == field_name) { \
++                EXPECT_EQ(field->enumValues, values); \
++            } else { \
++                EXPECT_TRUE(field->enumValues.empty()); \
++            } \
++        } \
++    } while(0)
++
++
++/**
++ * Test a correct collation, with all the types.
++ */
++TEST(CollationTest, CollateStats) {
++    Atoms atoms;
++    int errorCount = collate_atoms(Event::descriptor(), &atoms);
++
++    EXPECT_EQ(0, errorCount);
++    EXPECT_EQ(3ul, atoms.signatures.size());
++
++    // IntAtom, AnotherIntAtom
++    EXPECT_SET_CONTAINS_SIGNATURE(atoms.signatures, JAVA_TYPE_INT);
++
++    // OutOfOrderAtom
++    EXPECT_SET_CONTAINS_SIGNATURE(atoms.signatures, JAVA_TYPE_INT, JAVA_TYPE_INT);
++
++    // AllTypesAtom
++    EXPECT_SET_CONTAINS_SIGNATURE(
++        atoms.signatures,
++        JAVA_TYPE_ATTRIBUTION_CHAIN, // AttributionChain
++        JAVA_TYPE_DOUBLE,            // double
++        JAVA_TYPE_FLOAT,             // float
++        JAVA_TYPE_LONG,              // int64
++        JAVA_TYPE_LONG,              // uint64
++        JAVA_TYPE_INT,               // int32
++        JAVA_TYPE_LONG,              // fixed64
++        JAVA_TYPE_INT,               // fixed32
++        JAVA_TYPE_BOOLEAN,           // bool
++        JAVA_TYPE_STRING,            // string
++        JAVA_TYPE_INT,               // uint32
++        JAVA_TYPE_INT,               // AnEnum
++        JAVA_TYPE_INT,               // sfixed32
++        JAVA_TYPE_LONG,              // sfixed64
++        JAVA_TYPE_INT,               // sint32
++        JAVA_TYPE_LONG               // sint64
++    );
++
++    set<AtomDecl>::const_iterator atom = atoms.decls.begin();
++    EXPECT_EQ(1, atom->code);
++    EXPECT_EQ("int_atom", atom->name);
++    EXPECT_EQ("IntAtom", atom->message);
++    EXPECT_NO_ENUM_FIELD(atom);
++    atom++;
++
++    EXPECT_EQ(2, atom->code);
++    EXPECT_EQ("out_of_order_atom", atom->name);
++    EXPECT_EQ("OutOfOrderAtom", atom->message);
++    EXPECT_NO_ENUM_FIELD(atom);
++    atom++;
++
++    EXPECT_EQ(3, atom->code);
++    EXPECT_EQ("another_int_atom", atom->name);
++    EXPECT_EQ("AnotherIntAtom", atom->message);
++    EXPECT_NO_ENUM_FIELD(atom);
++    atom++;
++
++    EXPECT_EQ(4, atom->code);
++    EXPECT_EQ("all_types_atom", atom->name);
++    EXPECT_EQ("AllTypesAtom", atom->message);
++    map<int, string> enumValues;
++    enumValues[0] = "VALUE0";
++    enumValues[1] = "VALUE1";
++    EXPECT_HAS_ENUM_FIELD(atom, "enum_field", enumValues);
++    atom++;
++
++    EXPECT_TRUE(atom == atoms.decls.end());
++}
++
++/**
++ * Test that event class that contains stuff other than the atoms is rejected.
++ */
++TEST(CollationTest, NonMessageTypeFails) {
++    Atoms atoms;
++    int errorCount = collate_atoms(IntAtom::descriptor(), &atoms);
++
++    EXPECT_EQ(1, errorCount);
++}
++
++/**
++ * Test that atoms that have non-primitive types are rejected.
++ */
++TEST(CollationTest, FailOnBadTypes) {
++    Atoms atoms;
++    int errorCount = collate_atoms(BadTypesEvent::descriptor(), &atoms);
++
++    EXPECT_EQ(2, errorCount);
++}
++
++/**
++ * Test that atoms that skip field numbers (in the first position) are rejected.
++ */
++TEST(CollationTest, FailOnSkippedFieldsSingle) {
++    Atoms atoms;
++    int errorCount = collate_atoms(BadSkippedFieldSingle::descriptor(), &atoms);
++
++    EXPECT_EQ(1, errorCount);
++}
++
++/**
++ * Test that atoms that skip field numbers (not in the first position, and multiple
++ * times) are rejected.
++ */
++TEST(CollationTest, FailOnSkippedFieldsMultiple) {
++    Atoms atoms;
++    int errorCount = collate_atoms(BadSkippedFieldMultiple::descriptor(), &atoms);
++
++    EXPECT_EQ(2, errorCount);
++}
++
++/**
++ * Test that atoms that have an attribution chain not in the first position are
++ * rejected.
++ */
++TEST(CollationTest, FailBadAttributionNodePosition) {
++  Atoms atoms;
++  int errorCount =
++      collate_atoms(BadAttributionNodePosition::descriptor(), &atoms);
++
++  EXPECT_EQ(1, errorCount);
++}
++
++TEST(CollationTest, FailOnBadStateAtomOptions) {
++    Atoms atoms;
++    int errorCount = collate_atoms(BadStateAtoms::descriptor(), &atoms);
++
++    EXPECT_EQ(3, errorCount);
++}
++
++TEST(CollationTest, PassOnGoodStateAtomOptions) {
++    Atoms atoms;
++    int errorCount = collate_atoms(GoodStateAtoms::descriptor(), &atoms);
++    EXPECT_EQ(0, errorCount);
++}
++
++}  // namespace stats_log_api_gen
++}  // namespace android
+\ No newline at end of file

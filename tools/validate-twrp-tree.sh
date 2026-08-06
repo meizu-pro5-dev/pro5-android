@@ -12,6 +12,9 @@ recovery_init="$device_root/recovery/root/init.recovery.m86.rc"
 kernel_config="$project_root/kernel/meizu/m86/arch/arm64/configs/cm_pro5_defconfig"
 stock_lock="$project_root/locks/stock-flyme-8.0.5.0A.sha256"
 twrp_build_worker="$project_root/remote/worker-build-twrp.sh"
+twrp_install_worker="$project_root/remote/install-twrp-trees.sh"
+framework_patch="$project_root/patches/twrp-frameworks-base/0001-restore-aosp-p-stats-log-api-gen.patch"
+framework_patch_readme="$project_root/patches/twrp-frameworks-base/README.md"
 
 for required_file in \
   "$board_config" \
@@ -22,7 +25,10 @@ for required_file in \
   "$device_root/recovery/root/ueventd.m86.rc" \
   "$kernel_config" \
   "$stock_lock" \
-  "$twrp_build_worker"; do
+  "$twrp_build_worker" \
+  "$twrp_install_worker" \
+  "$framework_patch" \
+  "$framework_patch_readme"; do
   if [[ ! -s "$required_file" ]]; then
     printf 'Missing required TWRP source: %s\n' "$required_file" >&2
     exit 1
@@ -80,6 +86,17 @@ require_fixed 'CONFIG_RTC_CLASS=y' "$kernel_config"
 require_fixed 'CONFIG_RTC_DRV_SEC=y' "$kernel_config"
 require_fixed 'export BUILD_DATETIME=1538238534' "$twrp_build_worker"
 require_fixed "localedef -i en_US -f UTF-8 en_US.UTF-8" "$twrp_build_worker"
+require_fixed 'twrp-frameworks-base-stats-log-api-gen.patch' \
+  "$twrp_build_worker"
+require_fixed 'git -C "$framework_base" apply --check "$framework_patch"' \
+  "$twrp_install_worker"
+require_fixed 'git -C "$framework_base" apply --reverse --check "$framework_patch"' \
+  "$twrp_install_worker"
+require_fixed 'tools/stats_log_api_gen/Android.bp' "$framework_patch"
+require_fixed 'name: "stats-log-api-gen"' "$framework_patch"
+require_fixed 'android-9.0.0_r47' "$framework_patch_readme"
+require_fixed 'ed2e8eacedf554419dcc45e5ecca2a6395b740f4de53b7bb610463fe2184081c' \
+  "$framework_patch_readme"
 require_fixed 'build_twrp_pass 1 "$first_out"' "$twrp_build_worker"
 require_fixed 'build_twrp_pass 2 "$second_out"' "$twrp_build_worker"
 require_fixed 'cmp --silent "$first_file" "$second_file"' \

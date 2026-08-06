@@ -62,6 +62,7 @@ if [[ ! -f "$source_root/kernel/meizu/m86/arch/arm64/configs/cm_pro5_defconfig" 
 fi
 
 stock_lock="$local_root/locks/stock-flyme-8.0.5.0A.sha256"
+framework_patch="$local_root/patches/twrp-frameworks-base/0001-restore-aosp-p-stats-log-api-gen.patch"
 touch_firmware="$source_root/device/meizu/m86/recovery/root/etc/firmware/st_fts.bin"
 expected_touch_hash="$(
   awk '$2 == "system.img/vendor/firmware/st_fts.bin" { print $1 }' \
@@ -69,6 +70,10 @@ expected_touch_hash="$(
 )"
 if [[ ! "$expected_touch_hash" =~ ^[0-9a-f]{64}$ ]]; then
   printf 'The stock lock has no unique STM touch firmware hash.\n' >&2
+  exit 1
+fi
+if [[ ! -s "$framework_patch" ]]; then
+  printf 'The reviewed TWRP frameworks/base patch is missing.\n' >&2
   exit 1
 fi
 if [[ ! -f "$touch_firmware" ]] || \
@@ -246,6 +251,8 @@ cp -a "$kernel_out/.config" "$artifact_dir/kernel.config"
 cp -a "$local_root/twrp/FLASHING.md" "$artifact_dir/FLASHING.md"
 cp -a "$local_root/locks/stock-flyme-8.0.5.0A.sha256" \
   "$artifact_dir/stock-flyme-8.0.5.0A.sha256"
+cp -a "$framework_patch" \
+  "$artifact_dir/twrp-frameworks-base-stats-log-api-gen.patch"
 
 {
   printf 'result=byte-identical\n'
@@ -309,6 +316,8 @@ twrp_version="$(
   printf 'stock_base=Flyme 8.0.5.0A / Android 7 / API 24\n'
   printf 'proprietary_recovery_blobs=etc/firmware/st_fts.bin\n'
   printf 'st_fts_sha256=%s\n' "$expected_touch_hash"
+  printf 'frameworks_base_patch_sha256=%s\n' \
+    "$(sha256sum "$framework_patch" | awk '{ print $1 }')"
   printf 'recovery_partition_limit=33550336\n'
   printf 'dtb_packaging=raw separate partition\n'
   printf 'ramdisk_compression=gzip only\n'
