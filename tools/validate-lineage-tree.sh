@@ -10,6 +10,7 @@ android_makefile="$device_root/Android.mk"
 device_makefile="$device_root/device.mk"
 system_prop="$device_root/system.prop"
 usb_rc="$device_root/rootdir/etc/init.m86.usb.rc"
+ueventd_rc="$device_root/rootdir/etc/ueventd.m86.rc"
 recovery_fstab="$device_root/rootdir/etc/recovery.fstab"
 releasetools="$device_root/releasetools/releasetools.py"
 kernel_config="$project_root/kernel/meizu/m86/arch/arm64/configs/cm_pro5_defconfig"
@@ -22,6 +23,7 @@ for required_file in \
   "$device_makefile" \
   "$system_prop" \
   "$usb_rc" \
+  "$ueventd_rc" \
   "$recovery_fstab" \
   "$releasetools" \
   "$kernel_config" \
@@ -87,6 +89,12 @@ require_fixed 'write /sys/class/android_usb/android0/idProduct 200B' "$usb_rc"
 require_fixed 'write /sys/class/android_usb/android0/idProduct 200C' "$usb_rc"
 require_fixed 'write /sys/class/android_usb/android0/idProduct 6863' "$usb_rc"
 require_fixed 'write /sys/class/android_usb/android0/idProduct 6864' "$usb_rc"
+require_fixed '/dev/mali0                   0666   system      system' \
+  "$ueventd_rc"
+require_fixed '/dev/ion                     0666   system      system' \
+  "$ueventd_rc"
+require_fixed '/dev/video23                 0660   media       graphics' \
+  "$ueventd_rc"
 require_fixed 'ifneq ($(filter samsung meizu,$(BOARD_VENDOR)),)' "$platform_patch"
 require_fixed 'ifneq ($(TARGET_DEVICE_IS_M86),true)' "$platform_patch"
 require_fixed 'CONFIG_CMDLINE="androidboot.hardware=m86 androidboot.selinux=permissive"' \

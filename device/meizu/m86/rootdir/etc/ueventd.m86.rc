@@ -4,6 +4,22 @@
 /dev/p61                     0660   nfc         nfc
 /dev/fpc1020                 0660   system      system
 /dev/tspdrv                  0660   system      system
-/dev/ion                     0660   system      graphics
+
+# Exynos display/GPU nodes. These ownerships are common to the verified Flyme
+# 8 m86 ramdisk and the Android 10 universal7420 ueventd reference. The Mali
+# driver requires per-application access; composition/scaler nodes remain
+# limited to the system/media graphics groups.
+/dev/mali0                   0666   system      system
+/dev/ion                     0666   system      system
+/dev/ump                     0666   system      graphics
+/dev/exynos-mem              0660   system      graphics
+/dev/fimg2d                  0666   system      graphics
 /dev/dri/card0               0660   system      graphics
 /dev/graphics/fb0            0660   system      graphics
+/dev/video20                 0660   system      system
+/dev/video23                 0660   media       graphics
+/dev/video24                 0660   media       graphics
+/dev/video26                 0660   media       graphics
+/dev/video27                 0660   media       graphics
+/dev/video50                 0660   media       graphics
+/dev/video51                 0660   media       graphics
