@@ -26,6 +26,10 @@ No generated image is considered reproducible unless its Lineage manifest,
 reference revisions, local Git commit, build command, log, size, and SHA-256
 are retained locally.
 
+The current proprietary-file and platform-ABI boundary is tracked in
+`docs/blob-abi.md`; a matching SONAME alone is never treated as compatibility
+proof.
+
 ## Boot-chain boundary
 
 The Samsung donor cannot supply boot-image settings. PRO 5 requires:
