@@ -60,6 +60,38 @@ for generated in Android.mk BoardConfigVendor.mk m86-vendor.mk; do
   fi
 done
 
+vendor_makefile="$vendor_tree/m86-vendor.mk"
+copy_rule_count="$(
+  grep -c '^    vendor/meizu/m86/proprietary/' "$vendor_makefile"
+)"
+if [[ "$copy_rule_count" != "$expected_count" ]]; then
+  printf 'Expected %s generated copy rules, found %s.\n' \
+    "$expected_count" "$copy_rule_count" >&2
+  exit 1
+fi
+
+# extract_utils maps paths beginning with vendor/ below TARGET_COPY_OUT_VENDOR
+# and all other stock-system paths below TARGET_COPY_OUT_SYSTEM. Check every
+# generated rule so firmware can never silently become vendor/vendor/*.
+while IFS= read -r relative_path; do
+  if [[ "$relative_path" == vendor/* ]]; then
+    output_path="\$(TARGET_COPY_OUT_VENDOR)/${relative_path#vendor/}"
+  else
+    output_path="\$(TARGET_COPY_OUT_SYSTEM)/$relative_path"
+  fi
+  expected_rule="vendor/meizu/m86/proprietary/$relative_path:$output_path"
+  if ! grep -F -q -- "$expected_rule" "$vendor_makefile"; then
+    printf 'Generated vendor mapping is missing or incorrect: %s\n' \
+      "$expected_rule" >&2
+    exit 1
+  fi
+done < <(awk 'NF && $1 !~ /^#/ { print }' "$blob_list")
+
+if grep -F -q -- '\$(TARGET_COPY_OUT_VENDOR)/vendor/' "$vendor_makefile"; then
+  printf 'Generated vendor mapping contains a duplicated vendor/ prefix.\n' >&2
+  exit 1
+fi
+
 (
   cd "$vendor_tree/proprietary"
   find . -type f -print0 |

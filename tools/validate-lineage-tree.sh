@@ -16,6 +16,7 @@ releasetools="$device_root/releasetools/releasetools.py"
 kernel_config="$project_root/kernel/meizu/m86/arch/arm64/configs/cm_pro5_defconfig"
 platform_patch="$project_root/patches/device-samsung-universal7420-common/0001-target-add-meizu-m86.patch"
 build_worker="$project_root/remote/worker-build.sh"
+vendor_worker="$project_root/remote/prepare-vendor.sh"
 
 for required_file in \
   "$board_config" \
@@ -28,7 +29,8 @@ for required_file in \
   "$releasetools" \
   "$kernel_config" \
   "$platform_patch" \
-  "$build_worker"; do
+  "$build_worker" \
+  "$vendor_worker"; do
   if [[ ! -s "$required_file" ]]; then
     printf 'Missing required LineageOS source: %s\n' "$required_file" >&2
     exit 1
@@ -106,6 +108,10 @@ require_fixed 'vendor_blob_count="$(wc -l < "$vendor_blob_lock"' \
   "$build_worker"
 require_fixed 'sha256sum --quiet -c "$vendor_blob_lock"' "$build_worker"
 require_fixed 'm86-proprietary-sha256s.txt' "$build_worker"
+require_fixed 'copy_rule_count="$(' "$vendor_worker"
+require_fixed 'expected_rule="vendor/meizu/m86/proprietary/$relative_path:$output_path"' \
+  "$vendor_worker"
+require_fixed '\$(TARGET_COPY_OUT_VENDOR)/vendor/' "$vendor_worker"
 require_fixed 'manifest_tmp="${manifest_lock}.tmp"' \
   "$project_root/remote/worker-sync-source.sh"
 require_fixed 'mv "$manifest_tmp" "$manifest_lock"' \
