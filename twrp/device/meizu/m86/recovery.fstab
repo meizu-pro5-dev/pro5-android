@@ -1,0 +1,26 @@
+# TWRP v1 entries use explicit flags. Android v2 /devices entries at the end
+# let TWRP discover removable media without guessing UFS/SCSI block numbers.
+
+/system         ext4  /dev/block/platform/15570000.ufs/by-name/system      flags=display="System";backup=1
+/system_image   emmc  /dev/block/platform/15570000.ufs/by-name/system      flags=display="System Image";backup=1;flashimg=1
+/cache          ext4  /dev/block/platform/15570000.ufs/by-name/cache       flags=display="Cache";backup=1
+/data           ext4  /dev/block/platform/15570000.ufs/by-name/userdata    flags=display="Data";encryptable=/cache/metadata;storage;settingsstorage;wipeingui
+
+# Device-specific filesystems are visible for read-only backup. They are not
+# offered as wipe targets; restore is intentionally left to a reviewed rescue
+# procedure because EFS/MNV contain unique radio identity and calibration.
+/custom         ext4  /dev/block/platform/15570000.ufs/by-name/custom      flags=display="Custom";backup=1;fsflags=ro,noload
+/efs            ext4  /dev/block/platform/15570000.ufs/by-name/efs         flags=display="EFS";backup=1;fsflags=ro,noload
+/mnv            ext4  /dev/block/platform/15570000.ufs/by-name/mnv         flags=display="MNV";backup=1;fsflags=ro,noload
+
+# Reviewed image targets. Bootloader, ldfw, param, proinfo, private and other
+# firmware/identity partitions are deliberately absent from the flash UI.
+/boot           emmc  /dev/block/platform/15570000.ufs/by-name/bootimg     flags=display="Boot";backup=1;flashimg=1
+/recovery       emmc  /dev/block/platform/15570000.ufs/by-name/recovery    flags=display="Recovery";backup=1;flashimg=1
+/dtb            emmc  /dev/block/platform/15570000.ufs/by-name/dtb         flags=display="Device Tree";backup=1;flashimg=1
+/dtb_backup     emmc  /dev/block/platform/15570000.ufs/by-name/dtb_backup  flags=display="Device Tree Backup";backup=1
+/bootlogo       emmc  /dev/block/platform/15570000.ufs/by-name/bootlogo    flags=display="Boot Logo";backup=1
+/misc           emmc  /dev/block/platform/15570000.ufs/by-name/misc
+
+/devices/15560000.dwmmc2/mmc_host/mmc0*                 /external_sd  auto  defaults  voldmanaged=sdcard1:auto,storage,removable,wipeingui,display="MicroSD"
+/devices/15400000.usb/15400000.dwc3/xhci-hcd*           /usb-otg      auto  defaults  voldmanaged=usb:auto,storage,removable,wipeingui,display="USB OTG"

@@ -1,0 +1,169 @@
+#!/usr/bin/env python3
+"""Inspect and optionally gate a classic Android boot image header."""
+
+from __future__ import annotations
+
+import argparse
+import struct
+import sys
+from pathlib import Path
+
+
+BOOT_MAGIC = b"ANDROID!"
+HEADER_FORMAT = "<8s10I16s512s32s1024s"
+HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
+
+
+def integer(value: str) -> int:
+    try:
+        return int(value, 0)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"invalid integer: {value}") from exc
+
+
+def align(value: int, page_size: int) -> int:
+    return (value + page_size - 1) // page_size * page_size
+
+
+def decode_c_string(value: bytes) -> str:
+    return value.split(b"\0", 1)[0].decode("utf-8", "replace")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("image", type=Path)
+    parser.add_argument("--expect-page-size", type=integer)
+    parser.add_argument("--expect-kernel-addr", type=integer)
+    parser.add_argument("--expect-ramdisk-addr", type=integer)
+    parser.add_argument("--expect-second-addr", type=integer)
+    parser.add_argument("--expect-tags-addr", type=integer)
+    parser.add_argument("--expect-second-size", type=integer)
+    parser.add_argument("--expect-dt-size", type=integer)
+    parser.add_argument("--expect-empty-cmdline", action="store_true")
+    parser.add_argument(
+        "--expect-ramdisk-compression",
+        choices=("gzip", "lzma", "xz", "lz4", "unknown"),
+    )
+    parser.add_argument("--max-size", type=integer)
+    return parser
+
+
+def main() -> int:
+    args = build_parser().parse_args()
+    image_size = args.image.stat().st_size
+    with args.image.open("rb") as image_file:
+        header = image_file.read(HEADER_SIZE)
+
+    if len(header) != HEADER_SIZE:
+        print(
+            f"image is too small for the {HEADER_SIZE}-byte v0 header: "
+            f"{image_size}",
+            file=sys.stderr,
+        )
+        return 1
+
+    unpacked = struct.unpack(HEADER_FORMAT, header)
+    magic = unpacked[0]
+    if magic != BOOT_MAGIC:
+        print(f"invalid boot magic: {magic!r}", file=sys.stderr)
+        return 1
+
+    (
+        kernel_size,
+        kernel_addr,
+        ramdisk_size,
+        ramdisk_addr,
+        second_size,
+        second_addr,
+        tags_addr,
+        page_size,
+        dt_size,
+        os_version_or_unused,
+    ) = unpacked[1:11]
+    name = decode_c_string(unpacked[11])
+    cmdline = decode_c_string(unpacked[12]) + decode_c_string(unpacked[14])
+
+    failures: list[str] = []
+    ramdisk_magic = b""
+    ramdisk_compression = "unknown"
+    if page_size < 512 or page_size & (page_size - 1):
+        failures.append(f"invalid page size: {page_size}")
+        packed_size = 0
+    else:
+        packed_size = align(HEADER_SIZE, page_size)
+        for component_size in (kernel_size, ramdisk_size, second_size, dt_size):
+            packed_size += align(component_size, page_size)
+        if image_size < packed_size:
+            failures.append(
+                f"truncated payload: file={image_size} calculated={packed_size}"
+            )
+        ramdisk_offset = align(HEADER_SIZE, page_size) + align(
+            kernel_size, page_size
+        )
+        with args.image.open("rb") as image_file:
+            image_file.seek(ramdisk_offset)
+            ramdisk_magic = image_file.read(8)
+        if ramdisk_magic.startswith(b"\x1f\x8b"):
+            ramdisk_compression = "gzip"
+        elif ramdisk_magic.startswith(b"\x5d\x00\x00"):
+            ramdisk_compression = "lzma"
+        elif ramdisk_magic.startswith(b"\xfd7zXZ\x00"):
+            ramdisk_compression = "xz"
+        elif ramdisk_magic.startswith((b"\x04\x22\x4d\x18", b"\x02\x21\x4c\x18")):
+            ramdisk_compression = "lz4"
+
+    expected_fields = (
+        ("page_size", page_size, args.expect_page_size),
+        ("kernel_addr", kernel_addr, args.expect_kernel_addr),
+        ("ramdisk_addr", ramdisk_addr, args.expect_ramdisk_addr),
+        ("second_addr", second_addr, args.expect_second_addr),
+        ("tags_addr", tags_addr, args.expect_tags_addr),
+        ("second_size", second_size, args.expect_second_size),
+        ("dt_size", dt_size, args.expect_dt_size),
+    )
+    for field_name, actual, expected in expected_fields:
+        if expected is not None and actual != expected:
+            failures.append(
+                f"{field_name}: expected {expected:#x}, found {actual:#x}"
+            )
+    if args.expect_empty_cmdline and cmdline:
+        failures.append(f"expected an empty header cmdline, found {cmdline!r}")
+    if (
+        args.expect_ramdisk_compression is not None
+        and ramdisk_compression != args.expect_ramdisk_compression
+    ):
+        failures.append(
+            "ramdisk compression: expected "
+            f"{args.expect_ramdisk_compression}, found {ramdisk_compression}"
+        )
+    if args.max_size is not None and image_size > args.max_size:
+        failures.append(f"image exceeds limit: {image_size} > {args.max_size}")
+
+    print(f"path={args.image}")
+    print(f"file_size={image_size}")
+    print(f"kernel_size={kernel_size}")
+    print(f"kernel_addr={kernel_addr:#010x}")
+    print(f"ramdisk_size={ramdisk_size}")
+    print(f"ramdisk_addr={ramdisk_addr:#010x}")
+    print(f"second_size={second_size}")
+    print(f"second_addr={second_addr:#010x}")
+    print(f"tags_addr={tags_addr:#010x}")
+    print(f"page_size={page_size}")
+    print(f"dt_size={dt_size}")
+    print(f"os_version_or_unused={os_version_or_unused:#010x}")
+    print(f"name={name!r}")
+    print(f"cmdline={cmdline!r}")
+    print(f"ramdisk_magic={ramdisk_magic.hex()}")
+    print(f"ramdisk_compression={ramdisk_compression}")
+    print(f"calculated_payload_size={packed_size}")
+    print(f"trailing_size={image_size - packed_size if packed_size else 0}")
+
+    if failures:
+        for failure in failures:
+            print(f"ERROR: {failure}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
