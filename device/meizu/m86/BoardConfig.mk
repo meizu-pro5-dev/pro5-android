@@ -34,8 +34,8 @@ TARGET_SCREEN_HEIGHT := 1920
 TARGET_SCREEN_WIDTH := 1080
 BACKLIGHT_PATH := /sys/devices/13930000.decon_fb/backlight/pwm-backlight.0/brightness
 
-# Kernel and stock boot image geometry. The base plus the default 0x8000
-# kernel offset yields the verified stock kernel address 0x40080000.
+# Kernel and stock v0 boot-image geometry. Explicit positive offsets reproduce
+# all four addresses in the verified Flyme header without relying on overflow.
 TARGET_KERNEL_ARCH := arm64
 TARGET_KERNEL_HEADER_ARCH := arm64
 TARGET_KERNEL_SOURCE := kernel/meizu/m86
@@ -44,11 +44,15 @@ TARGET_LINUX_KERNEL_VERSION := 3.10
 TARGET_USES_UNCOMPRESSED_KERNEL := true
 TARGET_KERNEL_CLANG_COMPILE := false
 
-BOARD_KERNEL_BASE := 0x40078000
+BOARD_KERNEL_BASE := 0x40000000
 BOARD_KERNEL_CMDLINE := androidboot.hardware=m86
 BOARD_KERNEL_IMAGE_NAME := Image
 BOARD_KERNEL_PAGESIZE := 4096
-BOARD_MKBOOTIMG_ARGS := --base $(BOARD_KERNEL_BASE) --ramdisk_offset 0x01f88000 --pagesize $(BOARD_KERNEL_PAGESIZE)
+BOARD_MKBOOTIMG_ARGS := \
+    --kernel_offset 0x00080000 \
+    --ramdisk_offset 0x02000000 \
+    --second_offset 0x00f00000 \
+    --tags_offset 0x00000100
 
 # PRO 5 stores its raw DTB in a dedicated partition. Samsung's custom boot
 # image and dtbhtool container must not be used.

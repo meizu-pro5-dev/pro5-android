@@ -35,9 +35,11 @@ proof.
 The Samsung donor cannot supply boot-image settings. PRO 5 requires:
 
 - bootloader board name `PRO5`;
-- boot image base `0x40078000`;
-- effective kernel address `0x40080000`;
-- ramdisk offset `0x01f88000`, producing address `0x42000000`;
+- boot image base `0x40000000`;
+- kernel offset `0x00080000`, producing address `0x40080000`;
+- ramdisk offset `0x02000000`, producing address `0x42000000`;
+- second offset `0x00f00000`, producing address `0x40f00000`;
+- tags offset `0x00000100`, producing address `0x40000100`;
 - 4096-byte boot pages;
 - uncompressed arm64 `Image`;
 - a raw DTB in the separate `dtb` partition;
