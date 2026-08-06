@@ -99,9 +99,14 @@ require_fixed 'python_zlib_source_revision=' "$twrp_build_worker"
 require_fixed 'lib32z1-dev' "$project_root/remote/bootstrap-builder.sh"
 require_fixed 'source_checkout_validation=HEAD tree equals index and clean worktree' \
   "$twrp_build_worker"
-require_fixed 'build_twrp_pass 1 "$first_out"' "$twrp_build_worker"
-require_fixed 'build_twrp_pass 2 "$second_out"' "$twrp_build_worker"
+require_fixed 'build_out="$remote_root/out/twrp-9.0"' "$twrp_build_worker"
+require_fixed 'build_twrp_pass 1' "$twrp_build_worker"
+require_fixed 'cp -a "$recovery_image" "$snapshot_root/recovery.img"' \
+  "$twrp_build_worker"
+require_fixed 'build_twrp_pass 2' "$twrp_build_worker"
 require_fixed 'cmp --silent "$first_file" "$second_file"' \
+  "$twrp_build_worker"
+require_fixed 'output_path_policy=same absolute OUT_DIR for both clean passes' \
   "$twrp_build_worker"
 require_fixed 'REPRODUCIBILITY.txt' "$twrp_build_worker"
 require_fixed 'reproducibility=byte-identical recovery.img dtb kernel.config' \

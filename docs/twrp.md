@@ -118,10 +118,18 @@ Static build acceptance requires:
 2. a generated `recovery.img` and matching raw m86 DTB;
 3. passing boot-header, ramdisk, embedded STM firmware, FMP config, DTB and
    partition-size validators;
-4. byte-identical recovery, DTB, and generated kernel-config hashes across the
-   two output roots, recorded in `REPRODUCIBILITY.txt`;
+4. byte-identical recovery, DTB, and generated kernel-config hashes across two
+   clean builds in the same absolute output path, recorded in
+   `REPRODUCIBILITY.txt`;
 5. retained manifest, local revision, generated kernel config, full log,
    stock lock and SHA-256 list.
+
+The absolute output path is intentionally identical for both passes. Android's
+ELF link inputs record intermediate paths, so using differently named pass
+directories changes build IDs even when sources, environment, and timestamps
+are identical. Pass 1 is copied to a small comparison snapshot, the stable
+output directory is deleted and rebuilt, and only then are the three accepted
+outputs compared byte for byte.
 
 Full recovery acceptance additionally requires explicit authorization and
 device evidence for:

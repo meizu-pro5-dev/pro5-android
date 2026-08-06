@@ -6,8 +6,8 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 local_root="$(cd "$script_dir/.." && pwd)"
 remote_root="$(cd "$local_root/.." && pwd)"
 source_root="$remote_root/src/twrp-9.0"
-first_out="$remote_root/out/twrp-9.0-pass1"
-second_out="$remote_root/out/twrp-9.0-pass2"
+build_out="$remote_root/out/twrp-9.0"
+snapshot_root="$remote_root/out/twrp-9.0-repro-pass1"
 run_root="$remote_root/run"
 artifact_root="$remote_root/artifacts"
 
@@ -154,8 +154,8 @@ ccache --max-size=25G
 ccache --zero-stats
 
 printf 'TWRP build started at %s\n' "$(date --iso-8601=seconds)"
-printf 'Source: %s\nJobs: %s\nOutput pass 1: %s\nOutput pass 2: %s\n' \
-  "$source_root" "$jobs" "$first_out" "$second_out"
+printf 'Source: %s\nJobs: %s\nStable output for both passes: %s\n' \
+  "$source_root" "$jobs" "$build_out"
 printf 'Local revision: %s\n' "$local_revision"
 printf 'Python: %s\n' "$(python2.7 --version 2>&1)"
 printf 'Python zlib: %s\n' \
@@ -174,7 +174,6 @@ done
 
 build_twrp_pass() {
   local pass_name="$1"
-  local build_out="$2"
   local product_out="$build_out/target/product/m86"
   local recovery_image="$product_out/recovery.img"
   local staged_touch_firmware="$product_out/recovery/root/etc/firmware/st_fts.bin"
@@ -182,8 +181,7 @@ build_twrp_pass() {
   local generated_dtb="$kernel_out/arch/arm64/boot/dts/exynos7420-m86-codegen.dtb"
 
   case "$build_out" in
-    "$remote_root/out/twrp-9.0-pass1" | \
-    "$remote_root/out/twrp-9.0-pass2") ;;
+    "$remote_root/out/twrp-9.0") ;;
     *)
       printf 'Refusing to clear an unexpected TWRP output: %s\n' \
         "$build_out" >&2
@@ -242,22 +240,39 @@ build_twrp_pass() {
   fi
 }
 
-build_twrp_pass 1 "$first_out"
-build_twrp_pass 2 "$second_out"
-
-first_product_out="$first_out/target/product/m86"
-second_product_out="$second_out/target/product/m86"
-recovery_image="$first_product_out/recovery.img"
-recovery_image_repro="$second_product_out/recovery.img"
-kernel_out="$first_product_out/obj/KERNEL_OBJ"
-kernel_out_repro="$second_product_out/obj/KERNEL_OBJ"
+product_out="$build_out/target/product/m86"
+recovery_image="$product_out/recovery.img"
+kernel_out="$product_out/obj/KERNEL_OBJ"
 generated_dtb="$kernel_out/arch/arm64/boot/dts/exynos7420-m86-codegen.dtb"
-generated_dtb_repro="$kernel_out_repro/arch/arm64/boot/dts/exynos7420-m86-codegen.dtb"
+
+# Android host and target ELF build IDs include absolute intermediate paths.
+# Use the same clean OUT_DIR for both passes, preserving only the three pass-1
+# acceptance inputs outside that directory before clearing it again.
+build_twrp_pass 1
+case "$snapshot_root" in
+  "$remote_root/out/twrp-9.0-repro-pass1") ;;
+  *)
+    printf 'Refusing to clear an unexpected TWRP snapshot: %s\n' \
+      "$snapshot_root" >&2
+    exit 1
+    ;;
+esac
+rm -rf -- "$snapshot_root"
+mkdir -p "$snapshot_root"
+cp -a "$recovery_image" "$snapshot_root/recovery.img"
+cp -a "$generated_dtb" "$snapshot_root/exynos7420-m86-codegen.dtb"
+cp -a "$kernel_out/.config" "$snapshot_root/kernel.config"
+
+build_twrp_pass 2
+
+recovery_image_pass1="$snapshot_root/recovery.img"
+generated_dtb_pass1="$snapshot_root/exynos7420-m86-codegen.dtb"
+kernel_config_pass1="$snapshot_root/kernel.config"
 
 for comparison in \
-  "$recovery_image|$recovery_image_repro|recovery.img" \
-  "$generated_dtb|$generated_dtb_repro|exynos7420-m86-codegen.dtb" \
-  "$kernel_out/.config|$kernel_out_repro/.config|kernel.config"; do
+  "$recovery_image_pass1|$recovery_image|recovery.img" \
+  "$generated_dtb_pass1|$generated_dtb|exynos7420-m86-codegen.dtb" \
+  "$kernel_config_pass1|$kernel_out/.config|kernel.config"; do
   first_file="${comparison%%|*}"
   comparison_remainder="${comparison#*|}"
   second_file="${comparison_remainder%%|*}"
@@ -285,17 +300,17 @@ cp -a "$local_root/locks/stock-flyme-8.0.5.0A.sha256" \
   printf 'result=byte-identical\n'
   printf 'clean_build_passes=2\n'
   printf 'recovery_pass1_sha256=%s\n' \
-    "$(sha256sum "$recovery_image" | awk '{ print $1 }')"
+    "$(sha256sum "$recovery_image_pass1" | awk '{ print $1 }')"
   printf 'recovery_pass2_sha256=%s\n' \
-    "$(sha256sum "$recovery_image_repro" | awk '{ print $1 }')"
+    "$(sha256sum "$recovery_image" | awk '{ print $1 }')"
   printf 'dtb_pass1_sha256=%s\n' \
-    "$(sha256sum "$generated_dtb" | awk '{ print $1 }')"
+    "$(sha256sum "$generated_dtb_pass1" | awk '{ print $1 }')"
   printf 'dtb_pass2_sha256=%s\n' \
-    "$(sha256sum "$generated_dtb_repro" | awk '{ print $1 }')"
+    "$(sha256sum "$generated_dtb" | awk '{ print $1 }')"
   printf 'kernel_config_pass1_sha256=%s\n' \
-    "$(sha256sum "$kernel_out/.config" | awk '{ print $1 }')"
+    "$(sha256sum "$kernel_config_pass1" | awk '{ print $1 }')"
   printf 'kernel_config_pass2_sha256=%s\n' \
-    "$(sha256sum "$kernel_out_repro/.config" | awk '{ print $1 }')"
+    "$(sha256sum "$kernel_out/.config" | awk '{ print $1 }')"
 } > "$artifact_dir/REPRODUCIBILITY.txt"
 
 python3 "$local_root/tools/inspect-android-boot-image.py" \
@@ -333,8 +348,10 @@ twrp_version="$(
   printf 'local_revision=%s\n' "$local_revision"
   printf 'twrp_version=%s\n' "$twrp_version"
   printf 'source_root=%s\n' "$source_root"
-  printf 'out_root_pass1=%s\n' "$first_out"
-  printf 'out_root_pass2=%s\n' "$second_out"
+  printf 'out_root_pass1=%s\n' "$build_out"
+  printf 'out_root_pass2=%s\n' "$build_out"
+  printf 'pass1_snapshot=%s\n' "$snapshot_root"
+  printf 'output_path_policy=same absolute OUT_DIR for both clean passes\n'
   printf 'jobs=%s\n' "$jobs"
   printf 'build_datetime=%s\n' "$BUILD_DATETIME"
   printf 'build_number=%s\n' "$BUILD_NUMBER"
