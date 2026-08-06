@@ -86,5 +86,5 @@ configure_builder_network() {
   # Bound zero-progress waits so repo can retry a failed project instead of
   # occupying the serial worker forever.
   export GIT_HTTP_LOW_SPEED_LIMIT=1024
-  export GIT_HTTP_LOW_SPEED_TIME=120
+  export GIT_HTTP_LOW_SPEED_TIME=60
 }
