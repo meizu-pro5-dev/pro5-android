@@ -133,6 +133,23 @@ state before data/IMS. Keep Android's RIL compatibility layer isolated from
 the framework; do not carry the old forked full `libril` unless symbol evidence
 proves a smaller shim cannot work.
 
+The selected Android 10 path is one source-built AOSP `rild`/`libril` process
+with `SIM_COUNT=2`, loading the final Flyme 8 64-bit `libsitril.so`. Static ABI
+inspection identifies `RIL_Init`, Android 7 RIL v12 structures, both
+`/dev/umts_ipc0` and `/dev/umts_ipc1`, and no `RIL_SAP_Init`. LineageOS 17.1's
+compatibility layer accepts RIL versions 6 and newer and registers `slot1` and
+`slot2` as radio 1.1 HIDL instances. The stock `rild_exynos` remains retained
+in the evidence-locked blob inventory but is not started because it exposes
+the pre-HIDL socket service. The Galaxy extended `libril`, `modemloader`,
+radio-partition arguments, and Galaxy modem firmware are excluded.
+
+The final Flyme ramdisk starts the exact `cbd` blob as `cbd -m user`; that
+daemon consumes `/system/vendor/firmware/modem.bin` and persistent
+`/efs/nv_data`. First-boot evidence must still prove that the Android 10
+linker can load the complete SITRIL dependency graph. Any incompatibility is
+fixed with a symbol-specific source shim, never by importing Android 7 copies
+of platform `libbinder`, `libutils`, or `libcutils`.
+
 ### Audio
 
 Treat the Flyme 8 `audio.primary.m86` interfaces, TFA9890 speaker tuning,

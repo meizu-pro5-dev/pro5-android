@@ -16,3 +16,13 @@ sys.usb.ffs.aio_compat=1
 # Wi-Fi
 wifi.interface=wlan0
 wifi.direct.interface=p2p-dev-wlan0
+
+# Radio. These values are taken from the final Flyme 8.0.5.0A system image.
+# The Android 10 rild is 64-bit and loads the latest m86 SITRIL directly.
+persist.radio.multisim.config=dsds
+rild.libpath=/system/lib64/libsitril.so
+rild.libargs=-d /dev/umts_ipc0
+exynos.modempath=/system/vendor/firmware/modem.bin
+ro.telephony.default_network=9
+ro.ril.ecclist=911,08,112,118,999,000
+radio.smsdomain=0

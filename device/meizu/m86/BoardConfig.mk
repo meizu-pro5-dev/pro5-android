@@ -45,7 +45,10 @@ JAVA_SOURCE_OVERLAYS :=
 BOARD_NFC_HAL_SUFFIX :=
 BOARD_PROVIDES_LIBRIL :=
 ENABLE_VENDOR_RIL_SERVICE :=
-SIM_COUNT :=
+# Android 10's AOSP libril remains the HIDL-facing compatibility layer. The
+# verified Flyme SITRIL implements the Android 7 RIL v12 callback ABI and
+# handles both m86 SIM sockets inside one process.
+SIM_COUNT := 2
 
 TARGET_EXFAT_DRIVER :=
 TARGET_FS_CONFIG_GEN :=

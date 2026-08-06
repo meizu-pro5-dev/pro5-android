@@ -35,3 +35,12 @@
 /dev/video27                 0660   media       graphics
 /dev/video50                 0660   media       graphics
 /dev/video51                 0660   media       graphics
+
+# Exynos ss333 modem nodes, byte-for-byte ownership from the final Flyme 8
+# m86 ramdisk. cbd and the SITRIL process use no Galaxy-only modem devices.
+/dev/umts_dm0                0660   radio      radio
+/dev/umts_router             0660   radio      radio
+/dev/umts_boot0              0660   radio      radio
+/dev/umts_ipc0               0660   radio      radio
+/dev/umts_ipc1               0660   radio      radio
+/dev/umts_rfs0               0660   radio      radio

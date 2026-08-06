@@ -103,6 +103,20 @@ require_manifest_hal() {
   fi
 }
 
+require_manifest_instance() {
+  local name="$1"
+  local version="$2"
+  local interface="$3"
+  local instance="$4"
+  local xpath="count(/manifest/hal[name='$name' and version='$version' and transport='hwbinder' and interface/name='$interface' and interface/instance='$instance'])"
+
+  if [[ "$(xmllint --xpath "$xpath" "$device_manifest")" != "1" ]]; then
+    printf 'Missing or invalid m86 VINTF HAL: %s@%s::%s/%s\n' \
+      "$name" "$version" "$interface" "$instance" >&2
+    exit 1
+  fi
+}
+
 require_fixed 'BOARD_KERNEL_BASE := 0x40000000' "$board_config"
 require_fixed 'BOARD_KERNEL_PAGESIZE := 4096' "$board_config"
 require_fixed '--kernel_offset 0x00080000' "$board_config"
@@ -142,6 +156,8 @@ require_fixed 'android.hardware.wifi.direct.xml:$(TARGET_COPY_OUT_VENDOR)/etc/pe
   "$device_makefile"
 require_fixed 'android.hardware.wifi.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.wifi.xml' \
   "$device_makefile"
+require_fixed 'android.hardware.telephony.gsm.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.telephony.gsm.xml' \
+  "$device_makefile"
 require_fixed 'android.hardware.bluetooth@1.0-impl.zero' "$device_makefile"
 require_fixed 'android.hardware.bluetooth@1.0-service' "$device_makefile"
 require_fixed '$(LOCAL_PATH)/bluetooth/bt_vendor.conf:$(TARGET_COPY_OUT_SYSTEM)/etc/bluetooth/bt_vendor.conf' \
@@ -164,6 +180,13 @@ require_fixed '$(LOCAL_PATH)/wifi/p2p_supplicant_overlay.conf:$(TARGET_COPY_OUT_
   "$device_makefile"
 require_fixed '$(LOCAL_PATH)/wifi/wpa_supplicant_overlay.conf:$(TARGET_COPY_OUT_VENDOR)/etc/wifi/wpa_supplicant_overlay.conf' \
   "$device_makefile"
+require_fixed 'SIM_COUNT := 2' "$board_config"
+require_fixed 'android.hardware.radio@1.1' "$device_makefile"
+require_fixed 'android.hardware.radio.deprecated@1.0' "$device_makefile"
+require_fixed 'rild.libpath=/system/lib64/libsitril.so' "$system_prop"
+require_fixed 'rild.libargs=-d /dev/umts_ipc0' "$system_prop"
+require_fixed 'persist.radio.multisim.config=dsds' "$system_prop"
+require_fixed 'exynos.modempath=/system/vendor/firmware/modem.bin' "$system_prop"
 for wifi_package in hostapd wpa_supplicant wpa_supplicant.conf; do
   if ! rg -q "^[[:space:]]*${wifi_package}( \\\\)?$" "$device_makefile"; then
     printf 'Required m86 Wi-Fi package is absent: %s\n' "$wifi_package" >&2
@@ -203,6 +226,12 @@ require_fixed 'service wpa_supplicant /vendor/bin/hw/wpa_supplicant \' \
   "$init_rc"
 require_fixed 'interface android.hardware.wifi.supplicant@1.2::ISupplicant default' \
   "$init_rc"
+require_fixed 'service cpboot-daemon /system/bin/cbd -m user' "$init_rc"
+require_fixed 'stop vendor.ril-daemon' "$init_rc"
+require_fixed '/dev/umts_boot0              0660   radio      radio' "$ueventd_rc"
+require_fixed '/dev/umts_ipc0               0660   radio      radio' "$ueventd_rc"
+require_fixed '/dev/umts_ipc1               0660   radio      radio' "$ueventd_rc"
+require_fixed '/dev/umts_rfs0               0660   radio      radio' "$ueventd_rc"
 require_fixed 'p2p_disabled=1' "$wifi_sta_overlay"
 require_fixed 'disable_scan_offload=1' "$wifi_sta_overlay"
 require_fixed 'manufacturer=SAMSUNG_ELECTRONICS' "$wifi_p2p_overlay"
@@ -242,6 +271,9 @@ require_fixed 'lib/hw/audio.primary.m86.so' "$blob_list"
 require_fixed 'lib64/hw/audio.primary.m86.so' "$blob_list"
 require_fixed 'lib/libtfa9890.so' "$blob_list"
 require_fixed 'lib/libsitril-audio.so' "$blob_list"
+require_fixed 'bin/cbd' "$blob_list"
+require_fixed 'lib64/libsitril.so' "$blob_list"
+require_fixed 'vendor/firmware/modem.bin' "$blob_list"
 require_fixed 'copy_rule_count="$(' "$vendor_worker"
 require_fixed 'expected_rule="vendor/meizu/m86/proprietary/$relative_path:$output_path"' \
   "$vendor_worker"
@@ -306,6 +338,12 @@ require_manifest_hal \
   android.hardware.graphics.mapper 2.0 passthrough 32+64 IMapper
 require_manifest_hal \
   android.hardware.memtrack 1.0 passthrough 32+64 IMemtrack
+for radio_slot in slot1 slot2; do
+  require_manifest_instance \
+    android.hardware.radio 1.1 IRadio "$radio_slot"
+  require_manifest_instance \
+    android.hardware.radio.deprecated 1.0 IOemHook "$radio_slot"
+done
 require_manifest_hal \
   android.hardware.wifi 1.3 hwbinder '' IWifi
 require_manifest_hal \
@@ -330,7 +368,6 @@ for inherited_variable in \
   BOARD_NFC_HAL_SUFFIX \
   BOARD_PROVIDES_LIBRIL \
   ENABLE_VENDOR_RIL_SERVICE \
-  SIM_COUNT \
   TARGET_EXFAT_DRIVER \
   TARGET_FS_CONFIG_GEN \
   BOARD_SEPOLICY_DIRS \

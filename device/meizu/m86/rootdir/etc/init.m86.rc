@@ -21,6 +21,11 @@ on post-fs-data
     mkdir /data/vendor/wifi/wpa/sockets 0770 wifi wifi
     setprop vold.post_fs_data_done 1
 
+on property:sys.rild_reset=1
+    stop vendor.ril-daemon
+    setprop sys.rild_reset 0
+    start vendor.ril-daemon
+
 on boot
     chown bluetooth bluetooth /dev/ttySAC4
     chmod 0660 /dev/ttySAC4
@@ -49,3 +54,11 @@ service wpa_supplicant /vendor/bin/hw/wpa_supplicant \
     socket wpa_wlan0 dgram 660 wifi wifi
     disabled
     oneshot
+
+# The final Flyme 8 ramdisk starts this exact cbd build with the production
+# user-mode selector. It boots only the verified m86 modem.bin and persistent
+# /efs NV data; no Galaxy modemloader or radio partition is used.
+service cpboot-daemon /system/bin/cbd -m user
+    class main
+    user root
+    group system radio cache inet misc audio log

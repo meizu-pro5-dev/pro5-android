@@ -45,6 +45,26 @@ system-image milestone; inheriting the entire Samsung product file would also
 copy Samsung sensors, radio, camera, NFC, and feature declarations and is not
 acceptable.
 
+### SITRIL boundary
+
+The final Flyme 8 `libsitril.so` is present in matching 32-bit and 64-bit
+forms; the Android 10 radio daemon uses the 64-bit copy. Its only RIL entry
+point is `RIL_Init`. Disassembly of that function resolves its returned
+`RIL_RadioFunctions` table at `0xf9fd0`; the first word is `0x0000000c`, so
+the final production blob reports RIL v12. It directly names
+`/dev/umts_ipc0`, `/dev/umts_ipc1`, and
+`/dev/umts_boot0`. Its direct private dependency chain includes
+`libril_sitril.so`, `librilutils_sitril.so`, and `libsitril-jniif.so` from the
+same verified build.
+
+Android 10's source-built `rild` and `libril` provide the HIDL radio service;
+the Flyme `rild_exynos` must not run. A full output-side symbol audit remains a
+hard gate because the private Flyme libraries reference Android 7 binder and
+utils SONAMEs. If those imports do not resolve against the built Android 10
+objects, replace only the failing private dependency with a narrow source shim
+after recording its precise imported-symbol set. Never satisfy it by copying
+old platform libraries.
+
 ### Mali loader boundary
 
 Flyme 8.0.5.0A contains the legacy `/system/lib/egl/egl.cfg` entry `0 1 mali`,
