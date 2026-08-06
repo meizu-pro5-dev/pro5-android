@@ -14,3 +14,12 @@ db25b0614ab6856ad91256cd7db2a925cac6ee4782eb4555b8043146ae53d335  system.transfe
 
 # Reconstructed local image
 184149003c9bbe156e6f73d9461a13a1712d186740e45632f03435c239717e6a  system.img
+
+# Components extracted read-only from the verified boot.img
+06de6eb833fb26e15acdae1445777ebb73fdeb988cc1df6355d48683259f6000  boot.img/kernel
+03955a1b7d9bc2142c99359a70887ca61180c790f12a109a028511d2d9728355  boot.img/ramdisk.gz
+6680163da5866a37d82d3dae6284aacb3d38b2be2ec147311ab5478b582c64cd  boot.img/ramdisk.cpio
+6bca010cbdd50753ae73f3d3d9764a4926f213c3b0eb24a0aaf45f383b48c4c7  boot.img/ramdisk/fstab.m86
+5a44bbdd92ea372b9c0fac439b6b7d9299fdfb0b80cf27402add9dec62a42fbb  boot.img/ramdisk/init.m86.rc
+7ce80b370ef1da2f8b5d530f6af889f3664d8da10b83fcde8c03aa0736b1e078  boot.img/ramdisk/init.m86.usb.rc
+349001b73474ad5972e544b11f4eaf4769b689d4b14dd7688d1c40e5a4e2cfa7  boot.img/ramdisk/ueventd.m86.rc
