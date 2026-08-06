@@ -59,8 +59,13 @@ require_fixed 'TW_NO_EXFAT_FUSE := true' "$board_config"
 require_fixed 'TW_EXTRA_LANGUAGES := true' "$board_config"
 require_fixed 'encryptable=/cache/metadata' "$recovery_fstab"
 require_fixed 'setprop sys.usb.ffs.aio_compat 1' "$recovery_init"
+require_fixed 'M86_TWRP_DEVICE_PATH := device/meizu/m86' "$device_makefile"
 require_fixed 'recovery/root/etc/firmware/st_fts.bin:recovery/root/etc/firmware/st_fts.bin' \
   "$device_makefile"
+if rg -q '\$\(LOCAL_PATH\)/(recovery|rootdir)' "$device_makefile"; then
+  printf 'Deferred product copy paths must not depend on mutable LOCAL_PATH.\n' >&2
+  exit 1
+fi
 require_fixed 'CONFIG_RD_GZIP=y' "$kernel_config"
 require_fixed '# CONFIG_RD_LZMA is not set' "$kernel_config"
 require_fixed 'CONFIG_DM_CRYPT=y' "$kernel_config"

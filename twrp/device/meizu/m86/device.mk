@@ -1,13 +1,13 @@
 # Copyright (C) 2026 The LineageOS Project
 # SPDX-License-Identifier: Apache-2.0
 
-LOCAL_PATH := $(call my-dir)
+M86_TWRP_DEVICE_PATH := device/meizu/m86
 
 PRODUCT_COPY_FILES += \
-    $(LOCAL_PATH)/recovery/root/init.recovery.m86.rc:recovery/root/init.recovery.m86.rc \
-    $(LOCAL_PATH)/recovery/root/ueventd.m86.rc:recovery/root/ueventd.m86.rc \
-    $(LOCAL_PATH)/rootdir/fstab.m86:recovery/root/fstab.m86 \
-    $(LOCAL_PATH)/recovery/root/etc/firmware/st_fts.bin:recovery/root/etc/firmware/st_fts.bin
+    $(M86_TWRP_DEVICE_PATH)/recovery/root/init.recovery.m86.rc:recovery/root/init.recovery.m86.rc \
+    $(M86_TWRP_DEVICE_PATH)/recovery/root/ueventd.m86.rc:recovery/root/ueventd.m86.rc \
+    $(M86_TWRP_DEVICE_PATH)/rootdir/fstab.m86:recovery/root/fstab.m86 \
+    $(M86_TWRP_DEVICE_PATH)/recovery/root/etc/firmware/st_fts.bin:recovery/root/etc/firmware/st_fts.bin
 
 PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
     ro.build.product=m86 \
