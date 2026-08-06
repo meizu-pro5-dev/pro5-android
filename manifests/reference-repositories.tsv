@@ -1,0 +1,9 @@
+# name	url	branch
+meizu-m86-device	https://github.com/meizu-m86/android_device_meizu_m86.git	cm-14.1-latest
+meizu-m86-kernel	https://github.com/meizu-m86/android_kernel_meizu_m86.git	cm-14.1
+meizu-m86-vendor	https://github.com/meizu-m86/android_vendor_meizu_m86.git	cm-14.1
+meizu-m576-kernel	https://github.com/meizuosc/m576.git	master
+universal7420-common	https://github.com/universal7420/android_device_samsung_universal7420-common.git	lineage-17.1
+universal7420-kernel	https://github.com/universal7420/android_kernel_samsung_universal7420.git	lineage-17.1
+universal7420-hardware-exynos	https://github.com/universal7420/android_hardware_samsung_slsi_exynos7420.git	lineage-17.1
+universal7420-hardware-samsung	https://github.com/universal7420/android_hardware_samsung.git	lineage-17.1

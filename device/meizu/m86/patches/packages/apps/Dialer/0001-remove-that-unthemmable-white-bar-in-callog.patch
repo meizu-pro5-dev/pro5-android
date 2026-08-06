@@ -1,0 +1,54 @@
+From a6e30a53bf8b14fb770698ba55031155032886b8 Mon Sep 17 00:00:00 2001
+From: faust93 <monumentum@gmail.com>
+Date: Thu, 2 Feb 2017 12:02:40 +0300
+Subject: [PATCH] remove that unthemmable white bar in callog
+
+Change-Id: I3a71c24f81a38ea3bbbd396779510825f5282e0b
+---
+ res/layout/call_log_fragment.xml     | 17 -----------------
+ res/layout/call_log_spinner_item.xml |  2 +-
+ 2 files changed, 1 insertion(+), 18 deletions(-)
+
+diff --git a/res/layout/call_log_fragment.xml b/res/layout/call_log_fragment.xml
+index 2861490..b5a095b 100644
+--- a/res/layout/call_log_fragment.xml
++++ b/res/layout/call_log_fragment.xml
+@@ -23,23 +23,6 @@
+     android:background="@color/background_dialer_call_log"
+     design:statusBarBackground="@null">
+ 
+-    <android.support.design.widget.AppBarLayout
+-        android:layout_width="match_parent"
+-        android:layout_height="wrap_content"
+-        android:stateListAnimator="@null"
+-        android:elevation="2dp">
+-
+-        <FrameLayout
+-            android:layout_width="match_parent"
+-            android:layout_height="wrap_content"
+-            design:layout_scrollFlags="scroll|enterAlways">
+-
+-            <include layout="@layout/call_spinner" />
+-
+-        </FrameLayout>
+-
+-    </android.support.design.widget.AppBarLayout>
+-
+     <android.support.v7.widget.RecyclerView
+         android:id="@+id/recycler_view"
+         android:layout_width="match_parent"
+diff --git a/res/layout/call_log_spinner_item.xml b/res/layout/call_log_spinner_item.xml
+index 045deb7..5dc9d80 100644
+--- a/res/layout/call_log_spinner_item.xml
++++ b/res/layout/call_log_spinner_item.xml
+@@ -29,6 +29,6 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ <TextView xmlns:android="http://schemas.android.com/apk/res/android"
+     style="@style/CallLogSpinnerStyle"
+     android:layout_width="match_parent"
+-    android:layout_height="40dip"
++    android:layout_height="0dip"
+     android:paddingLeft="8dip"
+     android:paddingRight="8dip" />
+-- 
+1.9.3 (Apple Git-50)
+

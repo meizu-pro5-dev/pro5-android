@@ -1,0 +1,23 @@
+.DS_Store
+*.log
+*.img
+*.bin
+*.tar
+*.tar.*
+*.zip
+
+.repo/
+out/
+work/
+artifacts/
+ccache/
+
+# Keep extraction metadata and generated makefiles, but not redistributability-
+# sensitive stock binaries.
+vendor/meizu/m86/proprietary/
+device/meizu/m86/dtb_cm
+device/meizu/m86/rootdir/sbin/cbd
+
+# Device evidence is retained locally but normally too large for Git.
+evidence/*
+!evidence/README.md

@@ -1,0 +1,26 @@
+From bd12bd18ba1780a6ce9cf8e3b6ea2d66898f2b27 Mon Sep 17 00:00:00 2001
+From: faust93 <monumentum@gmail.com>
+Date: Sun, 26 Feb 2017 15:48:00 +0300
+Subject: [PATCH] HiFi Settings
+
+---
+ res/xml/sound_settings.xml | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/res/xml/sound_settings.xml b/res/xml/sound_settings.xml
+index 1d1813d..4215009 100644
+--- a/res/xml/sound_settings.xml
++++ b/res/xml/sound_settings.xml
+@@ -103,6 +103,9 @@
+                 android:persistent="false"
+                 android:ringtoneType="alarm" />
+ 
++        <org.cyanogenmod.internal.cmparts.CMPartsPreference
++                android:key="hifi" />
++
+         <!-- Other sounds -->
+         <Preference
+                 android:key="other_sounds"
+-- 
+1.9.3 (Apple Git-50)
+

@@ -1,0 +1,44 @@
+From 1e051cc0b12bc175bdbb4b2d4d6117f94b074b0e Mon Sep 17 00:00:00 2001
+From: faust93 <monumentum@gmail.com>
+Date: Mon, 27 Feb 2017 12:21:25 +0300
+Subject: [PATCH] spoof signature
+
+---
+ res/values-ru/cm_strings.xml                      |  3 ++
+ res/values/cm_strings.xml                         |  6 +++
+ 4 files changed, 61 insertions(+)
+
+diff --git a/res/values-ru/cm_strings.xml b/res/values-ru/cm_strings.xml
+index b6407dd..0217dcf 100644
+--- a/res/values-ru/cm_strings.xml
++++ b/res/values-ru/cm_strings.xml
+@@ -389,6 +389,9 @@
+   <!-- Status bar - double tap to sleep -->
+   <string name="status_bar_double_tap_to_sleep_title">Выключать экран при двойном нажатии</string>
+   <string name="status_bar_double_tap_to_sleep_summary">Дважды коснитесь строки состояния, чтобы перевести устройство в спящий режим</string>
++  <string name="allow_signature_fake">Разрешить подмену подписи APK</string>
++  <string name="allow_signature_fake_summary">Разрешить приложениям обманывать системы безопасности, выдавая себя за другое приложение</string>
++  <string name="allow_signature_fake_warning">Разрешение приложениям обманывать системы безопасности может привести к серьезным проблемам безопасности и конфиденциальности! Убедитесь, что только доверенные приложения используют соответствующее разрешение.</string>
+   <string name="sim_enabler_summary"><xliff:g id="displayName">%1$s</xliff:g> — <xliff:g id="status" example="disabled">%2$s</xliff:g></string>
+   <string name="sim_enabled">включена</string>
+   <string name="sim_disabled">отключена</string>
+diff --git a/res/values/cm_strings.xml b/res/values/cm_strings.xml
+index 2bd528e..77c1819 100644
+--- a/res/values/cm_strings.xml
++++ b/res/values/cm_strings.xml
+@@ -435,7 +435,12 @@
+     <!-- Status bar - double tap to sleep -->
+     <string name="status_bar_double_tap_to_sleep_title">Double-tap to sleep</string>
+     <string name="status_bar_double_tap_to_sleep_summary">Double-tap on the status bar to turn off the display</string>
+
++    <!-- Allow fake signature checkbox in developer settings -->
++    <string name="allow_signature_fake">Allow signature spoofing</string>
++    <string name="allow_signature_fake_summary">Allow apps to bypass security systems by pretending to be a different app</string>
++    <string name="allow_signature_fake_warning">Allowing apps to bypass security systems can lead to serious security and privacy problems! Check that only benign apps use the corresponding permission when this is active.</string>
++
+     <string name="sim_enabler_summary"><xliff:g id="displayName">%1$s</xliff:g> is <xliff:g id="status" example="disabled">%2$s</xliff:g></string>
+     <string name="sim_enabled">enabled</string>
+     <string name="sim_disabled">disabled</string>
+-- 
+1.9.3 (Apple Git-50)
+

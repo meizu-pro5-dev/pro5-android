@@ -1,0 +1,406 @@
+From a535d5ea23264ea4761e38b52d7a96eb69b53e84 Mon Sep 17 00:00:00 2001
+From: faust93 <monumentum@gmail.com>
+Date: Tue, 15 Nov 2016 12:15:44 +0300
+Subject: [PATCH] HIFI Settings [3/3]
+
+Change-Id: If867bfba2d761e4fd8e4351f29f5aca11ed8c949
+---
+ res/values/strings.xml                             |  12 +
+ res/xml/hifi.xml                                   |  66 +++++
+ res/xml/parts_catalog.xml                          |   5 +
+ .../cmparts/meizu/HifiSoundSettings.java           | 271 +++++++++++++++++++++
+ 4 files changed, 354 insertions(+)
+ create mode 100644 res/xml/hifi.xml
+ create mode 100644 src/org/cyanogenmod/cmparts/meizu/HifiSoundSettings.java
+
+diff --git a/res/values/strings.xml b/res/values/strings.xml
+index 4624ec6..47e1ea4 100644
+--- a/res/values/strings.xml
++++ b/res/values/strings.xml
+@@ -532,6 +532,18 @@
+     <string name="status_bar_show_weather_title">Show weather</string>
+     <string name="status_bar_show_weather_summary">Display the current temperature on the status bar</string>
+ 
++    <!-- Title and summary for HiFi settings -->
++    <string name="hifi_sound_title">Hi-Fi settings</string>
++    <string name="hifi_enabled">Hifi sound enabled</string>
++    <string name="hifi_disabled">Hifi sound disabled</string>
++    <string name="hifi_sound_settings">Hifi sound settings</string>
++    <string name="hifi_enable_title">Enable ES9018 DAC</string>
++    <string name="hifi_impedance_title">HiFi Gain</string>
++    <string name="hifi_gain_auto_title">Auto Gain</string>
++    <string name="hifi_gain_low_title">Low Gain</string>
++    <string name="hifi_gain_high_title">High Gain</string>
++    <string name="hifi_gain_line_title">LineOut</string>
++
+     <!-- Power: Performance profiles -->
+     <string name="perf_profile_settings_title">Battery saver and performance</string>
+     <string name="perf_profile_settings_summary">Adjust power saving features and device performance</string>
+diff --git a/res/xml/hifi.xml b/res/xml/hifi.xml
+new file mode 100644
+index 0000000..0816ad2
+--- /dev/null
++++ b/res/xml/hifi.xml
+@@ -0,0 +1,66 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Copyright (C) 2014 The Android Open Source Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++
++<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
++        android:title="@string/hifi_sound_settings"
++        android:key="hifi"
++        xmlns:settings="http://schemas.android.com/apk/res/com.android.settings">
++
++    <cyanogenmod.preference.CMSystemSettingSwitchPreference
++            android:key="hifi_enable"
++            android:title="@string/hifi_enable_title"
++            android:defaultValue="0"
++            android:persistent="false" />
++
++    <PreferenceCategory
++            android:key="hifi_impedance"
++            android:title="@string/hifi_impedance_title">
++
++    <SwitchPreference
++            android:key="hifi_gain_auto"
++            android:title="@string/hifi_gain_auto_title"
++            android:switchTextOff=""
++            android:switchTextOn=""
++            android:defaultValue="1"
++            android:persistent="false" />
++
++    <SwitchPreference
++            android:key="hifi_gain_low"
++            android:title="@string/hifi_gain_low_title"
++            android:switchTextOff=""
++            android:switchTextOn=""
++            android:defaultValue="0"
++            android:persistent="false" />
++
++    <SwitchPreference
++            android:key="hifi_gain_high"
++            android:title="@string/hifi_gain_high_title"
++            android:switchTextOff=""
++            android:switchTextOn=""
++            android:defaultValue="0"
++            android:persistent="false" />
++
++    <SwitchPreference
++            android:key="hifi_gain_line"
++            android:title="@string/hifi_gain_line_title"
++            android:switchTextOff=""
++            android:switchTextOn=""
++            android:defaultValue="0"
++            android:persistent="false" />
++
++    </PreferenceCategory>
++
++</PreferenceScreen>
+diff --git a/res/xml/parts_catalog.xml b/res/xml/parts_catalog.xml
+index cb58efd..4d6bf9e 100644
+--- a/res/xml/parts_catalog.xml
++++ b/res/xml/parts_catalog.xml
+@@ -93,6 +93,11 @@
+           android:fragment="org.cyanogenmod.cmparts.weather.WeatherServiceSettings"
+           cm:xmlRes="@xml/weather_settings" />
+ 
++    <part android:key="hifi"
++          android:title="@string/hifi_sound_settings"
++          android:fragment="org.cyanogenmod.cmparts.meizu.HifiSoundSettings"
++          cm:xmlRes="@xml/hifi" />
++
+     <part android:key="perf_profile_settings"
+           android:title="@string/perf_profile_settings_title"
+           android:summary="@string/perf_profile_settings_summary"
+diff --git a/src/org/cyanogenmod/cmparts/meizu/HifiSoundSettings.java b/src/org/cyanogenmod/cmparts/meizu/HifiSoundSettings.java
+new file mode 100644
+index 0000000..87fcef9
+--- /dev/null
++++ b/src/org/cyanogenmod/cmparts/meizu/HifiSoundSettings.java
+@@ -0,0 +1,271 @@
++/*
++ * Copyright (C) 2014 The Android Open Source Project
++ * Copyright (C) 2016 faust93 at monumentum@gmail.com
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.cyanogenmod.cmparts.meizu;
++
++import android.content.ContentResolver;
++import android.content.Context;
++import android.content.res.Resources;
++import android.database.ContentObserver;
++import android.net.Uri;
++import android.os.Bundle;
++import android.os.Handler;
++import android.os.UserHandle;
++
++import android.support.v7.preference.Preference;
++import android.support.v7.preference.Preference.OnPreferenceChangeListener;
++import android.support.v7.preference.PreferenceScreen;
++import android.support.v14.preference.SwitchPreference;
++import android.support.v7.preference.ListPreference;
++import android.support.v7.preference.PreferenceCategory;
++
++import android.text.TextUtils;
++import android.util.ArraySet;
++import android.util.Log;
++
++import com.android.internal.util.ArrayUtils;
++
++import org.cyanogenmod.cmparts.R;
++import org.cyanogenmod.cmparts.SettingsPreferenceFragment;
++import org.cyanogenmod.cmparts.search.BaseSearchIndexProvider;
++import org.cyanogenmod.cmparts.search.SearchIndexableRaw;
++import org.cyanogenmod.cmparts.search.Searchable;
++
++import java.util.Collections;
++import java.util.List;
++import java.util.Set;
++
++import cyanogenmod.hardware.CMHardwareManager;
++import cyanogenmod.providers.CMSettings;
++
++import android.media.AudioManager;
++import android.media.Ringtone;
++import android.media.RingtoneManager;
++
++import java.util.ArrayList;
++import java.util.List;
++
++public class HifiSoundSettings extends SettingsPreferenceFragment implements Preference.OnPreferenceChangeListener {
++
++    private static final String TAG = "HifiSoundSettings";
++
++    private static final String HIFI_MODE = "hifi_mode";
++
++    private static final String KEY_HIFI_ENABLE = "hifi_enable";
++    private static final String KEY_HIFI_IMPEDANCE = "hifi_impedance";
++    private static final String KEY_HIFI_GAIN_AUTO = "hifi_gain_auto";
++    private static final String KEY_HIFI_GAIN_LOW = "hifi_gain_low";
++    private static final String KEY_HIFI_GAIN_HIGH = "hifi_gain_high";
++    private static final String KEY_HIFI_GAIN_LINE = "hifi_gain_line";
++
++    private AudioManager mAudioManager;
++
++    private int mHifiMode;
++    private int mHifiState;
++
++    private SwitchPreference mHifiEnable;
++    private SwitchPreference mHifiAuto;
++    private SwitchPreference mHifiLowGain;
++    private SwitchPreference mHifiHighGain;
++    private SwitchPreference mHifiLineOut;
++
++    private CMHardwareManager mHardware;
++
++    @Override
++    public void onActivityCreated(Bundle savedInstanceState) {
++        super.onActivityCreated(savedInstanceState);
++
++        addPreferencesFromResource(R.xml.hifi);
++        getActivity().getActionBar().setTitle(R.string.hifi_sound_title);
++
++        mAudioManager = (AudioManager) getActivity().getSystemService("audio");
++
++        PreferenceScreen prefSet = getPreferenceScreen();
++
++        mHifiMode = CMSettings.System.getInt(getContentResolver(),
++                CMSettings.System.HIFI_MODE, 0);
++        mHifiState = CMSettings.System.getInt(getContentResolver(),
++                CMSettings.System.HIFI_ENABLE, 0);
++
++        mHifiEnable = (SwitchPreference) findPreference(KEY_HIFI_ENABLE);
++        if(mHifiState == 1)
++            mHifiEnable.setChecked(true);
++        else
++            mHifiEnable.setChecked(false);
++
++        mHifiAuto = (SwitchPreference) findPreference(KEY_HIFI_GAIN_AUTO);
++        mHifiLowGain = (SwitchPreference) findPreference(KEY_HIFI_GAIN_LOW);
++        mHifiHighGain = (SwitchPreference) findPreference(KEY_HIFI_GAIN_HIGH);
++        mHifiLineOut = (SwitchPreference) findPreference(KEY_HIFI_GAIN_LINE);
++
++        mHifiEnable.setOnPreferenceChangeListener(this);
++        mHifiAuto.setOnPreferenceChangeListener(this);
++        mHifiLowGain.setOnPreferenceChangeListener(this);
++        mHifiHighGain.setOnPreferenceChangeListener(this);
++        mHifiLineOut.setOnPreferenceChangeListener(this);
++
++        if (mHifiState == 0) {
++            findPreference(KEY_HIFI_IMPEDANCE).setEnabled(false);
++        } else {
++            findPreference(KEY_HIFI_IMPEDANCE).setEnabled(true);
++        }
++
++        initMode(mHifiMode);
++    }
++
++    @Override
++    public void onResume() {
++        super.onResume();
++    }
++
++    @Override
++    public void onPause() {
++        super.onPause();
++    }
++
++    @Override
++    public boolean onPreferenceTreeClick(Preference preference) {
++        return super.onPreferenceTreeClick(preference);
++    }
++
++    @Override
++    public boolean onPreferenceChange(Preference preference, Object objValue) {
++        final String key = preference.getKey();
++
++        if (key.equals(KEY_HIFI_ENABLE)) {
++
++         if((Boolean)objValue){
++          mHifiState = 1;
++          mAudioManager.setParameters("hifi_state=on");
++         } else {
++          mHifiState = 0;
++          mAudioManager.setParameters("hifi_state=off");
++         }
++
++         CMSettings.System.putInt(getActivity().getContentResolver(),
++                    CMSettings.System.HIFI_ENABLE, (Boolean) objValue ? 1 : 0);
++
++             if (mHifiState == 0) {
++                findPreference(KEY_HIFI_IMPEDANCE).setEnabled(false);
++             } else {
++                findPreference(KEY_HIFI_IMPEDANCE).setEnabled(true);
++             }
++
++        return true;
++        }
++
++        switch(key){
++            case KEY_HIFI_GAIN_AUTO:
++            case KEY_HIFI_GAIN_LOW:
++            case KEY_HIFI_GAIN_HIGH:
++            case KEY_HIFI_GAIN_LINE:
++            setMode(preference);
++        }
++        return true;
++    }
++
++    private void setMode(Preference preference) {
++        if (preference == mHifiAuto) {
++            if (!mHifiAuto.isChecked()) {
++                mHifiAuto.setChecked(true);
++                mHifiLowGain.setChecked(false);
++                mHifiHighGain.setChecked(false);
++                mHifiLineOut.setChecked(false);
++                CMSettings.System.putInt(getActivity().getContentResolver(), CMSettings.System.HIFI_MODE, 0);
++                mAudioManager.setParameters("hifi_gain=0");
++            }
++        } else if (preference == mHifiLowGain) {
++            if (!mHifiLowGain.isChecked()) {
++                mHifiAuto.setChecked(false);
++                mHifiLowGain.setChecked(true);
++                mHifiHighGain.setChecked(false);
++                mHifiLineOut.setChecked(false);
++                CMSettings.System.putInt(getActivity().getContentResolver(), CMSettings.System.HIFI_MODE, 1);
++                mAudioManager.setParameters("hifi_gain=1");
++            }
++        } else if (preference == mHifiHighGain) {
++            if (!mHifiHighGain.isChecked()) {
++                mHifiAuto.setChecked(false);
++                mHifiLowGain.setChecked(false);
++                mHifiHighGain.setChecked(true);
++                mHifiLineOut.setChecked(false);
++                checkAutoAdjustStreamVolume();
++                CMSettings.System.putInt(getActivity().getContentResolver(), CMSettings.System.HIFI_MODE, 2);
++                mAudioManager.setParameters("hifi_gain=2");
++            }
++        } else if (preference == mHifiLineOut && !mHifiLineOut.isChecked()) {
++            mHifiAuto.setChecked(false);
++            mHifiLowGain.setChecked(false);
++            mHifiHighGain.setChecked(false);
++            mHifiLineOut.setChecked(true);
++            CMSettings.System.putInt(getActivity().getContentResolver(), CMSettings.System.HIFI_MODE, 3);
++            mAudioManager.setParameters("hifi_gain=3");
++        }
++    }
++
++    private void checkAutoAdjustStreamVolume() {
++        if (mAudioManager.getStreamVolume(3) > 50) {
++            Log.d("HifiSettings", "checkAutoAdjustStreamVolume: auto set music_stream volume index: 50");
++            mAudioManager.setStreamVolume(3, 50, 0);
++        }
++    }
++
++    private void initMode(int mode) {
++        switch (mode) {
++            case 0:
++                mHifiAuto.setChecked(true);
++                mHifiLowGain.setChecked(false);
++                mHifiHighGain.setChecked(false);
++                mHifiLineOut.setChecked(false);
++                return;
++            case 1:
++                mHifiAuto.setChecked(false);
++                mHifiLowGain.setChecked(true);
++                mHifiHighGain.setChecked(false);
++                mHifiLineOut.setChecked(false);
++                return;
++            case 2:
++                this.mHifiAuto.setChecked(false);
++                this.mHifiLowGain.setChecked(false);
++                this.mHifiHighGain.setChecked(true);
++                this.mHifiLineOut.setChecked(false);
++                return;
++            case 3:
++                mHifiAuto.setChecked(false);
++                mHifiLowGain.setChecked(false);
++                mHifiHighGain.setChecked(false);
++                mHifiLineOut.setChecked(true);
++                return;
++            default:
++                Log.e("HifiSoundSettings", "HIFI_MODE:" + mode);
++                return;
++        }
++    }
++
++   public static final SummaryProvider SUMMARY_PROVIDER = new SummaryProvider() {
++        @Override
++        public String getSummary(Context context, String key) {
++            if (CMSettings.System.getInt(context.getContentResolver(), CMSettings.System.HIFI_ENABLE, 0) == 0) {
++                return context.getString(R.string.hifi_disabled);
++            }
++            return context.getString(R.string.hifi_enabled);
++
++    }
++
++    };
++
++}
+-- 
+1.9.3 (Apple Git-50)
+

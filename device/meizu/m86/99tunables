@@ -1,0 +1,51 @@
+#!/system/bin/sh
+
+#Set default values on boot
+echo "temporary none" > /sys/class/scsi_disk/0:0:0:1/cache_type
+echo "temporary none" > /sys/class/scsi_disk/0:0:0:2/cache_type
+
+#####################################################################
+# Disable rotational storage for all blocks
+# We need faster I/O so do not try to force moving to other CPU cores (dorimanx)
+for i in /sys/block/*/queue; do
+        echo "0" > "$i"/rotational
+        echo "2" > "$i"/rq_affinity
+done
+
+#####################################################################
+# Set UKSM Governor
+echo "low" > /sys/kernel/mm/uksm/cpu_governor
+
+#####################################################################
+# Tune entropy parameters
+echo "512" > /proc/sys/kernel/random/read_wakeup_threshold
+echo "256" > /proc/sys/kernel/random/write_wakeup_threshold
+
+#####################################################################
+# Default IO Scheduler
+echo "sioplus" > /sys/block/mmcblk0/queue/scheduler
+echo "sioplus" > /sys/block/sda/queue/scheduler
+echo "sioplus" > /sys/block/sdb/queue/scheduler
+echo "sioplus" > /sys/block/sdc/queue/scheduler
+
+#####################################################################
+# GPU CLOCK
+echo "100" > /sys/devices/platform/gpusysfs/gpu_min_clock
+echo "772" > /sys/devices/platform/gpusysfs/gpu_max_clock
+
+#####################################################################
+# Default TCP Congestion Controller
+echo "westwood" > /proc/sys/net/ipv4/tcp_congestion_control
+
+#####################################################################
+# Enable Arch Power
+echo "1" > /sys/kernel/sched/arch_power
+
+#####################################################################
+# Disable Gentle Fair Sleepers
+echo "0" > /sys/kernel/sched/gentle_fair_sleepers
+
+echo "1" > /sys/module/workqueue/parameters/power_efficient;
+
+# increase in-call volume
+tinymix 58 160
