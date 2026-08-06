@@ -113,6 +113,15 @@ explicitly clears all Galaxy HAL selectors, shims, radio topology, Bluetooth
 identity, fs-config, and policy paths; only the audited Exynos platform flags
 remain active.
 
+The vibrator is an evidence-backed exception to the proprietary-first rule.
+Both the maintained m86 kernel and the final Flyme 8 ramdisk identify
+`/sys/class/timed_output/vibrator/enable` as the control node. Android 10's
+source `vibrator.default` module writes that exact ABI, so the generic
+Vibrator 1.0 HIDL bridge is used and Flyme's optional `immvibed`/`tspdrv`
+userspace protocol is not required for ordinary framework vibration. Runtime
+acceptance still requires timed on/off and repeated-notification testing on
+the device.
+
 ## Userspace subsystem plan
 
 ### Graphics and media

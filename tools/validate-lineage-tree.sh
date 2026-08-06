@@ -243,6 +243,9 @@ require_fixed '$(LOCAL_PATH)/gps/gps.xml:$(TARGET_COPY_OUT_SYSTEM)/etc/gps.xml' 
 require_fixed 'android.hardware.sensors@1.0-impl' "$device_makefile"
 require_fixed 'android.hardware.sensors@1.0-service' "$device_makefile"
 require_fixed 'group system wakelock input' "$sensors_service_rc"
+require_fixed 'android.hardware.vibrator@1.0-impl' "$device_makefile"
+require_fixed 'android.hardware.vibrator@1.0-service' "$device_makefile"
+require_fixed 'vibrator.default' "$device_makefile"
 for wifi_package in hostapd wpa_supplicant wpa_supplicant.conf; do
   if ! rg -q "^[[:space:]]*${wifi_package}( \\\\)?$" "$device_makefile"; then
     printf 'Required m86 Wi-Fi package is absent: %s\n' "$wifi_package" >&2
@@ -274,6 +277,10 @@ require_fixed '/dev/video16                 0660   system      audio' \
 require_fixed 'chown bluetooth bluetooth /sys/class/rfkill/rfkill0/state' \
   "$device_root/rootdir/etc/init.m86.rc"
 require_fixed 'chmod 0660 /sys/class/rfkill/rfkill0/state' \
+  "$init_rc"
+require_fixed 'chown system system /sys/class/timed_output/vibrator/enable' \
+  "$init_rc"
+require_fixed 'chmod 0660 /sys/class/timed_output/vibrator/enable' \
   "$init_rc"
 require_fixed 'mkdir /data/vendor/wifi/wpa/sockets 0770 wifi wifi' "$init_rc"
 require_fixed 'chown wifi wifi /sys/module/bcmdhd/parameters/firmware_path' \
@@ -471,6 +478,8 @@ for radio_slot in slot1 slot2; do
 done
 require_manifest_hal \
   android.hardware.sensors 1.0 hwbinder '' ISensors
+require_manifest_hal \
+  android.hardware.vibrator 1.0 hwbinder '' IVibrator
 require_manifest_hal \
   android.hardware.wifi 1.3 hwbinder '' IWifi
 require_manifest_hal \

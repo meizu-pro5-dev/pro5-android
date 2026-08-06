@@ -141,6 +141,14 @@ PRODUCT_PACKAGES += \
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/sensors/android.hardware.sensors@1.0-service.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/android.hardware.sensors@1.0-service.rc
 
+# Vibrator. The maintained Meizu kernel exposes the standard timed-output
+# interface used by Android's source-built legacy module; the HIDL service
+# wraps it without depending on Flyme's optional Immersion daemon.
+PRODUCT_PACKAGES += \
+    android.hardware.vibrator@1.0-impl \
+    android.hardware.vibrator@1.0-service \
+    vibrator.default
+
 # TARGET_SYSTEM_PROP is expanded after product makefiles have changed
 # LOCAL_PATH. Use the stable device path so it cannot resolve under
 # build/make/core during Ninja graph generation.
