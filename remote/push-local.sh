@@ -13,6 +13,11 @@ printf 'Synchronizing local source of truth to %s:%s/local/\n' \
 "${pro5_ssh[@]}" mkdir -p -- "$PRO5_REMOTE_ROOT/local"
 
 rsync -az --delete-delay \
+  --include '/legacy/' \
+  --include '/legacy/device-meizu-m86-cm14/' \
+  --include '/legacy/device-meizu-m86-cm14/UPSTREAM.md' \
+  --include '/legacy/device-meizu-m86-cm14/libfprint/***' \
+  --exclude '/legacy/***' \
   --exclude '/.git/' \
   --exclude '/.DS_Store' \
   --exclude '__pycache__/' \
@@ -20,7 +25,6 @@ rsync -az --delete-delay \
   --exclude '/artifacts/' \
   --exclude '/backups/' \
   --exclude '/evidence/' \
-  --exclude '/legacy/' \
   --exclude '/out/' \
   --exclude '/work/' \
   --exclude '/vendor/meizu/m86/proprietary/' \

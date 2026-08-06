@@ -25,6 +25,8 @@ lights_bp="$device_root/lights/Android.bp"
 lights_source="$device_root/lights/lights.c"
 power_bp="$device_root/power/Android.bp"
 power_source="$device_root/power/PowerHAL.c"
+fingerprint_makefile="$device_root/fingerprint/Android.mk"
+fingerprint_source="$device_root/fingerprint/FingerprintHAL.c"
 wifi_sta_overlay="$device_root/wifi/wpa_supplicant_overlay.conf"
 wifi_p2p_overlay="$device_root/wifi/p2p_supplicant_overlay.conf"
 usb_rc="$device_root/rootdir/etc/init.m86.usb.rc"
@@ -39,9 +41,14 @@ kernel_uapi_kbuild="$project_root/kernel/meizu/m86/include/uapi/linux/Kbuild"
 kernel_mfc_uapi="$project_root/kernel/meizu/m86/include/uapi/linux/videodev2_exynos_media.h"
 platform_patch="$project_root/patches/device-samsung-universal7420-common/0001-target-add-meizu-m86.patch"
 bluetooth_patch="$project_root/patches/device-samsung-universal7420-common/0002-bluetooth-add-m86-address-fallback.patch"
+glib_patch="$project_root/patches/external-glib/0001-build-libglib-for-m86-vendor.patch"
+libfprint_patch="$project_root/patches/legacy-m86-libfprint/0001-port-m86-fpc-to-android10.patch"
 patch_series="$project_root/patches/series.tsv"
 platform_manifest="$project_root/manifests/pro5.xml"
 build_worker="$project_root/remote/worker-build.sh"
+install_worker="$project_root/remote/install-local-trees.sh"
+push_worker="$project_root/remote/push-local.sh"
+platform_sync_worker="$project_root/remote/worker-sync-platform.sh"
 vendor_worker="$project_root/remote/prepare-vendor.sh"
 camera_audit_tool="$project_root/tools/audit-camera-abi.sh"
 blob_list="$device_root/proprietary-files.txt"
@@ -49,6 +56,8 @@ vendor_definition_root="$project_root/vendor/meizu/m86"
 vendor_android_makefile="$vendor_definition_root/Android.mk"
 vendor_board_config="$vendor_definition_root/BoardConfigVendor.mk"
 vendor_product_makefile="$vendor_definition_root/m86-vendor.mk"
+legacy_fprint="$project_root/legacy/device-meizu-m86-cm14/libfprint/fpc1150.c"
+legacy_upstream="$project_root/legacy/device-meizu-m86-cm14/UPSTREAM.md"
 
 for required_file in \
   "$board_config" \
@@ -71,6 +80,8 @@ for required_file in \
   "$lights_source" \
   "$power_bp" \
   "$power_source" \
+  "$fingerprint_makefile" \
+  "$fingerprint_source" \
   "$wifi_sta_overlay" \
   "$wifi_p2p_overlay" \
   "$usb_rc" \
@@ -85,15 +96,22 @@ for required_file in \
   "$kernel_mfc_uapi" \
   "$platform_patch" \
   "$bluetooth_patch" \
+  "$glib_patch" \
+  "$libfprint_patch" \
   "$patch_series" \
   "$platform_manifest" \
   "$build_worker" \
+  "$install_worker" \
+  "$push_worker" \
+  "$platform_sync_worker" \
   "$vendor_worker" \
   "$camera_audit_tool" \
   "$blob_list" \
   "$vendor_android_makefile" \
   "$vendor_board_config" \
-  "$vendor_product_makefile"; do
+  "$vendor_product_makefile" \
+  "$legacy_fprint" \
+  "$legacy_upstream"; do
   if [[ ! -s "$required_file" ]]; then
     printf 'Missing required LineageOS source: %s\n' "$required_file" >&2
     exit 1
@@ -227,6 +245,8 @@ require_fixed 'TARGET_SYSTEM_PROP := device/meizu/m86/system.prop' \
 require_fixed 'persist.sys.usb.config=mtp' "$device_makefile"
 require_fixed 'android.hardware.bluetooth_le.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.bluetooth_le.xml' \
   "$device_makefile"
+require_fixed 'android.hardware.fingerprint.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.fingerprint.xml' \
+  "$device_makefile"
 for camera_feature in camera camera.flash-autofocus camera.front; do
   require_fixed "android.hardware.${camera_feature}.xml:\$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.${camera_feature}.xml" \
     "$device_makefile"
@@ -342,6 +362,37 @@ require_fixed '/sys/devices/system/cpu/cpu4/cpufreq/interactive/boostpulse' \
 require_fixed '/sys/module/exynos_march_cpu_hotplug/parameters/current_profile_no' \
   "$power_source"
 require_fixed '#define NAVIGATION_SWITCH "/proc/nav_switch"' "$power_source"
+for fingerprint_package in \
+  android.hardware.biometrics.fingerprint@2.1-service \
+  fingerprint.m86 \
+  libglib; do
+  require_fixed "$fingerprint_package" "$device_makefile"
+done
+require_fixed 'LOCAL_MODULE := libm86fprint' "$fingerprint_makefile"
+require_fixed 'LOCAL_MODULE := fingerprint.m86' "$fingerprint_makefile"
+require_fixed 'LOCAL_MULTILIB := 64' "$fingerprint_makefile"
+require_fixed 'LOCAL_VENDOR_MODULE := true' "$fingerprint_makefile"
+require_fixed 'FINGERPRINT_MODULE_API_VERSION_2_1' "$fingerprint_source"
+require_fixed 'struct fp_print_data *templates[MAX_TEMPLATES + 1];' \
+  "$fingerprint_source"
+require_fixed 'no TEE-backed' "$fingerprint_source"
+require_fixed 'sizeof(authenticated.data.authenticated.hat.hmac)' \
+  "$fingerprint_source"
+require_fixed 'start_worker_locked' "$fingerprint_source"
+require_fixed 'message.data.enumerated.remaining_templates' "$fingerprint_source"
+require_fixed 'message.data.removed.remaining_templates' "$fingerprint_source"
+require_fixed 'LOCAL_VENDOR_MODULE := true' "$glib_patch"
+require_fixed 'LOCAL_MULTILIB := 64' "$glib_patch"
+require_fixed 'git -C "$build_fprint" apply --check "$fprint_patch"' \
+  "$install_worker"
+require_fixed 'Expected 42 archived m86 libfprint build files.' \
+  "$install_worker"
+require_fixed "--include '/legacy/device-meizu-m86-cm14/libfprint/***'" \
+  "$push_worker"
+require_fixed 'external/glib' "$platform_sync_worker"
+require_fixed 'external/glib' "$patch_series"
+require_fixed 'patches/legacy-m86-libfprint/0001-port-m86-fpc-to-android10.patch' \
+  "$install_worker"
 for wifi_package in hostapd wpa_supplicant wpa_supplicant.conf; do
   if ! rg -q "^[[:space:]]*${wifi_package}( \\\\)?$" "$device_makefile"; then
     printf 'Required m86 Wi-Fi package is absent: %s\n' "$wifi_package" >&2
@@ -391,6 +442,14 @@ require_fixed 'chown system system /sys/class/timed_output/vibrator/enable' \
 require_fixed 'chmod 0660 /sys/class/timed_output/vibrator/enable' \
   "$init_rc"
 require_fixed 'chmod 0660 /proc/nav_switch' "$init_rc"
+for fingerprint_node in capture_mode capture_count pxl_ctrl; do
+  require_fixed "chown system system /sys/devices/14d70000.spi/spi_master/spi4/spi4.0/setup/${fingerprint_node}" \
+    "$init_rc"
+  require_fixed "chmod 0660 /sys/devices/14d70000.spi/spi_master/spi4/spi4.0/setup/${fingerprint_node}" \
+    "$init_rc"
+done
+require_fixed '/dev/fpc1020                 0660   system      system' \
+  "$ueventd_rc"
 require_fixed 'chmod 0660 /sys/devices/system/cpu/cpu0/cpufreq/interactive/boostpulse' \
   "$init_rc"
 require_fixed 'chmod 0660 /sys/devices/system/cpu/cpu4/cpufreq/interactive/boostpulse' \
@@ -561,6 +620,7 @@ if ! command -v xmllint >/dev/null 2>&1; then
   exit 1
 fi
 xmllint --noout "$device_manifest"
+xmllint --noout "$platform_manifest"
 xmllint --noout "$audio_policy"
 xmllint --noout "$audio_effects"
 xmllint --noout "$gps_xml"
@@ -601,6 +661,8 @@ require_manifest_hal \
   android.hardware.audio.effect 5.0 passthrough 32 IEffectsFactory
 require_manifest_hal \
   android.hardware.bluetooth 1.0 hwbinder '' IBluetoothHci
+require_manifest_hal \
+  android.hardware.biometrics.fingerprint 2.1 hwbinder '' IBiometricsFingerprint
 require_manifest_instance \
   android.hardware.camera.provider 2.4 ICameraProvider legacy/0
 require_manifest_hal \
@@ -698,6 +760,15 @@ fi
 if rg -q 'android\.hardware\.nfc\.hcef\.xml|NQNfcNci|sec-nfc|/dev/pn54x' \
     "$device_makefile" "$nfc_config"; then
   printf 'm86 must not advertise unverified HCE-F or use the wrong NFC generation/node.\n' >&2
+  exit 1
+fi
+if rg -q '(^|[[:space:]\\])fingerprintd([[:space:]\\]|$)|android\.hardware\.biometrics\.fingerprint@2\.1-impl' \
+    "$device_makefile"; then
+  printf 'm86 must use the Android 10 fingerprint HIDL service, not obsolete daemons/modules.\n' >&2
+  exit 1
+fi
+if [[ "$(xmllint --xpath "count(/manifest/project[@path='external/glib' and @name='platform/external/bluetooth/glib' and @remote='aosp' and @revision='1143b9918eab068401b604eb11c3f651f4e38b25'])" "$platform_manifest")" != "1" ]]; then
+  printf 'The exact AOSP legacy glib source is not pinned in the m86 manifest.\n' >&2
   exit 1
 fi
 if rg -q 'gpioi2c|led_pattern|my_pattern|fopen' "$lights_source"; then

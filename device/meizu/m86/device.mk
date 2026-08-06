@@ -44,6 +44,7 @@ PRODUCT_COPY_FILES += \
     frameworks/native/data/etc/android.hardware.camera.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.camera.xml \
     frameworks/native/data/etc/android.hardware.camera.flash-autofocus.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.camera.flash-autofocus.xml \
     frameworks/native/data/etc/android.hardware.camera.front.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.camera.front.xml \
+    frameworks/native/data/etc/android.hardware.fingerprint.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.fingerprint.xml \
     frameworks/native/data/etc/android.hardware.location.gps.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.location.gps.xml \
     frameworks/native/data/etc/android.hardware.nfc.hce.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.nfc.hce.xml \
     frameworks/native/data/etc/android.hardware.nfc.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.nfc.xml \
@@ -189,6 +190,15 @@ PRODUCT_PACKAGES += \
     android.hardware.power@1.0-impl \
     android.hardware.power@1.0-service \
     power.m86
+
+# Fingerprint. Android 10's generic HIDL 2.1 service wraps the source-built
+# m86 FPC1020 transport and NBIS matcher. No compatible fingerprint TEE TA is
+# available, so its authentication token is explicitly non-TEE-backed; this is
+# a convenience unlock path and must not be treated as a strong biometric.
+PRODUCT_PACKAGES += \
+    android.hardware.biometrics.fingerprint@2.1-service \
+    fingerprint.m86 \
+    libglib
 
 # TARGET_SYSTEM_PROP is expanded after product makefiles have changed
 # LOCAL_PATH. Use the stable device path so it cannot resolve under

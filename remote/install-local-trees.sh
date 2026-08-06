@@ -45,6 +45,38 @@ for relative_path in \
   printf 'Installed: %s\n' "$relative_path"
 done
 
+# The last m86 community tree is immutable local evidence. Copy only its
+# FPC1020/libfprint implementation into the generated Android build tree, then
+# apply the reviewed Android 10 fixes kept with the active device sources.
+legacy_fprint="$local_root/legacy/device-meizu-m86-cm14/libfprint"
+build_fprint="$source_root/device/meizu/m86/fingerprint/libfprint"
+fprint_patch="$local_root/patches/legacy-m86-libfprint/0001-port-m86-fpc-to-android10.patch"
+
+if [[ ! -f "$legacy_fprint/fpc1150.c" ]] || \
+    [[ ! -f "$legacy_fprint/nbis/mindtct/detect.c" ]]; then
+  printf 'Missing archived m86 libfprint source.\n' >&2
+  exit 1
+fi
+if [[ ! -f "$fprint_patch" ]]; then
+  printf 'Missing Android 10 m86 libfprint patch.\n' >&2
+  exit 1
+fi
+
+mkdir -p "$build_fprint"
+rsync -a --delete \
+  --exclude Android.mk \
+  --exclude '*_' \
+  --exclude '*__' \
+  "$legacy_fprint/" "$build_fprint/"
+
+if [[ "$(find "$build_fprint" -type f | wc -l | tr -d ' ')" != "42" ]]; then
+  printf 'Expected 42 archived m86 libfprint build files.\n' >&2
+  exit 1
+fi
+git -C "$build_fprint" apply --check "$fprint_patch"
+git -C "$build_fprint" apply "$fprint_patch"
+printf 'Installed: patched m86 FPC1020/libfprint source\n'
+
 overlay_root="$local_root/overlays/kernel-meizu-m86-case-sensitive"
 overlay_hashes="$overlay_root/SHA256SUMS"
 if [[ -f "$overlay_hashes" ]]; then

@@ -222,9 +222,20 @@ FULL/RAW capability until runtime tests support it.
   Beam-compatible peer discovery where supported, HCE, screen-off behavior,
   suspend/resume and repeated service restarts; P61 wired/SPI secure-element
   use remains a separate test gate.
-- Fingerprint: retain FPC device/input behavior; port to the Android 10
-  biometrics service only after enrollment/authentication storage paths and
-  TrustZone dependencies are understood.
+- Fingerprint: Android 10's generic biometrics 2.1 service wraps a 64-bit,
+  source-built m86 HAL and the last public FPC1020 transport/NBIS matcher from
+  the archived m86 tree. The archived code is patched for per-user storage,
+  checked I/O, current Clang and joinable cancellation; the feature, VINTF
+  declaration and only the sysfs nodes actually used by capture/navigation are
+  owned by m86. Flyme 8 contains neither a reusable fingerprint HAL nor a
+  compatible trusted application, so matching and metadata remain in normal
+  Android userspace and the returned authentication token deliberately has a
+  zero HMAC. This can be evaluated for convenience screen unlock only: it is
+  not a strong biometric and cannot authorize Keystore-bound keys. Runtime
+  acceptance requires enroll/enumerate/authenticate/remove for two Android
+  users, reboot persistence, cancel/timeout, five-template capacity, repeated
+  service restarts, suspend/resume and confirmation that auth-bound keys reject
+  its non-TEE token.
 - Power: Android 10's power 1.0 service wraps a source-built m86 module. The
   module preserves the maintained kernel's interactive-governor boost pulse,
   `exynos_march_cpu_hotplug` balanced/eco profiles and FPC navigation switch,
