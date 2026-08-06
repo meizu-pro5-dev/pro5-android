@@ -120,6 +120,35 @@ The retained local evidence directories are
 `artifacts/pro5-a10-kernel-20260807-003738-no-devmem-repro` in the parent
 Android workspace.
 
+### Effective Android boot arguments
+
+The current separate DTB contains a non-empty `/chosen/bootargs`. Under
+arm64's default `CMDLINE_FROM_BOOTLOADER` mode, that string replaces the
+compiled `CONFIG_CMDLINE`, so merely setting `androidboot.hardware=m86` in the
+defconfig did not guarantee that Android init would receive it. The bring-up
+configuration now enables `CONFIG_CMDLINE_EXTEND` and uses:
+
+```text
+CONFIG_CMDLINE="androidboot.hardware=m86 androidboot.selinux=permissive"
+CONFIG_CMDLINE_EXTEND=y
+```
+
+The stock-compatible Android v0 boot-image header remains empty. Permissive is
+limited to the R1/U1 userdebug bring-up gate and must be removed before S1;
+runtime confirmation of the effective command line remains a device test.
+Two clean builds of local revision `a418461c` are byte-identical:
+
+| Artifact | Size | SHA-256 |
+| --- | ---: | --- |
+| `Image` | 17,117,528 | `9664bac0687eee391a42995841e3f90863d401ae6c1517e27ea8c66155e79cf6` |
+| config-aware DTB | 146,172 | `0b537be248ed155a925d58c9a6b927ec1c4cdfaa0624ea714e848abddfba7d84` |
+| generated config | 99,833 | `6753d53b9084b3c0902dbcd8f4fb053bfe3723649181f8481dbd373485702e81` |
+
+The retained local evidence directories are
+`artifacts/pro5-a10-kernel-20260807-020526-cmdline-extend` and
+`artifacts/pro5-a10-kernel-20260807-020654-cmdline-extend-repro` in the parent
+Android workspace.
+
 ## Port order and gates
 
 1. Build the unchanged `cm_pro5_defconfig` with the LineageOS 17.1 GCC 4.9
