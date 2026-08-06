@@ -113,7 +113,14 @@ arm_revision="$(git -C "$arm_toolchain" rev-parse HEAD)"
   printf 'built_at=%s\n' "$(date --iso-8601=seconds)"
 } > "$artifact_dir/BUILD-METADATA"
 
-sha256sum "$artifact_dir"/* > "$artifact_dir/SHA256SUMS"
+(
+  cd "$artifact_dir"
+  sha256sum \
+    BUILD-METADATA \
+    Image \
+    exynos7420-m86-codegen.dtb \
+    kernel.config > SHA256SUMS
+)
 stat -c '%n %s bytes' "$artifact_dir"/Image "$artifact_dir"/*.dtb
 printf 'Standalone kernel build completed at %s\n' "$(date --iso-8601=seconds)"
 printf 'Artifacts: %s\n' "$artifact_dir"
