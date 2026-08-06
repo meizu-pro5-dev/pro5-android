@@ -16,6 +16,8 @@ rsync -az --delete-delay \
   --exclude '/.git/' \
   --exclude '/.DS_Store' \
   --exclude '/evidence/' \
+  --exclude '/device/meizu/m86/dtb_cm' \
+  --exclude '/device/meizu/m86/rootdir/sbin/cbd' \
   --exclude '/vendor/meizu/m86/proprietary/' \
   --exclude '*.img' \
   --exclude '*.bin' \

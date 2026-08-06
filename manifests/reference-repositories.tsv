@@ -7,3 +7,7 @@ universal7420-common	https://github.com/universal7420/android_device_samsung_uni
 universal7420-kernel	https://github.com/universal7420/android_kernel_samsung_universal7420.git	lineage-17.1
 universal7420-hardware-exynos	https://github.com/universal7420/android_hardware_samsung_slsi_exynos7420.git	lineage-17.1
 universal7420-hardware-samsung	https://github.com/universal7420/android_hardware_samsung.git	lineage-17.1
+lineage-hardware-samsung	https://github.com/LineageOS/android_hardware_samsung.git	lineage-17.1
+lineage-hardware-exynos	https://github.com/LineageOS/android_hardware_samsung_slsi_exynos.git	lineage-17.1
+lineage-hardware-exynos5	https://github.com/LineageOS/android_hardware_samsung_slsi_exynos5.git	lineage-17.1
+lineage-hardware-openmax	https://github.com/LineageOS/android_hardware_samsung_slsi_openmax.git	lineage-17.1

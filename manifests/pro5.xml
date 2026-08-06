@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+  <remote name="github-root" fetch="https://github.com/" />
+
+  <project
+      path="device/samsung/universal7420-common"
+      name="universal7420/android_device_samsung_universal7420-common"
+      remote="github-root"
+      revision="refs/heads/lineage-17.1"
+      clone-depth="1" />
+  <project
+      path="kernel/samsung/universal7420"
+      name="universal7420/android_kernel_samsung_universal7420"
+      remote="github-root"
+      revision="refs/heads/lineage-17.1"
+      clone-depth="1" />
+  <project
+      path="hardware/samsung"
+      name="universal7420/android_hardware_samsung"
+      remote="github-root"
+      revision="refs/heads/lineage-17.1"
+      clone-depth="1" />
+  <project
+      path="hardware/samsung_slsi/exynos"
+      name="LineageOS/android_hardware_samsung_slsi_exynos"
+      remote="github-root"
+      revision="refs/heads/lineage-17.1"
+      clone-depth="1" />
+  <project
+      path="hardware/samsung_slsi/exynos5"
+      name="LineageOS/android_hardware_samsung_slsi_exynos5"
+      remote="github-root"
+      revision="refs/heads/lineage-17.1"
+      clone-depth="1" />
+  <project
+      path="hardware/samsung_slsi/exynos7420"
+      name="universal7420/android_hardware_samsung_slsi_exynos7420"
+      remote="github-root"
+      revision="refs/heads/lineage-17.1"
+      clone-depth="1" />
+  <project
+      path="hardware/samsung_slsi/openmax"
+      name="LineageOS/android_hardware_samsung_slsi_openmax"
+      remote="github-root"
+      revision="refs/heads/lineage-17.1"
+      clone-depth="1" />
+</manifest>
