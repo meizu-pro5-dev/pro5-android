@@ -48,9 +48,11 @@ aarch64_toolchain="$source_root/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-an
 arm_toolchain="$source_root/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9"
 aarch64_prefix="$aarch64_toolchain/bin/aarch64-linux-android-"
 arm_prefix="$arm_toolchain/bin/arm-linux-androideabi-"
+kernel_exfat_lock="$local_root/locks/kernel-exfat-exynos7420.sha256"
 
 for required in \
   "$kernel_root/arch/arm64/configs/cm_pro5_defconfig" \
+  "$kernel_exfat_lock" \
   "${aarch64_prefix}gcc" \
   "${arm_prefix}gcc"; do
   if [[ ! -e "$required" ]]; then
@@ -58,6 +60,13 @@ for required in \
     exit 1
   fi
 done
+if ! (
+  cd "$kernel_root"
+  sha256sum --quiet -c "$kernel_exfat_lock"
+); then
+  printf 'The installed Exynos 7420 exFAT source does not match its lock.\n' >&2
+  exit 1
+fi
 
 export KBUILD_BUILD_USER=pro5-port
 export KBUILD_BUILD_HOST=autodl
@@ -95,12 +104,31 @@ for artifact in "$kernel_image" "$kernel_dtb" "$out_root/.config"; do
     exit 1
   fi
 done
+if ! grep -F -x -q 'CONFIG_EXFAT_FS=y' "$out_root/.config"; then
+  printf 'The generated m86 kernel config omitted CONFIG_EXFAT_FS=y.\n' >&2
+  exit 1
+fi
+for required_exfat_object in \
+  fs/exfat/exfat_core.o \
+  fs/exfat/exfat_fs.o; do
+  if [[ ! -s "$out_root/$required_exfat_object" ]]; then
+    printf 'The standalone build omitted kernel object %s.\n' \
+      "$required_exfat_object" >&2
+    exit 1
+  fi
+done
 
 artifact_dir="$artifact_root/$build_stamp-kernel-standalone"
 mkdir -p "$artifact_dir"
 install -m 0644 "$kernel_image" "$artifact_dir/Image"
 install -m 0644 "$kernel_dtb" "$artifact_dir/exynos7420-m86-codegen.dtb"
 install -m 0644 "$out_root/.config" "$artifact_dir/kernel.config"
+install -m 0644 "$kernel_exfat_lock" \
+  "$artifact_dir/kernel-exfat-exynos7420.sha256"
+(
+  cd "$out_root"
+  sha256sum fs/exfat/exfat_core.o fs/exfat/exfat_fs.o
+) > "$artifact_dir/EXFAT-KERNEL.txt"
 
 aarch64_revision="$(git -C "$aarch64_toolchain" rev-parse HEAD)"
 arm_revision="$(git -C "$arm_toolchain" rev-parse HEAD)"
@@ -117,8 +145,10 @@ arm_revision="$(git -C "$arm_toolchain" rev-parse HEAD)"
   cd "$artifact_dir"
   sha256sum \
     BUILD-METADATA \
+    EXFAT-KERNEL.txt \
     Image \
     exynos7420-m86-codegen.dtb \
+    kernel-exfat-exynos7420.sha256 \
     kernel.config > SHA256SUMS
 )
 stat -c '%n %s bytes' "$artifact_dir"/Image "$artifact_dir"/*.dtb

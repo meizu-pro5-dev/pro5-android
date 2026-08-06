@@ -51,6 +51,7 @@ libfprint_patch="$project_root/patches/legacy-m86-libfprint/0001-port-m86-fpc-to
 patch_series="$project_root/patches/series.tsv"
 platform_manifest="$project_root/manifests/pro5.xml"
 build_worker="$project_root/remote/worker-build.sh"
+kernel_build_worker="$project_root/remote/worker-build-kernel.sh"
 start_build="$project_root/remote/start-build.sh"
 install_worker="$project_root/remote/install-local-trees.sh"
 push_worker="$project_root/remote/push-local.sh"
@@ -113,6 +114,7 @@ for required_file in \
   "$patch_series" \
   "$platform_manifest" \
   "$build_worker" \
+  "$kernel_build_worker" \
   "$start_build" \
   "$install_worker" \
   "$push_worker" \
@@ -170,6 +172,9 @@ require_fixed 'source "fs/exfat/Kconfig"' "$kernel_fs_kconfig"
 require_fixed 'obj-$(CONFIG_EXFAT_FS)' "$kernel_fs_makefile"
 require_fixed 'fs/exfat/exfat_core.o' "$build_worker"
 require_fixed 'fs/exfat/exfat_fs.o' "$build_worker"
+require_fixed 'fs/exfat/exfat_core.o' "$kernel_build_worker"
+require_fixed 'fs/exfat/exfat_fs.o' "$kernel_build_worker"
+require_fixed 'kernel-exfat-exynos7420.sha256' "$kernel_build_worker"
 
 require_empty_assignment() {
   local variable_name="$1"
