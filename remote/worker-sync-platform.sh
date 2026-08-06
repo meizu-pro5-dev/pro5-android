@@ -40,6 +40,10 @@ printf 'Platform sync started at %s\n' "$(date --iso-8601=seconds)"
 cd "$source_root"
 repo_sync_args=(
   -c
+  # Every entry below deliberately replaces the base manifest project with a
+  # same-path universal7420 fork. repo requires this flag when object-store
+  # ownership changes, even when the checkout is clean.
+  --force-sync
   --no-clone-bundle
   --no-tags
   --optimized-fetch
@@ -112,6 +116,14 @@ platform_projects=(
 for index in "${!platform_projects[@]}"; do
   project="${platform_projects[$index]}"
   phase="Platform project $((index + 1))/${#platform_projects[@]}"
+
+  # --force-sync may replace git metadata, so never apply it over local work.
+  if git -C "$project" rev-parse --is-inside-work-tree >/dev/null 2>&1 && \
+      [[ -n "$(git -C "$project" status --porcelain)" ]]; then
+    printf 'Refusing to replace dirty platform checkout: %s\n' "$project" >&2
+    exit 1
+  fi
+
   sync_one_project "$project" "$phase"
 done
 

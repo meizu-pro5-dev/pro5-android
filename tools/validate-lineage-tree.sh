@@ -344,6 +344,9 @@ require_fixed 'mv "$manifest_tmp" "$manifest_lock"' \
   "$project_root/remote/worker-sync-source.sh"
 require_fixed '[[ ! -s "$log_dir/lineage-17.1-manifest.xml" ]]' \
   "$project_root/remote/worker-sync-platform.sh"
+require_fixed '--force-sync' "$project_root/remote/worker-sync-platform.sh"
+require_fixed 'Refusing to replace dirty platform checkout' \
+  "$project_root/remote/worker-sync-platform.sh"
 require_fixed 'mv "$manifest_tmp" "$manifest_lock"' \
   "$project_root/remote/worker-sync-platform.sh"
 require_fixed 'set +u' "$device_root/extract-files.sh"
