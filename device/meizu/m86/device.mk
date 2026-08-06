@@ -141,7 +141,10 @@ PRODUCT_PACKAGES += \
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/sensors/android.hardware.sensors@1.0-service.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/android.hardware.sensors@1.0-service.rc
 
-TARGET_SYSTEM_PROP += $(LOCAL_PATH)/system.prop
+# TARGET_SYSTEM_PROP is expanded after product makefiles have changed
+# LOCAL_PATH. Use the stable device path so it cannot resolve under
+# build/make/core during Ninja graph generation.
+TARGET_SYSTEM_PROP := device/meizu/m86/system.prop
 
 # Android's build logic appends adb for userdebug/eng. User builds retain MTP.
 PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \

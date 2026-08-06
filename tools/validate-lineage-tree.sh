@@ -188,6 +188,8 @@ require_fixed 'BOARD_BLUETOOTH_BDROID_BUILDCFG_INCLUDE_DIR := $(M86_PATH)/blueto
   "$board_config"
 require_fixed 'BOARD_HAVE_BLUETOOTH := true' "$board_config"
 require_fixed 'sys.usb.ffs.aio_compat=1' "$system_prop"
+require_fixed 'TARGET_SYSTEM_PROP := device/meizu/m86/system.prop' \
+  "$device_makefile"
 require_fixed 'persist.sys.usb.config=mtp' "$device_makefile"
 require_fixed 'android.hardware.bluetooth_le.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.bluetooth_le.xml' \
   "$device_makefile"
