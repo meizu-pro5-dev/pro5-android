@@ -8,8 +8,9 @@ remote_root="$(cd "$local_root/.." && pwd)"
 source_root="$remote_root/src/lineage-17.1"
 log_dir="$remote_root/logs"
 manifest_lock="$log_dir/lineage-17.1-manifest.xml"
+progress_file="$remote_root/run/source-sync-progress.tsv"
 
-mkdir -p "$source_root" "$log_dir"
+mkdir -p "$source_root" "$log_dir" "$remote_root/run"
 exec > >(tee -a "$log_dir/source-sync.log") 2>&1
 
 # shellcheck source=builder-network.sh
@@ -42,8 +43,50 @@ repo_sync_args=(
   --optimized-fetch
   --prune
   --no-auto-gc
-  --retry-fetches=10
+  --retry-fetches=0
+  --fail-fast
 )
+
+aosp_sources=(ustc bfsu tuna direct)
+project_timeout="${PRO5_SYNC_PROJECT_TIMEOUT:-15m}"
+
+sync_one_project() {
+  local project="$1"
+  local phase="$2"
+  local aosp_source
+  local status
+
+  for aosp_source in "${aosp_sources[@]}"; do
+    configure_builder_aosp_source "$aosp_source"
+    printf '%s: %s via AOSP source %s\n' \
+      "$phase" "$project" "$aosp_source"
+
+    set +e
+    timeout \
+      --signal=TERM \
+      --kill-after=30s \
+      "$project_timeout" \
+      repo sync \
+        "${repo_sync_args[@]}" \
+        --no-manifest-update \
+        --no-interleaved \
+        -j1 \
+        "$project"
+    status=$?
+    set -e
+
+    if [[ "$status" -eq 0 ]]; then
+      configure_builder_aosp_source "${PRO5_AOSP_SOURCE:-ustc}"
+      return 0
+    fi
+
+    printf 'Sync attempt failed: project=%s source=%s status=%s\n' \
+      "$project" "$aosp_source" "$status" >&2
+  done
+
+  configure_builder_aosp_source "${PRO5_AOSP_SOURCE:-ustc}"
+  return 1
+}
 
 # Fetch and check out the two legacy GCC trees first. This makes the
 # standalone Image + DTB gate available while the rest of Android continues
@@ -57,22 +100,47 @@ if [[ -x "${kernel_toolchains[0]}/bin/aarch64-linux-android-gcc" ]] && \
   printf 'Kernel toolchains are already checked out\n'
 else
   printf 'Syncing kernel toolchains first\n'
-  repo sync \
-    "${repo_sync_args[@]}" \
-    --no-interleaved \
-    --jobs-network=2 \
-    --jobs-checkout=2 \
-    -j2 \
-    "${kernel_toolchains[@]}"
+  for project in "${kernel_toolchains[@]}"; do
+    sync_one_project "$project" 'Kernel toolchain sync'
+  done
 fi
 
-# repo 2.65's multiprocessing workers deadlock on this builder when processing
-# the complete manifest, including in no-interleaved mode. A serial full sync
-# is slower but resumes existing objects and has no worker-pool failure mode.
-printf 'Syncing the full LineageOS checkout serially\n'
-repo sync \
-  "${repo_sync_args[@]}" \
-  -j1
+# repo 2.65's worker pool can deadlock on this builder after a project fetch
+# fails, even at -j1. Give each manifest project its own bounded repo process,
+# retain successful objects/checkouts, and continue collecting failures.
+mapfile -t projects < <(repo list -p | LC_ALL=C sort)
+project_total="${#projects[@]}"
+failed_projects=()
+
+printf '# index\ttotal\tstate\tproject\tfinished_at\n' > "$progress_file"
+printf 'Syncing %s manifest projects one at a time\n' "$project_total"
+
+for index in "${!projects[@]}"; do
+  project="${projects[$index]}"
+  project_number=$((index + 1))
+  phase="Project ${project_number}/${project_total}"
+
+  if sync_one_project "$project" "$phase"; then
+    state=complete
+  else
+    state=failed
+    failed_projects+=("$project")
+  fi
+
+  printf '%s\t%s\t%s\t%s\t%s\n' \
+    "$project_number" \
+    "$project_total" \
+    "$state" \
+    "$project" \
+    "$(date --iso-8601=seconds)" >> "$progress_file"
+done
+
+if [[ "${#failed_projects[@]}" -ne 0 ]]; then
+  printf 'Source sync left %s failed project(s):\n' \
+    "${#failed_projects[@]}" >&2
+  printf '  %s\n' "${failed_projects[@]}" >&2
+  exit 1
+fi
 
 repo manifest -r -o "$manifest_lock"
 printf 'Source sync completed at %s\n' "$(date --iso-8601=seconds)"

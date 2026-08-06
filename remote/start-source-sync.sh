@@ -22,7 +22,7 @@ fi
 
 chmod 0755 "$worker"
 tmux new-session -d -s "$session_name" "$worker"
-printf 'Started tmux session %s: full sync is serial\n' "$session_name"
+printf 'Started tmux session %s: bounded per-project sync\n' "$session_name"
 REMOTE
 
 "$script_dir/source-sync-status.sh"
