@@ -87,12 +87,13 @@ TW_INTERNAL_STORAGE_MOUNT_POINT := "data"
 TW_EXTERNAL_STORAGE_PATH := "/external_sd"
 TW_EXTERNAL_STORAGE_MOUNT_POINT := "external_sd"
 
-# Core recovery services and filesystem tools. The kernel provides exFAT;
-# NTFS remains userspace-based. Python and the install prompt app are not core
-# recovery functions and are excluded to preserve the recovery size margin.
+# Core recovery services and filesystem tools. The released m86 kernel tree
+# does not contain the vendor exFAT driver named by its stale defconfig, so
+# TWRP must retain its open-source FUSE implementation. NTFS is also
+# userspace-based. Python and the install prompt app are excluded to preserve
+# the recovery size margin.
 TW_USE_NEW_MINADBD := true
 TW_INCLUDE_NTFS_3G := true
-TW_NO_EXFAT_FUSE := true
 TW_EXCLUDE_PYTHON := true
 TW_EXCLUDE_TWRPAPP := true
 TW_EXTRA_LANGUAGES := true

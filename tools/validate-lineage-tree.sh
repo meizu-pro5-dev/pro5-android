@@ -770,6 +770,11 @@ if rg -q '^[[:space:]]*BOARD_INCLUDE_DTB_IN_BOOTIMG[[:space:]]*:=' \
   exit 1
 fi
 
+if rg -q '^CONFIG_EXFAT_' "$kernel_config"; then
+  printf 'The released m86 kernel tree has no matching CONFIG_EXFAT driver.\n' >&2
+  exit 1
+fi
+
 if rg -q 'inherit-product[^\n]*universal7420-common\.mk' "$device_makefile"; then
   printf 'The Galaxy universal7420 product must not be inherited by m86.\n' >&2
   exit 1

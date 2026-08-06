@@ -63,7 +63,6 @@ require_fixed 'TW_INCLUDE_CRYPTO := true' "$board_config"
 require_fixed 'RECOVERY_SDCARD_ON_DATA := true' "$board_config"
 require_fixed 'TW_USE_NEW_MINADBD := true' "$board_config"
 require_fixed 'TW_INCLUDE_NTFS_3G := true' "$board_config"
-require_fixed 'TW_NO_EXFAT_FUSE := true' "$board_config"
 require_fixed 'TW_EXTRA_LANGUAGES := true' "$board_config"
 require_fixed 'encryptable=/cache/metadata' "$recovery_fstab"
 require_fixed 'setprop sys.usb.ffs.aio_compat 1' "$recovery_init"
@@ -92,7 +91,6 @@ require_fixed 'CONFIG_MMC_DW_EXYNOS=y' "$kernel_config"
 require_fixed 'CONFIG_EXT4_FS=y' "$kernel_config"
 require_fixed 'CONFIG_FAT_FS=y' "$kernel_config"
 require_fixed 'CONFIG_VFAT_FS=y' "$kernel_config"
-require_fixed 'CONFIG_EXFAT_FS=y' "$kernel_config"
 require_fixed 'CONFIG_RTC_CLASS=y' "$kernel_config"
 require_fixed 'CONFIG_RTC_DRV_SEC=y' "$kernel_config"
 require_fixed 'export BUILD_DATETIME=1538238534' "$twrp_build_worker"
@@ -137,6 +135,7 @@ require_fixed '--expect-ramdisk-elf sbin/libtwrpmtp-ffs.so' \
   "$twrp_build_worker"
 require_fixed '--expect-ramdisk-elf sbin/libcryptfsfde.so' \
   "$twrp_build_worker"
+require_fixed '--expect-ramdisk-elf sbin/exfat-fuse' "$twrp_build_worker"
 require_fixed '--expect-ramdisk-elf sbin/fsck.exfat' "$twrp_build_worker"
 require_fixed '--expect-ramdisk-elf sbin/mount.ntfs' "$twrp_build_worker"
 require_fixed 'etc/recovery.fstab=$recovery_fstab_hash' "$twrp_build_worker"
@@ -165,6 +164,17 @@ require_fixed \
 if rg -q '^[[:space:]]*TARGET_HW_DISK_ENCRYPTION[[:space:]]*:=[[:space:]]*true' \
     "$board_config"; then
   printf 'm86 FMP uses the kernel dm-crypt target, not QCOM cryptfs_hw.\n' >&2
+  exit 1
+fi
+
+if rg -q '^[[:space:]]*TW_NO_EXFAT_FUSE[[:space:]]*:=[[:space:]]*true' \
+    "$board_config"; then
+  printf 'm86 has no in-kernel exFAT driver; TWRP must retain exfat-fuse.\n' >&2
+  exit 1
+fi
+
+if rg -q '^CONFIG_EXFAT_' "$kernel_config"; then
+  printf 'The released m86 kernel tree has no matching CONFIG_EXFAT driver.\n' >&2
   exit 1
 fi
 

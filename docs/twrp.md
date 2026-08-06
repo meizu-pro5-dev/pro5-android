@@ -61,6 +61,13 @@ The build injects this file from the verified off-Git stock dump and then
 checks the copy embedded in `recovery.img`. It does not carry the old
 recovery's Android 6 libraries, SuperSU payload, or prebuilt kernel.
 
+The archived defconfig claimed a vendor `CONFIG_EXFAT_FS` implementation, but
+the released m86 kernel tree contains neither its Kconfig entry nor its source.
+Those stale, silently discarded symbols are removed. Recovery therefore
+builds and packages TWRP's open-source `exfat-fuse` binary, while NTFS remains
+on `ntfs-3g`; the artifact inspector requires both paths as real ARM64 ELF
+files before accepting the image.
+
 Flyme stores legacy full-disk-encryption metadata in `/cache/metadata`. Its
 Android 7 `vold` contains the cipher name `aes-xts-fmp`. TWRP 9 reads
 `crypto_type_name` from that metadata and, on the normal dm-crypt path used by

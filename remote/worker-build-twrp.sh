@@ -248,8 +248,7 @@ build_twrp_pass() {
     CONFIG_USB_STORAGE=y \
     CONFIG_MMC_DW_EXYNOS=y \
     CONFIG_EXT4_FS=y \
-    CONFIG_VFAT_FS=y \
-    CONFIG_EXFAT_FS=y; do
+    CONFIG_VFAT_FS=y; do
     if ! grep -F -x -q "$required_kernel_setting" "$kernel_out/.config"; then
       printf 'TWRP pass %s kernel config omitted %s.\n' \
         "$pass_name" "$required_kernel_setting" >&2
@@ -382,6 +381,7 @@ python3 "$local_root/tools/inspect-android-boot-image.py" \
   --expect-ramdisk-elf sbin/libtwrpmtp-ffs.so \
   --expect-ramdisk-elf sbin/libcryptfsfde.so \
   --expect-ramdisk-elf sbin/libe4crypt.so \
+  --expect-ramdisk-elf sbin/exfat-fuse \
   --expect-ramdisk-elf sbin/fsck.exfat \
   --expect-ramdisk-elf sbin/mkfs.ntfs \
   --expect-ramdisk-elf sbin/mount.ntfs \
