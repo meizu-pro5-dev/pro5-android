@@ -15,13 +15,13 @@ these descriptive branch heads. The upstream sources are the
 [minimal TWRP Omni manifest](https://github.com/minimal-manifest-twrp/platform_manifest_twrp_omni/tree/twrp-9.0)
 and [TeamWin recovery](https://github.com/TeamWin/android_bootable_recovery/tree/android-9.0).
 
-The pinned OmniROM `frameworks/base` fork references `stats-log-api-gen` but
-omits its source directory, which prevents Soong from generating a Ninja graph
-even for `recoveryimage`. The local compatibility patch restores that complete
-directory from the matching official AOSP `android-9.0.0_r47` tag; its source
-URL and archive SHA-256 are recorded in
-`patches/twrp-frameworks-base/README.md`, and the applied patch is copied into
-every accepted recovery artifact.
+The pinned OmniROM `frameworks/base` fork references `stats-log-api-gen` and a
+font linter but omits both source directories, which prevents Soong from
+generating a Ninja graph even for `recoveryimage`. The local compatibility
+series restores the complete tool directories from the matching official AOSP
+`android-9.0.0_r47` tag; source URLs and archive SHA-256 values are recorded in
+`patches/twrp-frameworks-base/README.md`, and every applied patch is copied
+into each accepted recovery artifact.
 
 The official build FAQ normally maps a device that launched on Android 5.1 to
 the Android 6.0 TWRP branch. For m86 that branch would also freeze recovery at

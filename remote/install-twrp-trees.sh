@@ -44,20 +44,33 @@ done
 # Restore the exact android-9.0.0_r47 files so unmodified Soong can construct
 # the recovery build graph. Keep this idempotent across repeated clean builds.
 framework_base="$source_root/frameworks/base"
-framework_patch="$local_root/patches/twrp-frameworks-base/0001-restore-aosp-p-stats-log-api-gen.patch"
-if [[ ! -f "$framework_patch" ]]; then
-  printf 'Missing pinned TWRP frameworks/base compatibility patch.\n' >&2
+framework_patch_root="$local_root/patches/twrp-frameworks-base"
+framework_patch_series="$framework_patch_root/series"
+if [[ ! -s "$framework_patch_series" ]]; then
+  printf 'Missing pinned TWRP frameworks/base patch series.\n' >&2
   exit 1
 fi
-if git -C "$framework_base" apply --check "$framework_patch"; then
-  git -C "$framework_base" apply "$framework_patch"
-  printf 'Applied: AOSP Pie stats-log-api-gen restoration\n'
-elif git -C "$framework_base" apply --reverse --check "$framework_patch"; then
-  printf 'Retained: AOSP Pie stats-log-api-gen restoration\n'
-else
-  printf 'TWRP frameworks/base does not match the reviewed stats-log patch.\n' >&2
-  exit 1
-fi
+while IFS= read -r framework_patch_name; do
+  [[ -n "$framework_patch_name" ]] || continue
+  framework_patch="$framework_patch_root/$framework_patch_name"
+  if [[ ! -f "$framework_patch" ]]; then
+    printf 'Missing TWRP frameworks/base patch: %s\n' \
+      "$framework_patch_name" >&2
+    exit 1
+  fi
+  if git -C "$framework_base" apply --check "$framework_patch"; then
+    git -C "$framework_base" apply "$framework_patch"
+    printf 'Applied TWRP frameworks/base patch: %s\n' \
+      "$framework_patch_name"
+  elif git -C "$framework_base" apply --reverse --check "$framework_patch"; then
+    printf 'Retained TWRP frameworks/base patch: %s\n' \
+      "$framework_patch_name"
+  else
+    printf 'TWRP frameworks/base does not match patch: %s\n' \
+      "$framework_patch_name" >&2
+    exit 1
+  fi
+done < "$framework_patch_series"
 
 overlay_root="$local_root/overlays/kernel-meizu-m86-case-sensitive"
 overlay_hashes="$overlay_root/SHA256SUMS"
