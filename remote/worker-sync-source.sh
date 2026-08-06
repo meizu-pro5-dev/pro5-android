@@ -52,14 +52,19 @@ kernel_toolchains=(
   prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9
   prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9
 )
-printf 'Syncing kernel toolchains first\n'
-repo sync \
-  "${repo_sync_args[@]}" \
-  --no-interleaved \
-  --jobs-network=2 \
-  --jobs-checkout=2 \
-  -j2 \
-  "${kernel_toolchains[@]}"
+if [[ -x "${kernel_toolchains[0]}/bin/aarch64-linux-android-gcc" ]] && \
+    [[ -x "${kernel_toolchains[1]}/bin/arm-linux-androideabi-gcc" ]]; then
+  printf 'Kernel toolchains are already checked out\n'
+else
+  printf 'Syncing kernel toolchains first\n'
+  repo sync \
+    "${repo_sync_args[@]}" \
+    --no-interleaved \
+    --jobs-network=2 \
+    --jobs-checkout=2 \
+    -j2 \
+    "${kernel_toolchains[@]}"
+fi
 
 # repo 2.65's multiprocessing workers deadlock on this builder when processing
 # the complete manifest, including in no-interleaved mode. A serial full sync
