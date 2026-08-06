@@ -6,7 +6,8 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 local_root="$(cd "$script_dir/.." && pwd)"
 remote_root="$(cd "$local_root/.." && pwd)"
 source_root="$remote_root/src/twrp-9.0"
-out_root="$remote_root/out/twrp-9.0"
+first_out="$remote_root/out/twrp-9.0-pass1"
+second_out="$remote_root/out/twrp-9.0-pass2"
 run_root="$remote_root/run"
 artifact_root="$remote_root/artifacts"
 
@@ -90,8 +91,12 @@ export USE_CCACHE=1
 export CCACHE_DIR="$remote_root/ccache"
 export CCACHE_BASEDIR="$source_root"
 export CCACHE_EXEC="$(command -v ccache)"
-export OUT_DIR="$out_root"
 export LC_ALL=C
+export BUILD_DATETIME=1538238534
+export BUILD_NUMBER=pro5-twrp-9-repro
+export BUILD_USERNAME=pro5-port
+export BUILD_HOSTNAME=autodl
+export SOURCE_DATE_EPOCH=1538238534
 export KBUILD_BUILD_USER=pro5-port
 export KBUILD_BUILD_HOST=autodl
 export KBUILD_BUILD_VERSION=1
@@ -101,75 +106,123 @@ ccache --max-size=25G
 ccache --zero-stats
 
 printf 'TWRP build started at %s\n' "$(date --iso-8601=seconds)"
-printf 'Source: %s\nJobs: %s\nOutput: %s\nLocal revision: %s\n' \
-  "$source_root" "$jobs" "$out_root" "$local_revision"
+printf 'Source: %s\nJobs: %s\nOutput pass 1: %s\nOutput pass 2: %s\n' \
+  "$source_root" "$jobs" "$first_out" "$second_out"
+printf 'Local revision: %s\n' "$local_revision"
 printf 'Python: %s\n' "$(python2.7 --version 2>&1)"
 
-cd "$source_root"
-# Android 9 envsetup and shell functions are not nounset-safe.
-# shellcheck disable=SC1091
-source build/envsetup.sh
-lunch omni_m86-eng
-mka recoveryimage -j"$jobs"
-
-product_out="$out_root/target/product/m86"
-recovery_image="$product_out/recovery.img"
-if [[ ! -s "$recovery_image" ]]; then
-  printf 'TWRP did not produce recovery.img.\n' >&2
-  exit 1
-fi
-
-staged_touch_firmware="$product_out/recovery/root/etc/firmware/st_fts.bin"
-if [[ ! -f "$staged_touch_firmware" ]] || \
-    [[ "$(sha256sum "$staged_touch_firmware" | awk '{ print $1 }')" != \
-       "$expected_touch_hash" ]]; then
-  printf 'The recovery staging tree omitted or changed st_fts.bin.\n' >&2
-  exit 1
-fi
-
 kernel_root="$source_root/kernel/meizu/m86"
-kernel_out="$product_out/obj/KERNEL_OBJ"
 aarch64_prefix="$source_root/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin/aarch64-linux-android-"
 arm_prefix="$source_root/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9/bin/arm-linux-androideabi-"
-for required_kernel_input in \
-  "$kernel_out/.config" \
-  "${aarch64_prefix}gcc" \
-  "${arm_prefix}gcc"; do
-  if [[ ! -e "$required_kernel_input" ]]; then
-    printf 'Required post-build kernel input is missing: %s\n' \
-      "$required_kernel_input" >&2
+for required_toolchain in "${aarch64_prefix}gcc" "${arm_prefix}gcc"; do
+  if [[ ! -x "$required_toolchain" ]]; then
+    printf 'Required kernel toolchain is missing: %s\n' \
+      "$required_toolchain" >&2
     exit 1
   fi
 done
 
-# The boot image correctly contains no DT section, so Android's recoveryimage
-# target need not build dtbs. Build the matching raw partition artifact from
-# the exact same configured kernel output before collecting evidence.
-make \
-  -C "$kernel_root" \
-  "O=$kernel_out" \
-  ARCH=arm64 \
-  "CROSS_COMPILE=$aarch64_prefix" \
-  "CROSS_COMPILE_ARM32=$arm_prefix" \
-  -j"$jobs" \
-  dtbs
+build_twrp_pass() {
+  local pass_name="$1"
+  local build_out="$2"
+  local product_out="$build_out/target/product/m86"
+  local recovery_image="$product_out/recovery.img"
+  local staged_touch_firmware="$product_out/recovery/root/etc/firmware/st_fts.bin"
+  local kernel_out="$product_out/obj/KERNEL_OBJ"
+  local generated_dtb="$kernel_out/arch/arm64/boot/dts/exynos7420-m86-codegen.dtb"
 
-mapfile -t generated_dtbs < <(
-  find "$out_root" -type f \
-    -path '*/obj/KERNEL_OBJ/arch/arm64/boot/dts/exynos7420-m86-codegen.dtb' \
-    -print
-)
-if [[ "${#generated_dtbs[@]}" -ne 1 ]]; then
-  printf 'Expected one generated m86 DTB, found %s.\n' \
-    "${#generated_dtbs[@]}" >&2
-  printf '  %s\n' "${generated_dtbs[@]}" >&2
-  exit 1
-fi
+  case "$build_out" in
+    "$remote_root/out/twrp-9.0-pass1" | \
+    "$remote_root/out/twrp-9.0-pass2") ;;
+    *)
+      printf 'Refusing to clear an unexpected TWRP output: %s\n' \
+        "$build_out" >&2
+      return 1
+      ;;
+  esac
+
+  rm -rf -- "$build_out"
+  mkdir -p "$build_out"
+  printf 'Starting clean TWRP reproducibility pass %s at %s\n' \
+    "$pass_name" "$(date --iso-8601=seconds)"
+
+  (
+    export OUT_DIR="$build_out"
+    cd "$source_root"
+    # Android 9 envsetup and shell functions are not nounset-safe.
+    # shellcheck disable=SC1091
+    source build/envsetup.sh
+    lunch omni_m86-eng
+    mka recoveryimage -j"$jobs"
+  )
+
+  if [[ ! -s "$recovery_image" ]]; then
+    printf 'TWRP pass %s did not produce recovery.img.\n' \
+      "$pass_name" >&2
+    return 1
+  fi
+  if [[ ! -f "$staged_touch_firmware" ]] || \
+      [[ "$(stat -c %s "$staged_touch_firmware")" != "65568" ]] || \
+      [[ "$(sha256sum "$staged_touch_firmware" | awk '{ print $1 }')" != \
+         "$expected_touch_hash" ]]; then
+    printf 'TWRP pass %s omitted or changed st_fts.bin.\n' \
+      "$pass_name" >&2
+    return 1
+  fi
+  if [[ ! -s "$kernel_out/.config" ]]; then
+    printf 'TWRP pass %s omitted the generated kernel config.\n' \
+      "$pass_name" >&2
+    return 1
+  fi
+
+  # recoveryimage correctly contains no DT section. Build the matching raw
+  # partition image from the same configured kernel output for each pass.
+  make \
+    -C "$kernel_root" \
+    "O=$kernel_out" \
+    ARCH=arm64 \
+    "CROSS_COMPILE=$aarch64_prefix" \
+    "CROSS_COMPILE_ARM32=$arm_prefix" \
+    -j"$jobs" \
+    dtbs
+  if [[ ! -s "$generated_dtb" ]]; then
+    printf 'TWRP pass %s omitted the raw m86 DTB.\n' \
+      "$pass_name" >&2
+    return 1
+  fi
+}
+
+build_twrp_pass 1 "$first_out"
+build_twrp_pass 2 "$second_out"
+
+first_product_out="$first_out/target/product/m86"
+second_product_out="$second_out/target/product/m86"
+recovery_image="$first_product_out/recovery.img"
+recovery_image_repro="$second_product_out/recovery.img"
+kernel_out="$first_product_out/obj/KERNEL_OBJ"
+kernel_out_repro="$second_product_out/obj/KERNEL_OBJ"
+generated_dtb="$kernel_out/arch/arm64/boot/dts/exynos7420-m86-codegen.dtb"
+generated_dtb_repro="$kernel_out_repro/arch/arm64/boot/dts/exynos7420-m86-codegen.dtb"
+
+for comparison in \
+  "$recovery_image|$recovery_image_repro|recovery.img" \
+  "$generated_dtb|$generated_dtb_repro|exynos7420-m86-codegen.dtb" \
+  "$kernel_out/.config|$kernel_out_repro/.config|kernel.config"; do
+  first_file="${comparison%%|*}"
+  comparison_remainder="${comparison#*|}"
+  second_file="${comparison_remainder%%|*}"
+  comparison_name="${comparison_remainder#*|}"
+  if ! cmp --silent "$first_file" "$second_file"; then
+    printf 'TWRP clean builds differ: %s\n' "$comparison_name" >&2
+    sha256sum "$first_file" "$second_file" >&2
+    exit 1
+  fi
+done
 
 artifact_dir="$artifact_root/twrp-$build_stamp-recoveryimage"
 mkdir -p "$artifact_dir"
 cp -a "$recovery_image" "$artifact_dir/recovery.img"
-cp -a "${generated_dtbs[0]}" \
+cp -a "$generated_dtb" \
   "$artifact_dir/exynos7420-m86-codegen.dtb"
 cp -a "$source_root/kernel/meizu/m86/arch/arm64/configs/cm_pro5_defconfig" \
   "$artifact_dir/cm_pro5_defconfig"
@@ -177,6 +230,23 @@ cp -a "$kernel_out/.config" "$artifact_dir/kernel.config"
 cp -a "$local_root/twrp/FLASHING.md" "$artifact_dir/FLASHING.md"
 cp -a "$local_root/locks/stock-flyme-8.0.5.0A.sha256" \
   "$artifact_dir/stock-flyme-8.0.5.0A.sha256"
+
+{
+  printf 'result=byte-identical\n'
+  printf 'clean_build_passes=2\n'
+  printf 'recovery_pass1_sha256=%s\n' \
+    "$(sha256sum "$recovery_image" | awk '{ print $1 }')"
+  printf 'recovery_pass2_sha256=%s\n' \
+    "$(sha256sum "$recovery_image_repro" | awk '{ print $1 }')"
+  printf 'dtb_pass1_sha256=%s\n' \
+    "$(sha256sum "$generated_dtb" | awk '{ print $1 }')"
+  printf 'dtb_pass2_sha256=%s\n' \
+    "$(sha256sum "$generated_dtb_repro" | awk '{ print $1 }')"
+  printf 'kernel_config_pass1_sha256=%s\n' \
+    "$(sha256sum "$kernel_out/.config" | awk '{ print $1 }')"
+  printf 'kernel_config_pass2_sha256=%s\n' \
+    "$(sha256sum "$kernel_out_repro/.config" | awk '{ print $1 }')"
+} > "$artifact_dir/REPRODUCIBILITY.txt"
 
 python3 "$local_root/tools/inspect-android-boot-image.py" \
   "$artifact_dir/recovery.img" \
@@ -198,10 +268,13 @@ python3 "$local_root/tools/inspect-dtb.py" \
   --expect-string 'Meizu, M86' \
   --require-no-trailing-data | tee "$artifact_dir/DTB-HEADER.txt"
 
-repo manifest -r -o "$artifact_dir/twrp-9.0-m86-lock.xml"
+(
+  cd "$source_root"
+  repo manifest -r -o "$artifact_dir/twrp-9.0-m86-lock.xml"
+)
 twrp_version="$(
   sed -n 's/^#define TW_MAIN_VERSION_STR[[:space:]]*"\([^"]*\)"/\1/p' \
-    bootable/recovery/variables.h
+    "$source_root/bootable/recovery/variables.h"
 )"
 
 {
@@ -210,8 +283,13 @@ twrp_version="$(
   printf 'local_revision=%s\n' "$local_revision"
   printf 'twrp_version=%s\n' "$twrp_version"
   printf 'source_root=%s\n' "$source_root"
-  printf 'out_root=%s\n' "$out_root"
+  printf 'out_root_pass1=%s\n' "$first_out"
+  printf 'out_root_pass2=%s\n' "$second_out"
   printf 'jobs=%s\n' "$jobs"
+  printf 'build_datetime=%s\n' "$BUILD_DATETIME"
+  printf 'build_number=%s\n' "$BUILD_NUMBER"
+  printf 'clean_build_passes=2\n'
+  printf 'reproducibility=byte-identical recovery.img dtb kernel.config\n'
   printf 'stock_base=Flyme 8.0.5.0A / Android 7 / API 24\n'
   printf 'proprietary_recovery_blobs=etc/firmware/st_fts.bin\n'
   printf 'st_fts_sha256=%s\n' "$expected_touch_hash"
@@ -223,6 +301,7 @@ twrp_version="$(
 
 printf 'TWRP build completed at %s\n' "$(date --iso-8601=seconds)"
 printf 'Artifacts: %s\n' "$artifact_dir"
+ccache --show-stats
 cp -a "$log_file" "$artifact_dir/"
 
 (
@@ -232,5 +311,3 @@ cp -a "$log_file" "$artifact_dir/"
     xargs -0 sha256sum
 ) > "$artifact_dir/SHA256SUMS"
 ln -sfn "$(basename "$artifact_dir")" "$artifact_root/twrp-latest"
-
-ccache --show-stats

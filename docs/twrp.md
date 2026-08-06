@@ -95,11 +95,13 @@ does not expose `/dev/block/sdb`, bootloader, `ldfw`, `param`, `proinfo`,
 
 Static build acceptance requires:
 
-1. a clean `omni_m86-eng recoveryimage` build from the pinned manifest;
+1. two independently cleaned `omni_m86-eng recoveryimage` builds from the
+   pinned manifest with fixed Android and kernel build identities/timestamps;
 2. a generated `recovery.img` and matching raw m86 DTB;
 3. passing boot-header, ramdisk, embedded STM firmware, FMP config, DTB and
    partition-size validators;
-4. a second clean build with byte-identical recovery and DTB hashes;
+4. byte-identical recovery, DTB, and generated kernel-config hashes across the
+   two output roots, recorded in `REPRODUCIBILITY.txt`;
 5. retained manifest, local revision, generated kernel config, full log,
    stock lock and SHA-256 list.
 
