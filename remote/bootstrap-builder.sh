@@ -40,9 +40,11 @@ apt-get install -y \
   lib32z1-dev \
   libelf-dev \
   liblz4-tool \
+  libncurses5 \
   libncurses-dev \
   libsdl1.2-dev \
   libssl-dev \
+  libtinfo5 \
   libxml2 \
   libxml2-utils \
   lzop \

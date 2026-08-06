@@ -66,6 +66,24 @@ if [[ ! -f "$source_root/kernel/meizu/m86/arch/arm64/configs/cm_pro5_defconfig" 
   exit 1
 fi
 
+# Android 10 still invokes this older Clang for RenderScript bitcode. Check
+# its host ABI before Ninja starts thousands of jobs so a missing compatibility
+# library produces one actionable error instead of many failed commands.
+renderscript_clang="$source_root/prebuilts/clang/host/linux-x86/clang-3289846/bin/clang.real"
+if [[ -x "$renderscript_clang" ]]; then
+  missing_host_libraries="$(
+    ldd "$renderscript_clang" 2>/dev/null |
+      awk '/not found/ { print $1 }' |
+      LC_ALL=C sort -u
+  )"
+  if [[ -n "$missing_host_libraries" ]]; then
+    printf 'RenderScript Clang is missing host libraries:\n%s\n' \
+      "$missing_host_libraries" >&2
+    printf 'Run remote/bootstrap-builder.sh before building.\n' >&2
+    exit 1
+  fi
+fi
+
 export USE_CCACHE=1
 export CCACHE_DIR="$remote_root/ccache"
 export CCACHE_BASEDIR="$source_root"

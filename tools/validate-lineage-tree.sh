@@ -187,6 +187,9 @@ require_fixed 'WIFI_DRIVER_FW_PATH_PARAM := /sys/module/bcmdhd/parameters/firmwa
 require_fixed 'BOARD_BLUETOOTH_BDROID_BUILDCFG_INCLUDE_DIR := $(M86_PATH)/bluetooth' \
   "$board_config"
 require_fixed 'BOARD_HAVE_BLUETOOTH := true' "$board_config"
+require_fixed 'libncurses5 \' "$project_root/remote/bootstrap-builder.sh"
+require_fixed 'libtinfo5 \' "$project_root/remote/bootstrap-builder.sh"
+require_fixed 'RenderScript Clang is missing host libraries:' "$build_worker"
 require_fixed 'sys.usb.ffs.aio_compat=1' "$system_prop"
 require_fixed 'TARGET_SYSTEM_PROP := device/meizu/m86/system.prop' \
   "$device_makefile"
