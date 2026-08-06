@@ -50,6 +50,14 @@ dtbhtool container, and appended/separated-DT boot packaging are explicitly
 disabled. The custom ROM never writes `/dev/block/sdb`, `bootloader`, `ldfw`,
 or `bootlogo`.
 
+The Android kernel build also produces `exynos7420-m86-codegen.dtb`. The
+device makefile stages that raw FDT under target-files `RADIO/dtb.img`, rather
+than `BOOT/dtb`, so Android's image reconstruction cannot accidentally append
+it to `boot.img`. Device-specific releasetools validate the FDT header and
+board identity, add it to full and incremental OTAs, and write only the
+reviewed UFS `dtb` partition. The firmware and backup-DTB partitions remain
+outside the ROM installer.
+
 ## Kernel approach
 
 The first kernel branch is the hardware-proven m86 3.10 tree. The repository's

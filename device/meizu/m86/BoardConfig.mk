@@ -45,7 +45,9 @@ TARGET_USES_UNCOMPRESSED_KERNEL := true
 TARGET_KERNEL_CLANG_COMPILE := false
 
 BOARD_KERNEL_BASE := 0x40000000
-BOARD_KERNEL_CMDLINE := androidboot.hardware=m86
+# androidboot.hardware is compiled into cm_pro5_defconfig. Keep the v0 header
+# command line empty to match the verified Flyme boot image byte-for-byte.
+BOARD_KERNEL_CMDLINE :=
 BOARD_KERNEL_IMAGE_NAME := Image
 BOARD_KERNEL_PAGESIZE := 4096
 BOARD_MKBOOTIMG_ARGS := \
@@ -60,6 +62,7 @@ BOARD_CUSTOM_BOOTIMG :=
 BOARD_CUSTOM_BOOTIMG_MK :=
 BOARD_KERNEL_SEPARATED_DT :=
 TARGET_CUSTOM_DTBTOOL :=
+BOARD_PACK_RADIOIMAGES += dtb
 
 # The common Samsung init library performs model unification that does not
 # apply to Meizu's bootloader properties.
@@ -94,7 +97,7 @@ BOARD_HAS_NO_MISC_PARTITION :=
 BOARD_SUPPRESS_SECURE_ERASE := true
 TARGET_RECOVERY_PIXEL_FORMAT := RGBA_8888
 BOARD_HAS_DOWNLOAD_MODE :=
-TARGET_RELEASETOOLS_EXTENSIONS :=
+TARGET_RELEASETOOLS_EXTENSIONS := $(M86_PATH)/releasetools
 
 # Hardware
 TARGET_BOARD_PLATFORM := exynos5

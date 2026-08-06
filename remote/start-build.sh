@@ -3,6 +3,7 @@
 set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+project_root="$(cd "$script_dir/.." && pwd)"
 # shellcheck source=common.sh
 source "$script_dir/common.sh"
 
@@ -20,6 +21,13 @@ esac
 if [[ ! "$jobs" =~ ^[1-9][0-9]*$ ]] || ((jobs > 64)); then
   printf 'Invalid PRO5_BUILD_JOBS: %s\n' "$jobs" >&2
   exit 2
+fi
+
+"$project_root/tools/validate-lineage-tree.sh"
+
+local_revision="$(git -C "$project_root" rev-parse HEAD)"
+if [[ -n "$(git -C "$project_root" status --porcelain --untracked-files=normal)" ]]; then
+  local_revision="${local_revision}-dirty"
 fi
 
 "$script_dir/push-local.sh"
@@ -45,12 +53,13 @@ REMOTE
 "$script_dir/install-local-trees.sh"
 
 "${pro5_ssh[@]}" bash -s -- \
-  "$PRO5_REMOTE_ROOT" "$target" "$jobs" <<'REMOTE'
+  "$PRO5_REMOTE_ROOT" "$target" "$jobs" "$local_revision" <<'REMOTE'
 set -euo pipefail
 
 remote_root="$1"
 target="$2"
 jobs="$3"
+local_revision="$4"
 session_name="pro5-build"
 worker="$remote_root/local/remote/worker-build.sh"
 run_root="$remote_root/run"
@@ -69,8 +78,9 @@ rm -f -- "$status_file"
 ln -sfn "$(basename "$log_file")" "$run_root/build-latest.log"
 chmod 0755 "$worker"
 
-printf -v worker_command '%q %q %q %q %q %q' \
-  "$worker" "$target" "$jobs" "$status_file" "$log_file" "$build_stamp"
+printf -v worker_command '%q %q %q %q %q %q %q' \
+  "$worker" "$target" "$jobs" "$status_file" "$log_file" "$build_stamp" \
+  "$local_revision"
 tmux new-session -d -s "$session_name" "$worker_command"
 printf 'Started tmux session %s: target=%s jobs=%s\n' \
   "$session_name" "$target" "$jobs"

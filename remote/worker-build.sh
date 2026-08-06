@@ -15,6 +15,7 @@ jobs="${2:-24}"
 status_file="${3:-$run_root/build-latest.status}"
 log_file="${4:-$run_root/build-latest.log}"
 build_stamp="${5:-$(date +%Y%m%d-%H%M%S)}"
+local_revision="${6:-unknown}"
 
 case "$target" in
   kernel | bootimage | recoveryimage | bacon) ;;
@@ -70,13 +71,18 @@ export CCACHE_DIR="$remote_root/ccache"
 export CCACHE_BASEDIR="$source_root"
 export CCACHE_EXEC="$(command -v ccache)"
 export OUT_DIR="$out_root"
+export LC_ALL=C
+export KBUILD_BUILD_USER=pro5-port
+export KBUILD_BUILD_HOST=autodl
+export KBUILD_BUILD_VERSION=1
+export KBUILD_BUILD_TIMESTAMP='Sat Sep 29 16:28:54 UTC 2018'
 
 ccache --max-size=25G
 ccache --zero-stats
 
 printf 'Build started at %s\n' "$(date --iso-8601=seconds)"
-printf 'Source: %s\nTarget: %s\nJobs: %s\nOutput: %s\n' \
-  "$source_root" "$target" "$jobs" "$out_root"
+printf 'Source: %s\nTarget: %s\nJobs: %s\nOutput: %s\nLocal revision: %s\n' \
+  "$source_root" "$target" "$jobs" "$out_root" "$local_revision"
 
 cd "$source_root"
 # Android's envsetup and shell functions are not nounset-safe.
@@ -89,17 +95,155 @@ product_out="$out_root/target/product/m86"
 artifact_dir="$artifact_root/$build_stamp-$target"
 mkdir -p "$artifact_dir"
 
-find "$product_out" -maxdepth 1 -type f \
-  \( -name 'lineage-17.1*.zip' -o -name 'boot.img' \
-     -o -name 'recovery.img' -o -name 'system.img' \
-     -o -name 'target_files*.zip' \) \
-  -exec cp -a {} "$artifact_dir/" \;
-
-if [[ -n "$(find "$artifact_dir" -maxdepth 1 -type f -print -quit)" ]]; then
-  sha256sum "$artifact_dir"/* > "$artifact_dir/SHA256SUMS"
+kernel_dtb="$product_out/obj/KERNEL_OBJ/arch/arm64/boot/dts/exynos7420-m86-codegen.dtb"
+if [[ ! -s "$kernel_dtb" ]]; then
+  printf 'The Android build did not produce the m86 raw DTB.\n' >&2
+  exit 1
 fi
+cp -a "$kernel_dtb" "$artifact_dir/dtb.img"
+
+copy_required() {
+  local source_file="$1"
+  if [[ ! -s "$source_file" ]]; then
+    printf 'Required build artifact is missing: %s\n' "$source_file" >&2
+    exit 1
+  fi
+  cp -a "$source_file" "$artifact_dir/"
+}
+
+case "$target" in
+  kernel)
+    copy_required "$product_out/kernel"
+    ;;
+  bootimage)
+    copy_required "$product_out/boot.img"
+    ;;
+  recoveryimage)
+    copy_required "$product_out/recovery.img"
+    ;;
+  bacon)
+    copy_required "$product_out/boot.img"
+    copy_required "$product_out/recovery.img"
+    copy_required "$product_out/system.img"
+    copy_required "$product_out/dtb.img"
+
+    mapfile -t ota_packages < <(
+      find "$product_out" -maxdepth 1 -type f \
+        -name 'lineage-17.1-*.zip' -print | LC_ALL=C sort
+    )
+    if [[ "${#ota_packages[@]}" -ne 1 ]]; then
+      printf 'Expected one LineageOS OTA ZIP, found %s.\n' \
+        "${#ota_packages[@]}" >&2
+      printf '  %s\n' "${ota_packages[@]}" >&2
+      exit 1
+    fi
+    copy_required "${ota_packages[0]}"
+
+    mapfile -t target_files_packages < <(
+      find "$product_out/obj/PACKAGING/target_files_intermediates" \
+        -maxdepth 1 -type f -name '*-target_files-*.zip' -print 2>/dev/null |
+        LC_ALL=C sort
+    )
+    if [[ "${#target_files_packages[@]}" -ne 1 ]]; then
+      printf 'Expected one target-files ZIP, found %s.\n' \
+        "${#target_files_packages[@]}" >&2
+      printf '  %s\n' "${target_files_packages[@]}" >&2
+      exit 1
+    fi
+    copy_required "${target_files_packages[0]}"
+    ;;
+esac
+
+python3 "$local_root/tools/inspect-dtb.py" \
+  "$artifact_dir/dtb.img" \
+  --expect-string 'Meizu, M86' \
+  --require-no-trailing-data | tee "$artifact_dir/DTB-HEADER.txt"
+
+validate_boot_image() {
+  local image_name="$1"
+  local max_size="$2"
+  local report_name="$3"
+
+  python3 "$local_root/tools/inspect-android-boot-image.py" \
+    "$artifact_dir/$image_name" \
+    --expect-page-size 4096 \
+    --expect-kernel-addr 0x40080000 \
+    --expect-ramdisk-addr 0x42000000 \
+    --expect-second-addr 0x40f00000 \
+    --expect-tags-addr 0x40000100 \
+    --expect-second-size 0 \
+    --expect-dt-size 0 \
+    --expect-empty-cmdline \
+    --expect-ramdisk-compression gzip \
+    --max-size "$max_size" | tee "$artifact_dir/$report_name"
+}
+
+if [[ -s "$artifact_dir/boot.img" ]]; then
+  validate_boot_image boot.img 25161728 BOOT-HEADER.txt
+fi
+if [[ -s "$artifact_dir/recovery.img" ]]; then
+  validate_boot_image recovery.img 33550336 RECOVERY-HEADER.txt
+fi
+if [[ -s "$artifact_dir/system.img" ]] && \
+    (( $(stat -c '%s' "$artifact_dir/system.img") > 2684350464 )); then
+  printf 'system.img exceeds its verified partition limit.\n' >&2
+  exit 1
+fi
+
+if [[ "$target" == bacon ]]; then
+  if ! cmp --quiet "$product_out/dtb.img" "$kernel_dtb"; then
+    printf 'Packaged product DTB differs from the configured kernel DTB.\n' >&2
+    exit 1
+  fi
+
+  ota_package="${ota_packages[0]}"
+  unzip -t "$ota_package" >/dev/null
+  if ! unzip -p "$ota_package" dtb.img | cmp --quiet - "$kernel_dtb"; then
+    printf 'OTA DTB differs from the configured kernel DTB.\n' >&2
+    exit 1
+  fi
+  if ! unzip -p "$ota_package" META-INF/com/google/android/updater-script |
+      grep -F 'package_extract_file("dtb.img", "/dev/block/platform/15570000.ufs/by-name/dtb");' \
+        >/dev/null; then
+    printf 'OTA updater does not contain the reviewed DTB write.\n' >&2
+    exit 1
+  fi
+  if unzip -Z1 "$ota_package" |
+      grep -E '^(bootloader|ldfw|bootlogo|dtb_backup)([./]|$)' >/dev/null; then
+    printf 'OTA contains a forbidden firmware or backup-partition payload.\n' >&2
+    exit 1
+  fi
+fi
+
+copy_required \
+  "$source_root/kernel/meizu/m86/arch/arm64/configs/cm_pro5_defconfig"
+cp -a "$product_out/obj/KERNEL_OBJ/.config" "$artifact_dir/kernel.config"
+copy_required "$local_root/locks/stock-flyme-8.0.5.0A.sha256"
 repo manifest -r -o "$artifact_dir/lineage-17.1-m86-lock.xml"
 
-ccache --show-stats
+{
+  printf 'built_at=%s\n' "$(date --iso-8601=seconds)"
+  printf 'target=lineage_m86-userdebug %s\n' "$target"
+  printf 'local_revision=%s\n' "$local_revision"
+  printf 'source_root=%s\n' "$source_root"
+  printf 'out_root=%s\n' "$out_root"
+  printf 'jobs=%s\n' "$jobs"
+  printf 'stock_base=Flyme 8.0.5.0A / Android 7 / API 24\n'
+  printf 'boot_header_cmdline=empty\n'
+  printf 'dtb_packaging=raw separate partition\n'
+  printf 'ramdisk_compression=gzip\n'
+} > "$artifact_dir/BUILD-METADATA"
+
 printf 'Build completed at %s\n' "$(date --iso-8601=seconds)"
 printf 'Artifacts: %s\n' "$artifact_dir"
+cp -a "$log_file" "$artifact_dir/"
+
+(
+  cd "$artifact_dir"
+  find . -maxdepth 1 -type f ! -name SHA256SUMS -print0 |
+    LC_ALL=C sort -z |
+    xargs -0 sha256sum
+) > "$artifact_dir/SHA256SUMS"
+ln -sfn "$(basename "$artifact_dir")" "$artifact_root/lineage-latest"
+
+ccache --show-stats

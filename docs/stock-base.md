@@ -20,8 +20,9 @@ The stock `boot.img` is 17,010,960 bytes. The host identifies an Android boot
 image with kernel address `0x40080000`, ramdisk address `0x42000000`, and 4096
 byte pages. Direct v0 header parsing also records second-stage address
 `0x40f00000` and tags address `0x40000100`; the second-stage size is zero. The
-device uses a separate `dtb` partition; the OTA does not append that DTB to
-`boot.img`.
+header name and command line are empty; `androidboot.hardware=m86` is compiled
+into the stock-derived kernel configuration instead. The device uses a
+separate `dtb` partition; the OTA does not append that DTB to `boot.img`.
 
 Read-only extraction confirms a 15,522,064-byte uncompressed ARM64 `Image`, a
 1,481,903-byte gzip ramdisk, and empty second-stage and DT sections. The stock

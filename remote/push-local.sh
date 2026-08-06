@@ -15,6 +15,8 @@ printf 'Synchronizing local source of truth to %s:%s/local/\n' \
 rsync -az --delete-delay \
   --exclude '/.git/' \
   --exclude '/.DS_Store' \
+  --exclude '__pycache__/' \
+  --exclude '*.pyc' \
   --exclude '/artifacts/' \
   --exclude '/backups/' \
   --exclude '/evidence/' \
