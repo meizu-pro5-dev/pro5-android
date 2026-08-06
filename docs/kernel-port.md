@@ -334,6 +334,34 @@ The retained local evidence directories are
 `artifacts/pro5-a10-kernel-20260807-001407-sock-destroy-repro` in the parent
 Android workspace.
 
+## Android 10 exported-UAPI gate
+
+The first full product compile exposed two differences that a kernel-only
+build cannot detect. Android 10's fortified `fcntl.h` expects the standard
+`O_TMPFILE` constants in the generated target headers, and the Exynos 7420
+scaler includes `linux/m2m1shot.h`. The m86 kernel already contains the exact
+M2M one-shot UAPI and its in-kernel implementation, but omitted that header
+from `include/uapi/linux/Kbuild`; it is now exported, matching the locked
+universal7420 donor at `736c1818f71e981fbc3ec1b434e8201de3130ff3`.
+
+The standard `__O_TMPFILE`, `O_TMPFILE`, and `O_TMPFILE_MASK` values are added
+to the m86 asm-generic UAPI so Bionic and target code compile against a
+self-consistent Android header set. This gate does not claim functional
+anonymous temporary-file support: the 3.10 VFS lacks the later implementation
+and will reject that flag. A future VFS/filesystem backport must be evaluated
+separately if a runtime consumer requires it; hiding the constant or disabling
+Bionic FORTIFY would instead break the Android 10 userspace contract at build
+time.
+
+The same product compile then reached the Exynos video codec and found the
+m86 UAPI stopped at MFC control 98 before resuming at the HEVC range. The
+locked universal7420 kernel defines the contiguous controls 99 through 108
+used by its matching Android 10 `libvideocodec`, so that exact numeric block is
+exported by m86 as well. Basic codec operation does not depend on the optional
+Skype/LTR/frame-QP controls. Their definitions make the shared UAPI compile;
+runtime support is not claimed where the older m86 MFC driver returns an
+unsupported-control error.
+
 The stock Flyme DTB remains a separate hardware reference. It has the same
 root model and compatible strings but uses the older `fpc,fpc_irq` fingerprint
 node and a `meizu,simple_adc` thermistor node, while the community/current tree

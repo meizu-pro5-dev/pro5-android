@@ -29,6 +29,9 @@ ueventd_rc="$device_root/rootdir/etc/ueventd.m86.rc"
 recovery_fstab="$device_root/rootdir/etc/recovery.fstab"
 releasetools="$device_root/releasetools/releasetools.py"
 kernel_config="$project_root/kernel/meizu/m86/arch/arm64/configs/cm_pro5_defconfig"
+kernel_fcntl="$project_root/kernel/meizu/m86/include/uapi/asm-generic/fcntl.h"
+kernel_uapi_kbuild="$project_root/kernel/meizu/m86/include/uapi/linux/Kbuild"
+kernel_mfc_uapi="$project_root/kernel/meizu/m86/include/uapi/linux/videodev2_exynos_media.h"
 platform_patch="$project_root/patches/device-samsung-universal7420-common/0001-target-add-meizu-m86.patch"
 bluetooth_patch="$project_root/patches/device-samsung-universal7420-common/0002-bluetooth-add-m86-address-fallback.patch"
 patch_series="$project_root/patches/series.tsv"
@@ -66,6 +69,9 @@ for required_file in \
   "$recovery_fstab" \
   "$releasetools" \
   "$kernel_config" \
+  "$kernel_fcntl" \
+  "$kernel_uapi_kbuild" \
+  "$kernel_mfc_uapi" \
   "$platform_patch" \
   "$bluetooth_patch" \
   "$patch_series" \
@@ -159,6 +165,12 @@ require_manifest_instance() {
 }
 
 require_fixed 'BOARD_KERNEL_BASE := 0x40000000' "$board_config"
+require_fixed '#define __O_TMPFILE' "$kernel_fcntl"
+require_fixed '#define O_TMPFILE (' "$kernel_fcntl"
+require_fixed '#define O_TMPFILE_MASK (' "$kernel_fcntl"
+require_fixed 'header-y += m2m1shot.h' "$kernel_uapi_kbuild"
+require_fixed 'V4L2_CID_MPEG_MFC_GET_DRIVER_INFO' "$kernel_mfc_uapi"
+require_fixed 'V4L2_CID_MPEG_MFC_CONFIG_QP_ENABLE' "$kernel_mfc_uapi"
 require_fixed 'BOARD_KERNEL_PAGESIZE := 4096' "$board_config"
 require_fixed '--kernel_offset 0x00080000' "$board_config"
 require_fixed '--ramdisk_offset 0x02000000' "$board_config"
