@@ -34,7 +34,8 @@ The default builder is `REDACTED_BUILDER_ENDPOINT`. Persistent
 state is kept below `/root/autodl-tmp/pro5-android10`; the small root overlay is
 never used for Android source or build output. `/etc/network_turbo` is sourced
 on the builder when available, without printing its contents. LineageOS Git
-URLs default to GitHub through that acceleration and retry against TUNA. AOSP
+URLs default to GitHub through that acceleration, then retry through the
+CERNET MirrorZ selector, TUNA, and the accelerated original endpoint. AOSP
 defaults to USTC, then retries through BFSU, TUNA, and the accelerated original
 endpoint. Manifest URLs remain unchanged for provenance; Chinese mirrors
 bypass the proxy while GitHub uses the acceleration.

@@ -48,7 +48,7 @@ repo_sync_args=(
   --fail-fast
 )
 
-lineage_sources=(direct tuna direct tuna)
+lineage_sources=(direct cernet tuna direct)
 aosp_sources=(ustc bfsu tuna direct)
 project_timeout="${PRO5_SYNC_PROJECT_TIMEOUT:-15m}"
 

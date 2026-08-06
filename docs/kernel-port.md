@@ -75,8 +75,8 @@ CONFIG_TASK_IO_ACCOUNTING=y
 
 This makes the exact running configuration available through
 `/proc/config.gz` and provides task/I/O accounting without enabling delay
-accounting. A clean build compiled and linked `configs.o` and `taskstats.o`
-and produced:
+accounting. Two clean builds compiled and linked `configs.o` and `taskstats.o`
+and produced byte-identical target artifacts:
 
 | Artifact | Size | SHA-256 |
 | --- | ---: | --- |
@@ -84,9 +84,10 @@ and produced:
 | config-aware DTB | 146,172 | `0b537be248ed155a925d58c9a6b927ec1c4cdfaa0624ea714e848abddfba7d84` |
 | generated config | 99,780 | `2d5b26afc6afd525819d81df808a4b5bd929daf51069d58236075487d81a5d19` |
 
-The retained local evidence directory is
-`artifacts/pro5-a10-kernel-20260807-002347-q-base-config` in the parent Android
-workspace.
+The retained local evidence directories are
+`artifacts/pro5-a10-kernel-20260807-002347-q-base-config` and
+`artifacts/pro5-a10-kernel-20260807-002602-q-base-config-repro` in the parent
+Android workspace.
 
 ## Port order and gates
 

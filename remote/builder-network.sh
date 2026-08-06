@@ -6,6 +6,11 @@ configure_builder_lineage_source() {
   local source_prefix
 
   case "$source_name" in
+    cernet)
+      # MirrorZ selects a currently healthy participating campus mirror and
+      # redirects this stable path to its concrete LineageOS Git endpoint.
+      source_prefix='https://mirrors.cernet.edu.cn/lineageOS/LineageOS/'
+      ;;
     tuna)
       source_prefix='https://mirrors.tuna.tsinghua.edu.cn/git/lineageOS/LineageOS/'
       ;;
@@ -67,7 +72,7 @@ configure_builder_network() {
     set -u
   fi
 
-  direct_bypass='mirrors.ustc.edu.cn,.mirrors.ustc.edu.cn,mirrors.bfsu.edu.cn,.mirrors.bfsu.edu.cn,mirrors.tuna.tsinghua.edu.cn,.mirrors.tuna.tsinghua.edu.cn'
+  direct_bypass='mirrors.cernet.edu.cn,.mirrors.cernet.edu.cn,mirrors.ustc.edu.cn,.mirrors.ustc.edu.cn,mirrors.bfsu.edu.cn,.mirrors.bfsu.edu.cn,mirrors.tuna.tsinghua.edu.cn,.mirrors.tuna.tsinghua.edu.cn'
   if [[ -n "${no_proxy:-}" ]]; then
     export no_proxy="${no_proxy},${direct_bypass}"
   else
