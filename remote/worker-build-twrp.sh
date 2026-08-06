@@ -12,7 +12,7 @@ run_root="$remote_root/run"
 artifact_root="$remote_root/artifacts"
 twrp_patch_series="$local_root/patches/twrp-series.tsv"
 
-jobs="${1:-24}"
+jobs="${1:-8}"
 status_file="${2:-$run_root/twrp-build-latest.status}"
 log_file="${3:-$run_root/twrp-build-latest.log}"
 build_stamp="${4:-$(date +%Y%m%d-%H%M%S)}"

@@ -138,6 +138,12 @@ are identical. Pass 1 is copied to a small comparison snapshot, the stable
 output directory is deleted and rebuilt, and only then are the three accepted
 outputs compared byte for byte.
 
+The builder container has a roughly 60 GiB cgroup limit even though host tools
+report much more RAM. Clean Android builds can fill most of that allowance
+with file cache and stall late packaging steps, so recovery and ROM builds
+default to eight jobs. `PRO5_TWRP_BUILD_JOBS` remains an explicit override for
+a builder with a separately verified memory limit.
+
 Two remaining ramdisk generators are normalized by reviewed patches. The
 recovery make rule sorts both embedded `ramdisk-files` inventories with the C
 locale because parallel installation otherwise changes their traversal order.

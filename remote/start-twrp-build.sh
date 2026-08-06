@@ -7,7 +7,7 @@ project_root="$(cd "$script_dir/.." && pwd)"
 # shellcheck source=common.sh
 source "$script_dir/common.sh"
 
-jobs="${PRO5_TWRP_BUILD_JOBS:-24}"
+jobs="${PRO5_TWRP_BUILD_JOBS:-8}"
 if [[ ! "$jobs" =~ ^[1-9][0-9]*$ ]] || ((jobs > 64)); then
   printf 'Invalid PRO5_TWRP_BUILD_JOBS: %s\n' "$jobs" >&2
   exit 2
