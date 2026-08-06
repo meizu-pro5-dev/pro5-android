@@ -17,6 +17,7 @@ kernel_config="$project_root/kernel/meizu/m86/arch/arm64/configs/cm_pro5_defconf
 platform_patch="$project_root/patches/device-samsung-universal7420-common/0001-target-add-meizu-m86.patch"
 build_worker="$project_root/remote/worker-build.sh"
 vendor_worker="$project_root/remote/prepare-vendor.sh"
+blob_list="$device_root/proprietary-files.txt"
 
 for required_file in \
   "$board_config" \
@@ -30,7 +31,8 @@ for required_file in \
   "$kernel_config" \
   "$platform_patch" \
   "$build_worker" \
-  "$vendor_worker"; do
+  "$vendor_worker" \
+  "$blob_list"; do
   if [[ ! -s "$required_file" ]]; then
     printf 'Missing required LineageOS source: %s\n' "$required_file" >&2
     exit 1
@@ -70,6 +72,13 @@ require_fixed 'TARGET_RELEASETOOLS_EXTENSIONS := $(M86_PATH)/releasetools' \
   "$board_config"
 require_fixed 'INSTALLED_RADIOIMAGE_TARGET += $(M86_INSTALLED_DTB)' \
   "$android_makefile"
+require_fixed 'M86_VULKAN_HAL32 := $(TARGET_OUT_VENDOR)/lib/hw/vulkan.exynos5.so' \
+  "$android_makefile"
+require_fixed 'M86_VULKAN_HAL64 := $(TARGET_OUT_VENDOR)/lib64/hw/vulkan.exynos5.so' \
+  "$android_makefile"
+require_fixed 'ALL_DEFAULT_INSTALLED_MODULES += $(M86_VULKAN_HAL_SYMLINKS)' \
+  "$android_makefile"
+require_fixed 'ln -sf ../egl/libGLES_mali.so $@' "$android_makefile"
 require_fixed 'DTB_TARGET_FILES_ENTRY = "RADIO/dtb.img"' "$releasetools"
 require_fixed 'info.script.WriteRawImage("/dtb", DTB_OTA_ENTRY)' "$releasetools"
 require_fixed 'BOARD_VENDOR := meizu' "$board_config"
@@ -108,6 +117,8 @@ require_fixed 'vendor_blob_count="$(wc -l < "$vendor_blob_lock"' \
   "$build_worker"
 require_fixed 'sha256sum --quiet -c "$vendor_blob_lock"' "$build_worker"
 require_fixed 'm86-proprietary-sha256s.txt' "$build_worker"
+require_fixed 'vendor/lib/egl/libGLES_mali.so' "$blob_list"
+require_fixed 'vendor/lib64/egl/libGLES_mali.so' "$blob_list"
 require_fixed 'copy_rule_count="$(' "$vendor_worker"
 require_fixed 'expected_rule="vendor/meizu/m86/proprietary/$relative_path:$output_path"' \
   "$vendor_worker"
@@ -169,6 +180,10 @@ fi
 
 if rg -q 'inherit-product[^\n]*universal7420-common\.mk' "$device_makefile"; then
   printf 'The Galaxy universal7420 product must not be inherited by m86.\n' >&2
+  exit 1
+fi
+if rg -q '(^|/)egl\.cfg([:;|]|$)' "$blob_list"; then
+  printf 'Android 10 loads m86 Mali directly; the obsolete egl.cfg must not be packaged.\n' >&2
   exit 1
 fi
 if rg -q '^on property:sys\.usb\.config=(none|adb)([[:space:]]|$)' \

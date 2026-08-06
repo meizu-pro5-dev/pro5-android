@@ -45,6 +45,24 @@ system-image milestone; inheriting the entire Samsung product file would also
 copy Samsung sensors, radio, camera, NFC, and feature declarations and is not
 acceptable.
 
+### Mali loader boundary
+
+Flyme 8.0.5.0A contains the legacy `/system/lib/egl/egl.cfg` entry `0 1 mali`,
+but Android 10's EGL loader does not consume that file. Its compatibility
+search finds the verified 32-bit and 64-bit
+`/system/vendor/lib*/egl/libGLES_mali.so` objects by the `libGLES_*.so`
+pattern. The old configuration file is therefore deliberately excluded from
+the proprietary inventory.
+
+The Android 10 Vulkan loader instead derives `vulkan.exynos5.so` from
+`ro.board.platform=exynos5`. The verified Flyme image contains both 32-bit and
+64-bit names as links to the corresponding combined Mali GLES library, and
+the universal7420 LineageOS 17.1 vendor tree uses the same layout. The m86
+device makefile reproduces those links without duplicating the large blobs.
+Vulkan feature XML remains deferred until the driver passes an on-device
+enumeration test; presence of entry points alone is not treated as functional
+evidence.
+
 ## Milestone policy
 
 1. Kernel and the first boot image do not require the Flyme system blob set.

@@ -18,4 +18,29 @@ $(M86_INSTALLED_DTB): $(PRODUCT_OUT)/kernel
 	$(hide) cp -f $(M86_KERNEL_DTB) $@
 
 INSTALLED_RADIOIMAGE_TARGET += $(M86_INSTALLED_DTB)
+
+# Android 10's Vulkan loader selects vulkan.$(ro.board.platform).so. Flyme
+# 8.0.5.0A provides that name as a link to the combined 32/64-bit Mali GLES
+# driver, and the LineageOS 17.1 universal7420 port uses the same arrangement.
+# Keep the large, hash-locked blobs as PRODUCT_COPY_FILES entries and install
+# only the links here so the proprietary payload is not duplicated.
+M86_MALI_LIB32 := $(TARGET_OUT_VENDOR)/lib/egl/libGLES_mali.so
+M86_MALI_LIB64 := $(TARGET_OUT_VENDOR)/lib64/egl/libGLES_mali.so
+M86_VULKAN_HAL32 := $(TARGET_OUT_VENDOR)/lib/hw/vulkan.exynos5.so
+M86_VULKAN_HAL64 := $(TARGET_OUT_VENDOR)/lib64/hw/vulkan.exynos5.so
+M86_VULKAN_HAL_SYMLINKS := \
+    $(M86_VULKAN_HAL32) \
+    $(M86_VULKAN_HAL64)
+
+ALL_DEFAULT_INSTALLED_MODULES += $(M86_VULKAN_HAL_SYMLINKS)
+
+$(M86_VULKAN_HAL32): $(M86_MALI_LIB32)
+	@echo "Symlink m86 Vulkan HAL: $@"
+	$(hide) mkdir -p $(dir $@)
+	$(hide) ln -sf ../egl/libGLES_mali.so $@
+
+$(M86_VULKAN_HAL64): $(M86_MALI_LIB64)
+	@echo "Symlink m86 Vulkan HAL: $@"
+	$(hide) mkdir -p $(dir $@)
+	$(hide) ln -sf ../egl/libGLES_mali.so $@
 endif
