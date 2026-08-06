@@ -43,6 +43,7 @@ platform_patch="$project_root/patches/device-samsung-universal7420-common/0001-t
 bluetooth_patch="$project_root/patches/device-samsung-universal7420-common/0002-bluetooth-add-m86-address-fallback.patch"
 glib_patch="$project_root/patches/external-glib/0001-build-libglib-for-m86-vendor.patch"
 glib_clang_patch="$project_root/patches/external-glib/0002-clang-allow-legacy-defined-macro.patch"
+glib_stub_patch="$project_root/patches/external-glib/0003-clang-port-legacy-android-stubs.patch"
 libfprint_patch="$project_root/patches/legacy-m86-libfprint/0001-port-m86-fpc-to-android10.patch"
 patch_series="$project_root/patches/series.tsv"
 platform_manifest="$project_root/manifests/pro5.xml"
@@ -99,6 +100,7 @@ for required_file in \
   "$bluetooth_patch" \
   "$glib_patch" \
   "$glib_clang_patch" \
+  "$glib_stub_patch" \
   "$libfprint_patch" \
   "$patch_series" \
   "$platform_manifest" \
@@ -387,7 +389,19 @@ require_fixed 'LOCAL_VENDOR_MODULE := true' "$glib_patch"
 require_fixed 'LOCAL_MULTILIB := 64' "$glib_patch"
 require_fixed 'LOCAL_CFLAGS += -Wno-error=expansion-to-defined' \
   "$glib_clang_patch"
+for glib_legacy_warning in \
+  missing-field-initializers \
+  switch \
+  unused-parameter \
+  unused-value \
+  unused-variable; do
+  require_fixed "-Wno-error=${glib_legacy_warning}" "$glib_stub_patch"
+done
+require_fixed 'G_GNUC_NORETURN static gpointer' "$glib_stub_patch"
+require_fixed '#ifndef ANDROID_STUB' "$glib_stub_patch"
 require_fixed 'patches/external-glib/0002-clang-allow-legacy-defined-macro.patch' \
+  "$patch_series"
+require_fixed 'patches/external-glib/0003-clang-port-legacy-android-stubs.patch' \
   "$patch_series"
 require_fixed 'git -C "$build_fprint" apply --check "$fprint_patch"' \
   "$install_worker"

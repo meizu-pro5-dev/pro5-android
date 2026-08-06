@@ -1,0 +1,51 @@
+diff --git a/glib/Android.mk b/glib/Android.mk
+--- a/glib/Android.mk
++++ b/glib/Android.mk
+@@ -44,6 +44,13 @@ LOCAL_CFLAGS:= \
+ 	-DANDROID_STUB
+ LOCAL_CFLAGS += -Wno-error=expansion-to-defined
+ 
++LOCAL_CFLAGS += \
++	-Wno-error=missing-field-initializers \
++	-Wno-error=switch \
++	-Wno-error=unused-parameter \
++	-Wno-error=unused-value \
++	-Wno-error=unused-variable
++
+ LOCAL_MODULE:=libglib
+ LOCAL_MODULE_TAGS := optional
+ LOCAL_VENDOR_MODULE := true
+diff --git a/glib/gmain.c b/glib/gmain.c
+--- a/glib/gmain.c
++++ b/glib/gmain.c
+@@ -3665,11 +3665,7 @@ g_child_watch_source_init_single (void)
+   sigaction (SIGCHLD, &action, NULL);
+ }
+ 
+-#ifndef ANDROID_STUB
+ G_GNUC_NORETURN static gpointer
+-#else
+-void
+-#endif
+ child_watch_helper_thread (gpointer data) 
+ {
+   while (1)
+diff --git a/glib/gutf8.c b/glib/gutf8.c
+--- a/glib/gutf8.c
++++ b/glib/gutf8.c
+@@ -397,6 +397,7 @@ g_utf8_strncpy (gchar       *dest,
+   return dest;
+ }
+ 
++#ifndef ANDROID_STUB
+ G_LOCK_DEFINE_STATIC (aliases);
+ 
+ static GHashTable *
+@@ -446,7 +447,6 @@ get_alias_hash (void)
+ /* As an abuse of the alias table, the following routines gets
+  * the charsets that are aliases for the canonical name.
+  */
+-#ifndef ANDROID_STUB
+ G_GNUC_INTERNAL const char ** 
+ _g_charset_get_aliases (const char *canonical_name)
+ {
