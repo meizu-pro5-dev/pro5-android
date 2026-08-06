@@ -87,6 +87,34 @@ lowercase `xt_mark.h` exposed the case-folding loss described above. This is
 handled as a source-transport overlay rather than by renaming public headers or
 kernel modules.
 
+With the case pairs restored, commit `abc6c4261c393f06e035c4a947e6712b8a24c220`
+built successfully using the locked GCC 4.9 revisions
+`a61b4b9ea2a5098dbf113999526978aec683753b` (arm64) and
+`0e7d16580dd5fb78734174d56887f1e681d0ee4a` (arm). The retained baseline
+artifacts are:
+
+| Artifact | Size | SHA-256 |
+| --- | ---: | --- |
+| `Image` | 17,031,920 | `aa4bc55de74f365854aecebd31a904951b785ba7c339aa2aea83cd0b81b6f9da` |
+| generated DTB | 145,988 | `bea3523f946da2ce4fd61c57de5a75af1bba666e973774a7a16fab6694c176a2` |
+| generated config | 99,498 | `e82ea521a12a9142a5dc405fb8a37c2d19db67183f610765042e89a48ad60040` |
+
+The successful compile exposed a separate DTB correctness issue: the old DTC
+preprocessor rule did not include generated `autoconf.h`. It therefore ignored
+all `CONFIG_*` branches and silently omitted the S6E3FA3 panel phandle and both
+panel regulators. A diagnostic build that explicitly included the generated
+configuration restored every node and all but one property present in the
+community CM14 DTB; only six values then differed, representing the current
+source's bootargs, Mali clocks, and modem buffer counts. The DTC rule now
+includes `$(objtree)/include/generated/autoconf.h` so external and in-tree
+builds evaluate board conditionals consistently.
+
+The stock Flyme DTB remains a separate hardware reference. It has the same
+root model and compatible strings but uses the older `fpc,fpc_irq` fingerprint
+node and a `meizu,simple_adc` thermistor node, while the community/current tree
+uses `fpc,fpc1020` and adds hardboot, PMU, and key-booster nodes. These deltas
+must be reconciled by subsystem testing before the generated DTB is flashed.
+
 ## Explicit non-decisions
 
 - The donor's forced permissive SELinux change is not a production solution.
