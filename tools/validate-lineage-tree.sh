@@ -23,6 +23,8 @@ camera_bp="$device_root/camera/Android.bp"
 camera_shim="$device_root/camera/CameraCompat.cpp"
 lights_bp="$device_root/lights/Android.bp"
 lights_source="$device_root/lights/lights.c"
+power_bp="$device_root/power/Android.bp"
+power_source="$device_root/power/PowerHAL.c"
 wifi_sta_overlay="$device_root/wifi/wpa_supplicant_overlay.conf"
 wifi_p2p_overlay="$device_root/wifi/p2p_supplicant_overlay.conf"
 usb_rc="$device_root/rootdir/etc/init.m86.usb.rc"
@@ -67,6 +69,8 @@ for required_file in \
   "$camera_shim" \
   "$lights_bp" \
   "$lights_source" \
+  "$power_bp" \
+  "$power_source" \
   "$wifi_sta_overlay" \
   "$wifi_p2p_overlay" \
   "$usb_rc" \
@@ -326,6 +330,18 @@ require_fixed '#define M86_LED_MODE_TIMED_BLINK 0x400' "$lights_source"
 require_fixed '/sys/class/leds/m86_led/brightness' "$lights_source"
 require_fixed '/sys/devices/13930000.decon_fb/backlight/pwm-backlight.0/brightness' \
   "$lights_source"
+require_fixed 'android.hardware.power@1.0-impl' "$device_makefile"
+require_fixed 'android.hardware.power@1.0-service' "$device_makefile"
+require_fixed 'power.m86' "$device_makefile"
+require_fixed 'name: "power.m86"' "$power_bp"
+require_fixed 'POWER_MODULE_API_VERSION_0_2' "$power_source"
+require_fixed '/sys/devices/system/cpu/cpu0/cpufreq/interactive/boostpulse' \
+  "$power_source"
+require_fixed '/sys/devices/system/cpu/cpu4/cpufreq/interactive/boostpulse' \
+  "$power_source"
+require_fixed '/sys/module/exynos_march_cpu_hotplug/parameters/current_profile_no' \
+  "$power_source"
+require_fixed '#define NAVIGATION_SWITCH "/proc/nav_switch"' "$power_source"
 for wifi_package in hostapd wpa_supplicant wpa_supplicant.conf; do
   if ! rg -q "^[[:space:]]*${wifi_package}( \\\\)?$" "$device_makefile"; then
     printf 'Required m86 Wi-Fi package is absent: %s\n' "$wifi_package" >&2
@@ -373,6 +389,17 @@ require_fixed 'chmod 0660 /sys/class/rfkill/rfkill0/state' \
 require_fixed 'chown system system /sys/class/timed_output/vibrator/enable' \
   "$init_rc"
 require_fixed 'chmod 0660 /sys/class/timed_output/vibrator/enable' \
+  "$init_rc"
+require_fixed 'chmod 0660 /proc/nav_switch' "$init_rc"
+require_fixed 'chmod 0660 /sys/devices/system/cpu/cpu0/cpufreq/interactive/boostpulse' \
+  "$init_rc"
+require_fixed 'chmod 0660 /sys/devices/system/cpu/cpu4/cpufreq/interactive/boostpulse' \
+  "$init_rc"
+require_fixed 'chmod 0660 /sys/module/exynos_march_cpu_hotplug/parameters/current_profile_no' \
+  "$init_rc"
+require_fixed 'chmod 0660 /sys/module/exynos_march_cpu_hotplug/parameters/cl1_booster' \
+  "$init_rc"
+require_fixed 'chmod 0660 /sys/module/exynos_march_cpu_hotplug/parameters/min_cpu_boosted' \
   "$init_rc"
 require_fixed 'chown system system /sys/class/leds/m86_led/brightness' \
   "$init_rc"
@@ -590,6 +617,8 @@ require_manifest_hal \
   android.hardware.memtrack 1.0 passthrough 32+64 IMemtrack
 require_manifest_hal \
   android.hardware.nfc 1.1 hwbinder '' INfc
+require_manifest_hal \
+  android.hardware.power 1.0 hwbinder '' IPower
 for radio_slot in slot1 slot2; do
   require_manifest_instance \
     android.hardware.radio 1.1 IRadio "$radio_slot"

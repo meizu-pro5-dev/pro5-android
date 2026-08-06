@@ -66,6 +66,22 @@ on boot
     chmod 0660 /sys/class/leds/torch1/enable
     chown system system /sys/class/timed_output/vibrator/enable
     chmod 0660 /sys/class/timed_output/vibrator/enable
+    chown system system /proc/nav_switch
+    chmod 0660 /proc/nav_switch
+    chown system system /sys/devices/system/cpu/cpu0/cpufreq/interactive/boostpulse
+    chmod 0660 /sys/devices/system/cpu/cpu0/cpufreq/interactive/boostpulse
+    chown system system /sys/devices/system/cpu/cpu0/cpufreq/interactive/boostpulse_duration
+    chmod 0660 /sys/devices/system/cpu/cpu0/cpufreq/interactive/boostpulse_duration
+    chown system system /sys/devices/system/cpu/cpu4/cpufreq/interactive/boostpulse
+    chmod 0660 /sys/devices/system/cpu/cpu4/cpufreq/interactive/boostpulse
+    chown system system /sys/devices/system/cpu/cpu4/cpufreq/interactive/boostpulse_duration
+    chmod 0660 /sys/devices/system/cpu/cpu4/cpufreq/interactive/boostpulse_duration
+    chown system system /sys/module/exynos_march_cpu_hotplug/parameters/current_profile_no
+    chmod 0660 /sys/module/exynos_march_cpu_hotplug/parameters/current_profile_no
+    chown system system /sys/module/exynos_march_cpu_hotplug/parameters/cl1_booster
+    chmod 0660 /sys/module/exynos_march_cpu_hotplug/parameters/cl1_booster
+    chown system system /sys/module/exynos_march_cpu_hotplug/parameters/min_cpu_boosted
+    chmod 0660 /sys/module/exynos_march_cpu_hotplug/parameters/min_cpu_boosted
 
 service wpa_supplicant /vendor/bin/hw/wpa_supplicant \
     -puse_p2p_group_interface=1 \

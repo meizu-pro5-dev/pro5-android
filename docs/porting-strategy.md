@@ -225,6 +225,12 @@ FULL/RAW capability until runtime tests support it.
 - Fingerprint: retain FPC device/input behavior; port to the Android 10
   biometrics service only after enrollment/authentication storage paths and
   TrustZone dependencies are understood.
+- Power: Android 10's power 1.0 service wraps a source-built m86 module. The
+  module preserves the maintained kernel's interactive-governor boost pulse,
+  `exynos_march_cpu_hotplug` balanced/eco profiles and FPC navigation switch,
+  but does not import Galaxy frequency tables. Runtime acceptance covers UI
+  interaction latency, battery saver entry/exit, screen-off suspend, wakeup
+  sources and a repeated suspend/resume battery-and-temperature soak.
 
 ## Proprietary-file rules
 

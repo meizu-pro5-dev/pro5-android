@@ -182,6 +182,14 @@ PRODUCT_PACKAGES += \
     android.hardware.light@2.0-service \
     lights.m86
 
+# Power. Android 10's generic HIDL bridge wraps a source-built m86 HAL. It
+# limits battery-saver and interaction hints to the interfaces implemented by
+# the maintained Meizu hotplug and interactive-governor drivers.
+PRODUCT_PACKAGES += \
+    android.hardware.power@1.0-impl \
+    android.hardware.power@1.0-service \
+    power.m86
+
 # TARGET_SYSTEM_PROP is expanded after product makefiles have changed
 # LOCAL_PATH. Use the stable device path so it cannot resolve under
 # build/make/core during Ninja graph generation.
