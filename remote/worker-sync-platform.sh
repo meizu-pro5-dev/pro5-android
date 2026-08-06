@@ -12,12 +12,9 @@ local_manifest="$local_root/manifests/pro5.xml"
 mkdir -p "$log_dir"
 exec > >(tee -a "$log_dir/platform-sync.log") 2>&1
 
-if [[ -r /etc/network_turbo ]]; then
-  set +u
-  # shellcheck disable=SC1091
-  source /etc/network_turbo >/dev/null 2>&1
-  set -u
-fi
+# shellcheck source=builder-network.sh
+source "$script_dir/builder-network.sh"
+configure_builder_network
 
 export GIT_TERMINAL_PROMPT=0
 

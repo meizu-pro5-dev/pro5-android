@@ -13,12 +13,9 @@ log_file="$remote_root/logs/reference-sync.log"
 mkdir -p "$reference_root" "$remote_root/logs"
 exec > >(tee -a "$log_file") 2>&1
 
-if [[ -r /etc/network_turbo ]]; then
-  set +u
-  # shellcheck disable=SC1091
-  source /etc/network_turbo >/dev/null 2>&1
-  set -u
-fi
+# shellcheck source=builder-network.sh
+source "$script_dir/builder-network.sh"
+configure_builder_network
 
 export GIT_TERMINAL_PROMPT=0
 
@@ -71,18 +68,22 @@ while IFS=$'\t' read -r name url branch; do
     printf 'Snapshot is current: %s\n' "$name"
     commit_record="$revision"$'\t-'$'\t-'
   else
-    staging_root="$(mktemp -d "$reference_root/.${name}.XXXXXX")"
+    staging_root="$reference_root/.${name}.download"
     archive="$staging_root/source.tar.gz"
     staging_tree="$staging_root/tree"
-    mkdir -p "$staging_tree"
+    mkdir -p "$staging_root"
 
     curl \
       -fsSL \
       --connect-timeout 30 \
-      --retry 5 \
+      --retry 10 \
+      --retry-delay 2 \
       --retry-all-errors \
       "https://codeload.github.com/$github_slug/tar.gz/$revision" \
       -o "$archive"
+
+    rm -rf -- "$staging_tree"
+    mkdir -p "$staging_tree"
     tar -xzf "$archive" --strip-components=1 -C "$staging_tree"
     printf '%s\n' "$revision" > "$staging_tree/.reference-revision"
 
@@ -90,7 +91,8 @@ while IFS=$'\t' read -r name url branch; do
       rm -rf -- "$checkout"
     fi
     mv "$staging_tree" "$checkout"
-    rm -rf -- "$staging_root"
+    rm -f -- "$archive"
+    rmdir -- "$staging_root"
 
     printf 'Installed snapshot: %s @ %s\n' "$name" "$revision"
     commit_record="$revision"$'\t-'$'\t-'

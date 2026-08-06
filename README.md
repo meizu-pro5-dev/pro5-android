@@ -30,7 +30,9 @@ artifacts are deliberately not versioned in this repository.
 The default builder is `REDACTED_BUILDER_ENDPOINT`. Persistent
 state is kept below `/root/autodl-tmp/pro5-android10`; the small root overlay is
 never used for Android source or build output. `/etc/network_turbo` is sourced
-on the builder when available, without printing its contents.
+on the builder when available, without printing its contents. Google-hosted
+Android traffic uses that acceleration, while GitHub domains bypass it because
+direct transfers are measurably faster and more reliable on this builder.
 
 Typical control flow:
 
@@ -39,7 +41,17 @@ Typical control flow:
 ./remote/push-local.sh
 ./remote/start-source-sync.sh
 ./remote/source-sync-status.sh
+./remote/push-stock-blobs.sh
+./remote/start-platform-sync.sh
+./remote/platform-sync-status.sh
+./remote/start-build.sh bootimage
+./remote/build-status.sh
 ```
+
+`start-build.sh` accepts `kernel`, `bootimage`, `recoveryimage`, or `bacon`.
+It applies the checked-in platform patches and installs the local device,
+kernel, and vendor trees before launching a logged build in tmux. Override the
+default 24-way build with `PRO5_BUILD_JOBS`.
 
 Environment variables can override the non-secret connection defaults:
 `PRO5_BUILDER_HOST`, `PRO5_BUILDER_PORT`, and `PRO5_REMOTE_ROOT`.
