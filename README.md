@@ -44,6 +44,8 @@ Typical control flow:
 ./remote/push-stock-blobs.sh
 ./remote/start-platform-sync.sh
 ./remote/platform-sync-status.sh
+./remote/start-kernel-build.sh
+./remote/kernel-build-status.sh
 ./remote/start-build.sh bootimage
 ./remote/build-status.sh
 ```
@@ -52,6 +54,11 @@ Typical control flow:
 It applies the checked-in platform patches and installs the local device,
 kernel, and vendor trees before launching a logged build in tmux. Override the
 default 24-way build with `PRO5_BUILD_JOBS`.
+
+`start-kernel-build.sh` is the earlier standalone gate. It needs only the
+LineageOS GCC 4.9 prebuilts, builds the unmodified m86 `Image` and raw
+`exynos7420-m86-codegen.dtb` in an external output directory, and records the
+local source commit plus both toolchain revisions.
 
 Environment variables can override the non-secret connection defaults:
 `PRO5_BUILDER_HOST`, `PRO5_BUILDER_PORT`, and `PRO5_REMOTE_ROOT`.
