@@ -28,15 +28,46 @@ printf '# name\turl\tbranch\tcommit\tcommit_date\tsubject\n' > "$lock_file"
 while IFS=$'\t' read -r name url branch; do
   [[ -z "$name" || "$name" == \#* ]] && continue
 
+  if [[ ! "$name" =~ ^[A-Za-z0-9._-]+$ ]]; then
+    printf 'Invalid reference name: %s\n' "$name" >&2
+    exit 1
+  fi
+
   checkout="$reference_root/$name"
   if [[ ! -d "$checkout/.git" ]]; then
-    git clone --single-branch --branch "$branch" "$url" "$checkout"
+    clone_complete=false
+    for attempt in 1 2 3 4; do
+      if [[ -e "$checkout" && ! -d "$checkout/.git" ]]; then
+        rm -rf -- "$checkout"
+      fi
+
+      if git \
+          -c http.version=HTTP/1.1 \
+          clone \
+          --filter=blob:none \
+          --single-branch \
+          --branch "$branch" \
+          "$url" \
+          "$checkout"; then
+        clone_complete=true
+        break
+      fi
+
+      printf 'Clone attempt %d failed for %s\n' "$attempt" "$name" >&2
+      sleep "$((attempt * 5))"
+    done
+
+    if [[ "$clone_complete" != true ]]; then
+      printf 'Failed to clone reference after 4 attempts: %s\n' "$name" >&2
+      exit 1
+    fi
   else
     if [[ -n "$(git -C "$checkout" status --porcelain)" ]]; then
       printf 'Refusing to update modified reference checkout: %s\n' "$checkout" >&2
       exit 1
     fi
-    git -C "$checkout" fetch --prune origin "$branch"
+    git -C "$checkout" -c http.version=HTTP/1.1 \
+      fetch --prune origin "$branch"
     git -C "$checkout" checkout "$branch"
     git -C "$checkout" merge --ff-only "origin/$branch"
   fi
