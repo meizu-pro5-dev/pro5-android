@@ -126,6 +126,64 @@ value:
 | config-aware DTB | 146,172 | `0b537be248ed155a925d58c9a6b927ec1c4cdfaa0624ea714e848abddfba7d84` |
 | generated config | 99,498 | `e82ea521a12a9142a5dc405fb8a37c2d19db67183f610765042e89a48ad60040` |
 
+A subsequent CPUSETS build exposed one more imported build artifact:
+`include/generated/autoconf.h` had been committed in the Meizu source tree.
+During an external `O=` build, Make selected objects from the new output-tree
+configuration while C headers resolved this stale source-tree configuration
+first. Enabling CPUSETS therefore selected `kernel/cpuset.o` but compiled it
+as though CPUSETS were disabled. Commit `0f5ab13f3088` removes and ignores the
+stale header, so both object selection and C preprocessing now use the same
+generated configuration. The earlier images remain useful host-build and DTB
+evidence, but are not treated as a release kernel baseline.
+
+With `CONFIG_CPUSETS=y`, two clean builds of commit `0f5ab13f3088` produced
+byte-identical artifacts:
+
+| Artifact | Size | SHA-256 |
+| --- | ---: | --- |
+| `Image` | 17,051,440 | `6a28b7cf2258f06140a3cb3097a1f065d80db586f38e0d9cbf33999e5312d3eb` |
+| config-aware DTB | 146,172 | `0b537be248ed155a925d58c9a6b927ec1c4cdfaa0624ea714e848abddfba7d84` |
+| generated config | 99,512 | `f60cc976a0f572c7b2b1437f2d11aeb6bc0e6a6e5e503119a6904524ee2bc96d` |
+
+## Android 10 Binder gate
+
+Commit `b5977e0430f0` replaces the monolithic staging Binder and old private
+UAPI with the final driver set from the locked universal7420 LineageOS 17.1
+donor. Only Binder is moved: ashmem, ION, lowmemorykiller, synchronization,
+alarm, and device-specific Android staging drivers remain on the Meizu base.
+The root Kconfig/Makefile integration is added once even though the donor
+snapshot contains duplicate include lines.
+
+The first compile isolated the remaining base-kernel dependency to
+`READ_ONCE`/`WRITE_ONCE`. Commit `abd0fc50203f` ports the donor's single-access
+helpers; no Samsung peripheral or unrelated scheduler code is imported.
+After that change, `drivers/android/binder.o`, `binder_alloc.o`, and their
+combined built-in object compiled and linked successfully. The generated
+configuration contains:
+
+```text
+CONFIG_ANDROID_BINDER_IPC=y
+CONFIG_ANDROID_BINDER_DEVICES="binder,hwbinder,vndbinder"
+```
+
+The linked kernel contains `binder_init`, `binder_transaction`, and
+`binder_alloc_new_buf`, plus the three-device parameter string. A separate
+`headers_install` gate exports `include/linux/android/binder.h` and confirms
+protocol v8 on 64-bit, `BR_TRANSACTION_SEC_CTX`,
+`BINDER_GET_NODE_INFO_FOR_REF`, and the transaction security-context flag.
+Two clean builds of `abd0fc50203f` are byte-identical:
+
+| Artifact | Size | SHA-256 |
+| --- | ---: | --- |
+| `Image` | 17,084,376 | `02d6d8c8dfce7b51c2283271be44d369a57cdb460ea0a490e5688fb727f736e1` |
+| config-aware DTB | 146,172 | `0b537be248ed155a925d58c9a6b927ec1c4cdfaa0624ea714e848abddfba7d84` |
+| generated config | 99,633 | `9ab352d4e7339e96de7c20c698b435c9572e504a13bc04faff4b261c6f5ea584` |
+
+The retained local evidence directories are
+`artifacts/pro5-a10-kernel-20260806-{215537,215912}-cpusets*` and
+`artifacts/pro5-a10-kernel-20260806-{220329,220551}-binder*` in the parent
+Android workspace.
+
 The stock Flyme DTB remains a separate hardware reference. It has the same
 root model and compatible strings but uses the older `fpc,fpc_irq` fingerprint
 node and a `meizu,simple_adc` thermistor node, while the community/current tree
