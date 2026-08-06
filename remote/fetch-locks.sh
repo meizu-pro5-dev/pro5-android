@@ -12,6 +12,7 @@ mkdir -p "$project_root/locks"
 for remote_name in \
   lineage-17.1-manifest.xml \
   lineage-17.1-pro5-manifest.xml \
+  twrp-9.0-manifest.xml \
   reference-revisions.tsv; do
   if "${pro5_ssh[@]}" test -f "$PRO5_REMOTE_ROOT/logs/$remote_name"; then
     rsync -az \

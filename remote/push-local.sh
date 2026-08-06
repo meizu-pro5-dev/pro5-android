@@ -15,8 +15,12 @@ printf 'Synchronizing local source of truth to %s:%s/local/\n' \
 rsync -az --delete-delay \
   --exclude '/.git/' \
   --exclude '/.DS_Store' \
+  --exclude '/artifacts/' \
+  --exclude '/backups/' \
   --exclude '/evidence/' \
   --exclude '/legacy/' \
+  --exclude '/out/' \
+  --exclude '/work/' \
   --exclude '/vendor/meizu/m86/proprietary/' \
   --exclude '*.img' \
   --exclude '*.bin' \

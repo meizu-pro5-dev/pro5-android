@@ -12,7 +12,7 @@ metadata, manifests, patches, build scripts, source locks, and bring-up notes.
 
 - `device/meizu/m86/`: Android device configuration authored for this port.
 - `kernel/meizu/m86/`: maintained kernel source used by the port.
-- `device/meizu/m86/`: device configuration and proprietary extraction metadata.
+- `twrp/`: independent TWRP 3.7.0_9 device tree and flashing boundary.
 - `vendor/meizu/m86/`: generated vendor build definitions; binaries are ignored.
 - `manifests/`: LineageOS and reference-source declarations.
 - `overlays/`: case-sensitive source fragments that cannot coexist directly
@@ -61,6 +61,11 @@ Typical control flow:
 ./remote/kernel-build-status.sh
 ./remote/start-build.sh bootimage
 ./remote/build-status.sh
+./remote/start-twrp-source-sync.sh
+./remote/twrp-source-sync-status.sh
+./remote/start-twrp-build.sh
+./remote/twrp-build-status.sh
+./remote/fetch-twrp-artifacts.sh
 ```
 
 `start-build.sh` accepts `kernel`, `bootimage`, `recoveryimage`, or `bacon`.
@@ -73,6 +78,15 @@ LineageOS GCC 4.9 prebuilts, builds the unmodified m86 `Image` and raw
 `exynos7420-m86-codegen.dtb` in an external output directory, and records the
 local source commit plus both toolchain revisions.
 
+TWRP uses a separate minimal `twrp-9.0` checkout and output directory. The
+builder installs the local TWRP device tree and the same maintained m86
+kernel, builds `recovery.img` plus its separate raw DTB, and rejects an image
+whose v0 header, gzip ramdisk, addresses, page size, DT placement, or recovery
+partition limit differs from the verified Flyme geometry. The resulting
+artifact directory contains a pinned upstream manifest, source revision,
+stock-base lock, generated kernel config, hashes, and an explicit flashing
+boundary. A successful build does not authorize a phone write.
+
 Environment variables can override the non-secret connection defaults:
 `PRO5_BUILDER_HOST`, `PRO5_BUILDER_PORT`, and `PRO5_REMOTE_ROOT`.
 
@@ -83,6 +97,8 @@ Environment variables can override the non-secret connection defaults:
 - SoC: Samsung Exynos 7420
 - boot chain: stock Meizu bootloader and partition layout
 - first milestone: reproducible kernel plus recovery/boot image
+- recovery acceptance: source-built TWRP 3.7.0_9 with ADB/sideload, MTP,
+  legacy FDE, internal storage, microSD/OTG, image backup/flash, and Chinese
 - later milestones: display/adb, storage, radio, Wi-Fi/Bluetooth, audio,
   sensors/GPS, camera, encryption, and SELinux enforcing
 
