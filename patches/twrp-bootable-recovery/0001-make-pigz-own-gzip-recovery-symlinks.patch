@@ -1,0 +1,15 @@
+diff --git a/toybox/Android.mk b/toybox/Android.mk
+--- a/toybox/Android.mk
++++ b/toybox/Android.mk
+@@ -568,6 +568,11 @@ ALL_TOOLS += \
+ endif
+ endif
+ 
++# pigz installs the recovery gzip and gunzip links.  Do not let toybox race
++# that post-install rule: the final cpio target otherwise depends on parallel
++# build order and changes between clean recovery builds.
++ALL_TOOLS := $(filter-out gzip gunzip,$(ALL_TOOLS))
++
+ # Install the symlinks.
+ LOCAL_POST_INSTALL_CMD := $(hide) $(foreach t,$(ALL_TOOLS),ln -sf toybox $(TARGET_RECOVERY_ROOT_OUT)/sbin/$(t);)
+ 

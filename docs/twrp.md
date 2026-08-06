@@ -148,6 +148,12 @@ payload is supported by the pinned loader, which compiles the retained regex
 strings on first use. The exact patch series and patch payloads are retained
 with every accepted artifact.
 
+The recovery tree also had two parallel post-install owners for `/sbin/gzip`
+and `/sbin/gunzip`: toybox linked them to itself while pigz linked the same
+paths to `pigz`. A reviewed recovery patch removes those two names only from
+toybox's symlink set. The image inspector then requires the cpio link payloads
+to hash exactly as `pigz`, so a scheduling-dependent winner cannot reappear.
+
 Full recovery acceptance additionally requires explicit authorization and
 device evidence for:
 

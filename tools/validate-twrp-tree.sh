@@ -17,6 +17,7 @@ twrp_sync_worker="$project_root/remote/worker-sync-twrp-source.sh"
 twrp_apply_patches="$project_root/remote/apply-twrp-patches.sh"
 twrp_patch_series="$project_root/patches/twrp-series.tsv"
 twrp_ramdisk_order_patch="$project_root/patches/twrp-build-make/0001-sort-recovery-ramdisk-inventories.patch"
+twrp_pigz_symlink_patch="$project_root/patches/twrp-bootable-recovery/0001-make-pigz-own-gzip-recovery-symlinks.patch"
 twrp_file_contexts_patch="$project_root/patches/twrp-system-sepolicy/0001-omit-host-pcre2-bytecode.patch"
 
 for required_file in \
@@ -34,6 +35,7 @@ for required_file in \
   "$twrp_apply_patches" \
   "$twrp_patch_series" \
   "$twrp_ramdisk_order_patch" \
+  "$twrp_pigz_symlink_patch" \
   "$twrp_file_contexts_patch"; do
   if [[ ! -s "$required_file" ]]; then
     printf 'Missing required TWRP source: %s\n' "$required_file" >&2
@@ -110,8 +112,11 @@ require_fixed 'file_contexts_regex_payload=omitted host PCRE2 bytecode' \
   "$twrp_build_worker"
 require_fixed 'LC_ALL=C sort > ramdisk-files.txt' "$twrp_ramdisk_order_patch"
 require_fixed 'LC_ALL=C sort | xargs sha256sum' "$twrp_ramdisk_order_patch"
+require_fixed 'ALL_TOOLS := $(filter-out gzip gunzip,$(ALL_TOOLS))' \
+  "$twrp_pigz_symlink_patch"
 require_fixed 'sefcontext_compile -r -o $@ $<' "$twrp_file_contexts_patch"
 require_fixed 'build/make' "$twrp_patch_series"
+require_fixed 'bootable/recovery' "$twrp_patch_series"
 require_fixed 'system/sepolicy' "$twrp_patch_series"
 require_fixed 'apply --reverse --check' "$twrp_apply_patches"
 require_fixed 'apply-twrp-patches.sh' \
@@ -138,6 +143,8 @@ require_fixed '--expect-ramdisk-elf sbin/libcryptfsfde.so' \
 require_fixed '--expect-ramdisk-elf sbin/exfat-fuse' "$twrp_build_worker"
 require_fixed '--expect-ramdisk-elf sbin/fsck.exfat' "$twrp_build_worker"
 require_fixed '--expect-ramdisk-elf sbin/mount.ntfs' "$twrp_build_worker"
+require_fixed 'sbin/gzip=$pigz_link_hash' "$twrp_build_worker"
+require_fixed 'sbin/gunzip=$pigz_link_hash' "$twrp_build_worker"
 require_fixed 'etc/recovery.fstab=$recovery_fstab_hash' "$twrp_build_worker"
 require_fixed 'required_kernel_setting' "$twrp_build_worker"
 require_fixed 'project_checkout_complete()' "$twrp_sync_worker"

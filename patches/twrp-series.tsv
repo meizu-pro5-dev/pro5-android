@@ -1,3 +1,4 @@
 # repository	patch
 build/make	patches/twrp-build-make/0001-sort-recovery-ramdisk-inventories.patch
+bootable/recovery	patches/twrp-bootable-recovery/0001-make-pigz-own-gzip-recovery-symlinks.patch
 system/sepolicy	patches/twrp-system-sepolicy/0001-omit-host-pcre2-bytecode.patch

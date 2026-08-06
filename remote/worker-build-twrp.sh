@@ -363,6 +363,7 @@ recovery_init_hash="$(
     "$source_root/device/meizu/m86/recovery/root/init.recovery.m86.rc" |
     awk '{ print $1 }'
 )"
+pigz_link_hash="$(printf pigz | sha256sum | awk '{ print $1 }')"
 python3 "$local_root/tools/inspect-android-boot-image.py" \
   "$artifact_dir/recovery.img" \
   --expect-page-size 4096 \
@@ -390,6 +391,8 @@ python3 "$local_root/tools/inspect-android-boot-image.py" \
   --expect-ramdisk-file-sha256 "fstab.m86=$root_fstab_hash" \
   --expect-ramdisk-file-sha256 \
     "init.recovery.m86.rc=$recovery_init_hash" \
+  --expect-ramdisk-file-sha256 "sbin/gzip=$pigz_link_hash" \
+  --expect-ramdisk-file-sha256 "sbin/gunzip=$pigz_link_hash" \
   --expect-ramdisk-file-sha256 \
     "etc/firmware/st_fts.bin=$expected_touch_hash" \
   --max-size 33550336 | tee "$artifact_dir/RECOVERY-HEADER.txt"
@@ -432,6 +435,7 @@ twrp_version="$(
   printf 'ramdisk_compression=gzip only\n'
   printf 'ramdisk_inventory_order=LC_ALL=C sorted\n'
   printf 'file_contexts_regex_payload=omitted host PCRE2 bytecode\n'
+  printf 'gzip_symlink_owner=pigz\n'
   printf 'python_runtime=%s\n' "$(python2.7 --version 2>&1)"
   printf 'python_zlib_runtime=%s\n' \
     "$(python2.7 -c 'import zlib; print(zlib.ZLIB_VERSION)')"
