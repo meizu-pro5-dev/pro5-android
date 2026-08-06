@@ -45,6 +45,7 @@ repo sync \
   --prune \
   --retry-fetches=3 \
   -j8 \
+  build/soong \
   device/samsung/universal7420-common \
   hardware/samsung \
   hardware/samsung_slsi/exynos \

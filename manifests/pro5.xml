@@ -2,6 +2,16 @@
 <manifest>
   <remote name="github-root" fetch="https://github.com/" />
 
+  <remove-project name="LineageOS/android_build_soong" />
+  <project
+      path="build/soong"
+      name="universal7420/android_build_soong"
+      remote="github-root"
+      revision="refs/heads/lineage-17.1"
+      groups="pdk,tradefed">
+    <linkfile src="root.bp" dest="Android.bp" />
+    <linkfile src="bootstrap.bash" dest="bootstrap.bash" />
+  </project>
   <project
       path="device/samsung/universal7420-common"
       name="universal7420/android_device_samsung_universal7420-common"
