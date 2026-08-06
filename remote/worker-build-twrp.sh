@@ -10,6 +10,7 @@ build_out="$remote_root/out/twrp-9.0"
 snapshot_root="$remote_root/out/twrp-9.0-repro-pass1"
 run_root="$remote_root/run"
 artifact_root="$remote_root/artifacts"
+twrp_patch_series="$local_root/patches/twrp-series.tsv"
 
 jobs="${1:-24}"
 status_file="${2:-$run_root/twrp-build-latest.status}"
@@ -60,6 +61,20 @@ if [[ ! -f "$source_root/kernel/meizu/m86/arch/arm64/configs/cm_pro5_defconfig" 
   printf 'The maintained m86 kernel tree is not installed.\n' >&2
   exit 1
 fi
+if [[ ! -s "$twrp_patch_series" ]]; then
+  printf 'The reviewed TWRP patch series is missing.\n' >&2
+  exit 1
+fi
+while IFS=$'\t' read -r repository patch_path; do
+  [[ -z "$repository" || "$repository" == \#* ]] && continue
+  patch_file="$local_root/$patch_path"
+  if [[ ! -f "$patch_file" ]] || \
+      ! git -C "$source_root/$repository" apply --reverse --check \
+        "$patch_file" 2>/dev/null; then
+    printf 'Reviewed TWRP patch is not applied: %s\n' "$patch_path" >&2
+    exit 1
+  fi
+done < "$twrp_patch_series"
 
 stock_lock="$local_root/locks/stock-flyme-8.0.5.0A.sha256"
 touch_firmware="$source_root/device/meizu/m86/recovery/root/etc/firmware/st_fts.bin"
@@ -295,6 +310,12 @@ cp -a "$kernel_out/.config" "$artifact_dir/kernel.config"
 cp -a "$local_root/twrp/FLASHING.md" "$artifact_dir/FLASHING.md"
 cp -a "$local_root/locks/stock-flyme-8.0.5.0A.sha256" \
   "$artifact_dir/stock-flyme-8.0.5.0A.sha256"
+cp -a "$twrp_patch_series" "$artifact_dir/twrp-series.tsv"
+while IFS=$'\t' read -r repository patch_path; do
+  [[ -z "$repository" || "$repository" == \#* ]] && continue
+  install -D -m 0644 \
+    "$local_root/$patch_path" "$artifact_dir/$patch_path"
+done < "$twrp_patch_series"
 
 {
   printf 'result=byte-identical\n'
@@ -364,6 +385,8 @@ twrp_version="$(
   printf 'recovery_partition_limit=33550336\n'
   printf 'dtb_packaging=raw separate partition\n'
   printf 'ramdisk_compression=gzip only\n'
+  printf 'ramdisk_inventory_order=LC_ALL=C sorted\n'
+  printf 'file_contexts_regex_payload=omitted host PCRE2 bytecode\n'
   printf 'python_runtime=%s\n' "$(python2.7 --version 2>&1)"
   printf 'python_zlib_runtime=%s\n' \
     "$(python2.7 -c 'import zlib; print(zlib.ZLIB_VERSION)')"
@@ -378,7 +401,7 @@ cp -a "$log_file" "$artifact_dir/"
 
 (
   cd "$artifact_dir"
-  find . -maxdepth 1 -type f ! -name SHA256SUMS -print0 |
+  find . -type f ! -name SHA256SUMS -print0 |
     LC_ALL=C sort -z |
     xargs -0 sha256sum
 ) > "$artifact_dir/SHA256SUMS"

@@ -1,0 +1,12 @@
+diff --git a/Android.mk b/Android.mk
+--- a/Android.mk
++++ b/Android.mk
+@@ -860,7 +860,7 @@ $(LOCAL_BUILT_MODULE): PRIVATE_SEPOLICY := $(built_sepolicy)
+ $(LOCAL_BUILT_MODULE): $(file_contexts.concat.tmp) $(built_sepolicy) $(HOST_OUT_EXECUTABLES)/sefcontext_compile $(HOST_OUT_EXECUTABLES)/checkfc
+ 	@mkdir -p $(dir $@)
+ 	$(hide) $(HOST_OUT_EXECUTABLES)/checkfc $(PRIVATE_SEPOLICY) $<
+-	$(hide) $(HOST_OUT_EXECUTABLES)/sefcontext_compile -o $@ $<
++	$(hide) $(HOST_OUT_EXECUTABLES)/sefcontext_compile -r -o $@ $<
+ 
+ built_fc := $(LOCAL_BUILT_MODULE)
+ local_fc_files :=

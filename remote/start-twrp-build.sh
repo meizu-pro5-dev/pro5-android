@@ -24,6 +24,7 @@ fi
 # This is an incremental, hash-verified transfer and keeps proprietary bytes
 # outside the authoritative source repository.
 "$script_dir/push-stock-blobs.sh"
+"$script_dir/apply-twrp-patches.sh"
 "$script_dir/install-twrp-trees.sh"
 
 "${pro5_ssh[@]}" bash -s -- \

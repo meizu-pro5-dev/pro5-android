@@ -131,6 +131,16 @@ are identical. Pass 1 is copied to a small comparison snapshot, the stable
 output directory is deleted and rebuilt, and only then are the three accepted
 outputs compared byte for byte.
 
+Two remaining ramdisk generators are normalized by reviewed patches. The
+recovery make rule sorts both embedded `ramdisk-files` inventories with the C
+locale because parallel installation otherwise changes their traversal order.
+The SELinux rule invokes `sefcontext_compile -r`: PCRE2's serialized host
+bytecode contains process-specific data, is not portable from the x86-64 host
+to the ARM64 target, and changes between clean runs. Omitting that optional
+payload is supported by the pinned loader, which compiles the retained regex
+strings on first use. The exact patch series and patch payloads are retained
+with every accepted artifact.
+
 Full recovery acceptance additionally requires explicit authorization and
 device evidence for:
 

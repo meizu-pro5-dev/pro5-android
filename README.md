@@ -81,8 +81,11 @@ local source commit plus both toolchain revisions.
 TWRP uses a separate minimal `twrp-9.0` checkout and output directory. The
 builder installs the local TWRP device tree and the same maintained m86
 kernel, injects the hash-locked Flyme 8 STM touch firmware, builds
-`recovery.img` plus its separate raw DTB twice from independently cleaned
-output roots, and rejects differing recovery, DTB, or kernel-config bytes. It
+`recovery.img` plus its separate raw DTB twice after independently cleaning
+the same absolute output root, and rejects differing recovery, DTB, or
+kernel-config bytes. The checked-in TWRP patches sort the embedded ramdisk
+inventories and omit nondeterministic host PCRE2 bytecode from
+`file_contexts.bin`. It
 also rejects an image whose embedded firmware, v0 header, gzip ramdisk,
 addresses, page size, DT placement, or recovery partition limit differs from
 the verified Flyme contract. The resulting artifact directory contains a

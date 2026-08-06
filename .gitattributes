@@ -2,3 +2,5 @@
 device/meizu/m86/gps/gps.xml -whitespace
 locks/*-manifest.xml -whitespace
 vendor/meizu/m86/BoardConfigVendor.mk -whitespace
+# Patch payloads preserve upstream indentation and trailing whitespace exactly.
+patches/**/*.patch -whitespace

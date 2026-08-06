@@ -1,0 +1,3 @@
+# repository	patch
+build/make	patches/twrp-build-make/0001-sort-recovery-ramdisk-inventories.patch
+system/sepolicy	patches/twrp-system-sepolicy/0001-omit-host-pcre2-bytecode.patch

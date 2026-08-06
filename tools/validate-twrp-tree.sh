@@ -14,6 +14,10 @@ stock_lock="$project_root/locks/stock-flyme-8.0.5.0A.sha256"
 twrp_build_worker="$project_root/remote/worker-build-twrp.sh"
 twrp_install_worker="$project_root/remote/install-twrp-trees.sh"
 twrp_sync_worker="$project_root/remote/worker-sync-twrp-source.sh"
+twrp_apply_patches="$project_root/remote/apply-twrp-patches.sh"
+twrp_patch_series="$project_root/patches/twrp-series.tsv"
+twrp_ramdisk_order_patch="$project_root/patches/twrp-build-make/0001-sort-recovery-ramdisk-inventories.patch"
+twrp_file_contexts_patch="$project_root/patches/twrp-system-sepolicy/0001-omit-host-pcre2-bytecode.patch"
 
 for required_file in \
   "$board_config" \
@@ -26,7 +30,11 @@ for required_file in \
   "$stock_lock" \
   "$twrp_build_worker" \
   "$twrp_install_worker" \
-  "$twrp_sync_worker"; do
+  "$twrp_sync_worker" \
+  "$twrp_apply_patches" \
+  "$twrp_patch_series" \
+  "$twrp_ramdisk_order_patch" \
+  "$twrp_file_contexts_patch"; do
   if [[ ! -s "$required_file" ]]; then
     printf 'Missing required TWRP source: %s\n' "$required_file" >&2
     exit 1
@@ -99,6 +107,17 @@ require_fixed 'python_zlib_source_revision=' "$twrp_build_worker"
 require_fixed 'lib32z1-dev' "$project_root/remote/bootstrap-builder.sh"
 require_fixed 'source_checkout_validation=HEAD tree equals index and clean worktree' \
   "$twrp_build_worker"
+require_fixed 'ramdisk_inventory_order=LC_ALL=C sorted' "$twrp_build_worker"
+require_fixed 'file_contexts_regex_payload=omitted host PCRE2 bytecode' \
+  "$twrp_build_worker"
+require_fixed 'LC_ALL=C sort > ramdisk-files.txt' "$twrp_ramdisk_order_patch"
+require_fixed 'LC_ALL=C sort | xargs sha256sum' "$twrp_ramdisk_order_patch"
+require_fixed 'sefcontext_compile -r -o $@ $<' "$twrp_file_contexts_patch"
+require_fixed 'build/make' "$twrp_patch_series"
+require_fixed 'system/sepolicy' "$twrp_patch_series"
+require_fixed 'apply --reverse --check' "$twrp_apply_patches"
+require_fixed 'apply-twrp-patches.sh' \
+  "$project_root/remote/start-twrp-build.sh"
 require_fixed 'build_out="$remote_root/out/twrp-9.0"' "$twrp_build_worker"
 require_fixed 'build_twrp_pass 1' "$twrp_build_worker"
 require_fixed 'cp -a "$recovery_image" "$snapshot_root/recovery.img"' \
@@ -118,6 +137,8 @@ require_fixed 'git -C "$project" ls-files' "$twrp_sync_worker"
 require_fixed 'status --porcelain --untracked-files=normal' "$twrp_sync_worker"
 require_fixed '[[ "$head_count" =~ ^[0-9]+$ ]]' "$twrp_sync_worker"
 require_fixed 'repair_empty_index_checkout()' "$twrp_sync_worker"
+require_fixed 'remove_reviewed_twrp_patches()' "$twrp_sync_worker"
+require_fixed 'Removed reviewed patch before TWRP sync' "$twrp_sync_worker"
 require_fixed '[[ "$index_count" != 0 ]]' "$twrp_sync_worker"
 require_fixed 'git -C "$project" read-tree HEAD' "$twrp_sync_worker"
 require_fixed 'git -C "$project" checkout-index --all --force' \

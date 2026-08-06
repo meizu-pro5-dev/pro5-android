@@ -12,6 +12,7 @@ manifest_lock="$log_dir/twrp-9.0-manifest.xml"
 manifest_tmp="${manifest_lock}.tmp"
 progress_file="$remote_root/run/twrp-source-sync-progress.tsv"
 progress_manifest_file="$remote_root/run/twrp-source-sync-progress.manifest.sha256"
+patch_series="$local_root/patches/twrp-series.tsv"
 
 mkdir -p "$source_root" "$log_dir" "$remote_root/run"
 rm -f -- "$manifest_lock" "$manifest_tmp"
@@ -145,6 +146,59 @@ repair_empty_index_checkout() {
   git -C "$project" checkout-index --all --force
   project_checkout_complete "$project"
 }
+
+remove_reviewed_twrp_patches() {
+  local entry
+  local patch_file
+  local patch_index
+  local repository
+  local repository_root
+  local -a patch_entries=()
+
+  if [[ ! -s "$patch_series" ]]; then
+    printf 'Reviewed TWRP patch series is missing: %s\n' \
+      "$patch_series" >&2
+    return 1
+  fi
+  mapfile -t patch_entries < <(
+    awk -F '\t' '$1 != "" && $1 !~ /^#/ { print $1 "\t" $2 }' \
+      "$patch_series"
+  )
+
+  for ((patch_index = ${#patch_entries[@]} - 1;
+       patch_index >= 0;
+       --patch_index)); do
+    entry="${patch_entries[$patch_index]}"
+    repository="${entry%%$'\t'*}"
+    patch_file="$local_root/${entry#*$'\t'}"
+    repository_root="$source_root/$repository"
+
+    # A first sync may not have materialized this project yet.
+    if ! git -C "$repository_root" rev-parse --is-inside-work-tree \
+        >/dev/null 2>&1; then
+      continue
+    fi
+    if [[ ! -f "$patch_file" ]]; then
+      printf 'Reviewed TWRP patch is missing: %s\n' "$patch_file" >&2
+      return 1
+    fi
+    if git -C "$repository_root" apply --reverse --check "$patch_file" \
+        2>/dev/null; then
+      git -C "$repository_root" apply --reverse "$patch_file"
+      printf 'Removed reviewed patch before TWRP sync: %s\n' \
+        "${entry#*$'\t'}"
+    elif git -C "$repository_root" apply --check "$patch_file" \
+        2>/dev/null; then
+      :
+    else
+      printf 'TWRP checkout does not match reviewed patch state: %s\n' \
+        "$patch_file" >&2
+      return 1
+    fi
+  done
+}
+
+remove_reviewed_twrp_patches
 
 mapfile -t projects < <(repo list --all -p | LC_ALL=C sort)
 project_total="${#projects[@]}"
