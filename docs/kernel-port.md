@@ -368,6 +368,22 @@ node and a `meizu,simple_adc` thermistor node, while the community/current tree
 uses `fpc,fpc1020` and adds hardboot, PMU, and key-booster nodes. These deltas
 must be reconciled by subsystem testing before the generated DTB is flashed.
 
+## exFAT source closure
+
+The archived `cm_pro5_defconfig` selected Samsung's `CONFIG_EXFAT_FS` plus its
+virtual-xattr and storage-log options, but Meizu's published tree omitted the
+entire driver. Android 10 vold only declares exFAT supported when the kernel
+reports an `exfat` filesystem and then performs a kernel mount; packaging
+`fsck.exfat` and `mkfs.exfat` alone is therefore insufficient.
+
+The missing 25-file GPL implementation is restored from the locked
+Exynos7420 Linux 3.10 tree at
+`218eaf61af9e4ef2fe9f6debc1e6af9746de8b10`, where it entered through commit
+`0637e90f17aea8aca4356b63b786328a3ca1224a`. The import has a per-file SHA-256
+lock, while each Android and TWRP build requires the generated config and both
+linked exFAT objects. This establishes source and build closure; disposable
+media tests remain mandatory before runtime support is accepted.
+
 ## Explicit non-decisions
 
 - The donor's forced permissive SELinux change is not a production solution.

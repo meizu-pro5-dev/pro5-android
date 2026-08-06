@@ -10,6 +10,10 @@ device_makefile="$device_root/device.mk"
 recovery_fstab="$device_root/recovery.fstab"
 recovery_init="$device_root/recovery/root/init.recovery.m86.rc"
 kernel_config="$project_root/kernel/meizu/m86/arch/arm64/configs/cm_pro5_defconfig"
+kernel_fs_kconfig="$project_root/kernel/meizu/m86/fs/Kconfig"
+kernel_fs_makefile="$project_root/kernel/meizu/m86/fs/Makefile"
+kernel_exfat_provenance="$project_root/kernel/meizu/m86/fs/exfat/PROVENANCE.md"
+kernel_exfat_lock="$project_root/locks/kernel-exfat-exynos7420.sha256"
 stock_lock="$project_root/locks/stock-flyme-8.0.5.0A.sha256"
 twrp_build_worker="$project_root/remote/worker-build-twrp.sh"
 twrp_install_worker="$project_root/remote/install-twrp-trees.sh"
@@ -28,6 +32,10 @@ for required_file in \
   "$device_root/recovery/root/init.recovery.m86.rc" \
   "$device_root/recovery/root/ueventd.m86.rc" \
   "$kernel_config" \
+  "$kernel_fs_kconfig" \
+  "$kernel_fs_makefile" \
+  "$kernel_exfat_provenance" \
+  "$kernel_exfat_lock" \
   "$stock_lock" \
   "$twrp_build_worker" \
   "$twrp_install_worker" \
@@ -42,6 +50,19 @@ for required_file in \
     exit 1
   fi
 done
+
+if ! (
+  cd "$project_root/kernel/meizu/m86"
+  sha256sum --quiet -c "$kernel_exfat_lock"
+); then
+  printf 'The locked Exynos 7420 exFAT source import changed.\n' >&2
+  exit 1
+fi
+if [[ "$(find "$project_root/kernel/meizu/m86/fs/exfat" -maxdepth 1 \
+    -type f ! -name PROVENANCE.md | wc -l | tr -d ' ')" != "25" ]]; then
+  printf 'Expected exactly 25 locked exFAT donor files.\n' >&2
+  exit 1
+fi
 
 require_fixed() {
   local pattern="$1"
@@ -93,6 +114,13 @@ require_fixed 'CONFIG_MMC_DW_EXYNOS=y' "$kernel_config"
 require_fixed 'CONFIG_EXT4_FS=y' "$kernel_config"
 require_fixed 'CONFIG_FAT_FS=y' "$kernel_config"
 require_fixed 'CONFIG_VFAT_FS=y' "$kernel_config"
+require_fixed 'CONFIG_EXFAT_FS=y' "$kernel_config"
+require_fixed 'CONFIG_EXFAT_VIRTUAL_XATTR=y' "$kernel_config"
+require_fixed 'CONFIG_EXFAT_VIRTUAL_XATTR_SELINUX_LABEL="u:object_r:sdcard_external:s0"' \
+  "$kernel_config"
+require_fixed 'CONFIG_EXFAT_SUPPORT_STLOG=y' "$kernel_config"
+require_fixed 'source "fs/exfat/Kconfig"' "$kernel_fs_kconfig"
+require_fixed 'obj-$(CONFIG_EXFAT_FS)' "$kernel_fs_makefile"
 require_fixed 'CONFIG_RTC_CLASS=y' "$kernel_config"
 require_fixed 'CONFIG_RTC_DRV_SEC=y' "$kernel_config"
 require_fixed 'export BUILD_DATETIME=1538238534' "$twrp_build_worker"
@@ -150,6 +178,8 @@ require_fixed 'sbin/gzip=$pigz_link_hash' "$twrp_build_worker"
 require_fixed 'sbin/gunzip=$pigz_link_hash' "$twrp_build_worker"
 require_fixed 'etc/recovery.fstab=$recovery_fstab_hash' "$twrp_build_worker"
 require_fixed 'required_kernel_setting' "$twrp_build_worker"
+require_fixed 'fs/exfat/exfat_core.o' "$twrp_build_worker"
+require_fixed 'fs/exfat/exfat_fs.o' "$twrp_build_worker"
 require_fixed 'project_checkout_complete()' "$twrp_sync_worker"
 require_fixed 'git -C "$project" ls-tree -r --name-only HEAD' \
   "$twrp_sync_worker"
@@ -180,11 +210,6 @@ fi
 if rg -q '^[[:space:]]*TW_NO_EXFAT_FUSE[[:space:]]*:=[[:space:]]*true' \
     "$board_config"; then
   printf 'm86 has no in-kernel exFAT driver; TWRP must retain exfat-fuse.\n' >&2
-  exit 1
-fi
-
-if rg -q '^CONFIG_EXFAT_' "$kernel_config"; then
-  printf 'The released m86 kernel tree has no matching CONFIG_EXFAT driver.\n' >&2
   exit 1
 fi
 

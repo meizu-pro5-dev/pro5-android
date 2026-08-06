@@ -36,6 +36,10 @@ ueventd_rc="$device_root/rootdir/etc/ueventd.m86.rc"
 recovery_fstab="$device_root/rootdir/etc/recovery.fstab"
 releasetools="$device_root/releasetools/releasetools.py"
 kernel_config="$project_root/kernel/meizu/m86/arch/arm64/configs/cm_pro5_defconfig"
+kernel_fs_kconfig="$project_root/kernel/meizu/m86/fs/Kconfig"
+kernel_fs_makefile="$project_root/kernel/meizu/m86/fs/Makefile"
+kernel_exfat_provenance="$project_root/kernel/meizu/m86/fs/exfat/PROVENANCE.md"
+kernel_exfat_lock="$project_root/locks/kernel-exfat-exynos7420.sha256"
 kernel_fcntl="$project_root/kernel/meizu/m86/include/uapi/asm-generic/fcntl.h"
 kernel_uapi_kbuild="$project_root/kernel/meizu/m86/include/uapi/linux/Kbuild"
 kernel_mfc_uapi="$project_root/kernel/meizu/m86/include/uapi/linux/videodev2_exynos_media.h"
@@ -94,6 +98,10 @@ for required_file in \
   "$recovery_fstab" \
   "$releasetools" \
   "$kernel_config" \
+  "$kernel_fs_kconfig" \
+  "$kernel_fs_makefile" \
+  "$kernel_exfat_provenance" \
+  "$kernel_exfat_lock" \
   "$kernel_fcntl" \
   "$kernel_uapi_kbuild" \
   "$kernel_mfc_uapi" \
@@ -124,6 +132,19 @@ for required_file in \
   fi
 done
 
+if ! (
+  cd "$project_root/kernel/meizu/m86"
+  sha256sum --quiet -c "$kernel_exfat_lock"
+); then
+  printf 'The locked Exynos 7420 exFAT source import changed.\n' >&2
+  exit 1
+fi
+if [[ "$(find "$project_root/kernel/meizu/m86/fs/exfat" -maxdepth 1 \
+    -type f ! -name PROVENANCE.md | wc -l | tr -d ' ')" != "25" ]]; then
+  printf 'Expected exactly 25 locked exFAT donor files.\n' >&2
+  exit 1
+fi
+
 require_fixed() {
   local pattern="$1"
   local source_file="$2"
@@ -140,6 +161,15 @@ require_fixed 'jobs="${2:-8}"' "$build_worker"
 require_fixed 'audit-camera-abi.sh' "$build_worker"
 require_fixed 'audit-fingerprint-output.sh' "$build_worker"
 require_fixed 'fingerprint output audit passed.' "$fingerprint_audit_tool"
+require_fixed 'CONFIG_EXFAT_FS=y' "$kernel_config"
+require_fixed 'CONFIG_EXFAT_VIRTUAL_XATTR=y' "$kernel_config"
+require_fixed 'CONFIG_EXFAT_VIRTUAL_XATTR_SELINUX_LABEL="u:object_r:sdcard_external:s0"' \
+  "$kernel_config"
+require_fixed 'CONFIG_EXFAT_SUPPORT_STLOG=y' "$kernel_config"
+require_fixed 'source "fs/exfat/Kconfig"' "$kernel_fs_kconfig"
+require_fixed 'obj-$(CONFIG_EXFAT_FS)' "$kernel_fs_makefile"
+require_fixed 'fs/exfat/exfat_core.o' "$build_worker"
+require_fixed 'fs/exfat/exfat_fs.o' "$build_worker"
 
 require_empty_assignment() {
   local variable_name="$1"
@@ -767,11 +797,6 @@ fi
 if rg -q '^[[:space:]]*BOARD_INCLUDE_DTB_IN_BOOTIMG[[:space:]]*:=' \
     "$board_config"; then
   printf 'The m86 DTB must not be embedded in boot or recovery images.\n' >&2
-  exit 1
-fi
-
-if rg -q '^CONFIG_EXFAT_' "$kernel_config"; then
-  printf 'The released m86 kernel tree has no matching CONFIG_EXFAT driver.\n' >&2
   exit 1
 fi
 

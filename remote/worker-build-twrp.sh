@@ -77,6 +77,14 @@ while IFS=$'\t' read -r repository patch_path; do
 done < "$twrp_patch_series"
 
 stock_lock="$local_root/locks/stock-flyme-8.0.5.0A.sha256"
+kernel_exfat_lock="$local_root/locks/kernel-exfat-exynos7420.sha256"
+if [[ ! -s "$kernel_exfat_lock" ]] || ! (
+  cd "$source_root/kernel/meizu/m86"
+  sha256sum --quiet -c "$kernel_exfat_lock"
+); then
+  printf 'The installed Exynos 7420 exFAT source does not match its lock.\n' >&2
+  exit 1
+fi
 touch_firmware="$source_root/device/meizu/m86/recovery/root/etc/firmware/st_fts.bin"
 expected_touch_hash="$(
   awk '$2 == "system.img/vendor/firmware/st_fts.bin" { print $1 }' \
@@ -248,10 +256,20 @@ build_twrp_pass() {
     CONFIG_USB_STORAGE=y \
     CONFIG_MMC_DW_EXYNOS=y \
     CONFIG_EXT4_FS=y \
-    CONFIG_VFAT_FS=y; do
+    CONFIG_VFAT_FS=y \
+    CONFIG_EXFAT_FS=y; do
     if ! grep -F -x -q "$required_kernel_setting" "$kernel_out/.config"; then
       printf 'TWRP pass %s kernel config omitted %s.\n' \
         "$pass_name" "$required_kernel_setting" >&2
+      return 1
+    fi
+  done
+  for required_exfat_object in \
+    fs/exfat/exfat_core.o \
+    fs/exfat/exfat_fs.o; do
+    if [[ ! -s "$kernel_out/$required_exfat_object" ]]; then
+      printf 'TWRP pass %s omitted kernel object %s.\n' \
+        "$pass_name" "$required_exfat_object" >&2
       return 1
     fi
   done
@@ -328,6 +346,11 @@ cp -a "$kernel_out/.config" "$artifact_dir/kernel.config"
 cp -a "$local_root/twrp/FLASHING.md" "$artifact_dir/FLASHING.md"
 cp -a "$local_root/locks/stock-flyme-8.0.5.0A.sha256" \
   "$artifact_dir/stock-flyme-8.0.5.0A.sha256"
+cp -a "$kernel_exfat_lock" "$artifact_dir/kernel-exfat-exynos7420.sha256"
+(
+  cd "$kernel_out"
+  sha256sum fs/exfat/exfat_core.o fs/exfat/exfat_fs.o
+) > "$artifact_dir/EXFAT-KERNEL.txt"
 cp -a "$twrp_patch_series" "$artifact_dir/twrp-series.tsv"
 while IFS=$'\t' read -r repository patch_path; do
   [[ -z "$repository" || "$repository" == \#* ]] && continue

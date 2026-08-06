@@ -65,6 +65,14 @@ if [[ ! -f "$source_root/kernel/meizu/m86/arch/arm64/configs/cm_pro5_defconfig" 
   printf 'The maintained m86 kernel tree is not installed.\n' >&2
   exit 1
 fi
+kernel_exfat_lock="$local_root/locks/kernel-exfat-exynos7420.sha256"
+if [[ ! -s "$kernel_exfat_lock" ]] || ! (
+  cd "$source_root/kernel/meizu/m86"
+  sha256sum --quiet -c "$kernel_exfat_lock"
+); then
+  printf 'The installed Exynos 7420 exFAT source does not match its lock.\n' >&2
+  exit 1
+fi
 
 # Android 10 still invokes this older Clang for RenderScript bitcode. Check
 # its host ABI before Ninja starts thousands of jobs so a missing compatibility
@@ -189,11 +197,28 @@ product_out="$out_root/target/product/m86"
 artifact_dir="$artifact_root/$build_stamp-$target"
 mkdir -p "$artifact_dir"
 
-kernel_dtb="$product_out/obj/KERNEL_OBJ/arch/arm64/boot/dts/exynos7420-m86-codegen.dtb"
+kernel_out="$product_out/obj/KERNEL_OBJ"
+kernel_dtb="$kernel_out/arch/arm64/boot/dts/exynos7420-m86-codegen.dtb"
 if [[ ! -s "$kernel_dtb" ]]; then
   printf 'The Android build did not produce the m86 raw DTB.\n' >&2
   exit 1
 fi
+if ! grep -F -x -q 'CONFIG_EXFAT_FS=y' "$kernel_out/.config"; then
+  printf 'The generated m86 kernel config omitted CONFIG_EXFAT_FS=y.\n' >&2
+  exit 1
+fi
+for required_exfat_object in \
+  fs/exfat/exfat_core.o \
+  fs/exfat/exfat_fs.o; do
+  if [[ ! -s "$kernel_out/$required_exfat_object" ]]; then
+    printf 'The Android build omitted kernel object %s.\n' \
+      "$required_exfat_object" >&2
+    exit 1
+  fi
+done
+sha256sum \
+  "$kernel_out/fs/exfat/exfat_core.o" \
+  "$kernel_out/fs/exfat/exfat_fs.o" > "$artifact_dir/EXFAT-KERNEL.txt"
 cp -a "$kernel_dtb" "$artifact_dir/dtb.img"
 
 copy_required() {
@@ -319,8 +344,9 @@ fi
 
 copy_required \
   "$source_root/kernel/meizu/m86/arch/arm64/configs/cm_pro5_defconfig"
-cp -a "$product_out/obj/KERNEL_OBJ/.config" "$artifact_dir/kernel.config"
+cp -a "$kernel_out/.config" "$artifact_dir/kernel.config"
 copy_required "$local_root/locks/stock-flyme-8.0.5.0A.sha256"
+copy_required "$local_root/locks/kernel-exfat-exynos7420.sha256"
 if [[ "$target" == bacon ]]; then
   cp -a "$vendor_blob_lock" "$artifact_dir/m86-proprietary-sha256s.txt"
 fi

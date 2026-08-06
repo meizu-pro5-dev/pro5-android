@@ -62,11 +62,14 @@ checks the copy embedded in `recovery.img`. It does not carry the old
 recovery's Android 6 libraries, SuperSU payload, or prebuilt kernel.
 
 The archived defconfig claimed a vendor `CONFIG_EXFAT_FS` implementation, but
-the released m86 kernel tree contains neither its Kconfig entry nor its source.
-Those stale, silently discarded symbols are removed. Recovery therefore
-builds and packages TWRP's open-source `exfat-fuse` binary, while NTFS remains
-on `ntfs-3g`; the artifact inspector requires both paths as real ARM64 ELF
-files before accepting the image.
+the released m86 tree omitted its Kconfig and source. The missing GPL driver is
+restored from a locked Linux 3.10 Exynos 7420 donor whose four Kconfig symbols
+exactly match the archived m86 selections, plus the RCU cache-teardown fix
+already used by m86 FAT. Android vold uses
+that kernel filesystem. Recovery deliberately also builds TWRP's open-source
+`exfat-fuse` binary, while NTFS remains on `ntfs-3g`; the build requires the
+linked kernel objects and the artifact inspector requires both userspace paths
+as real ARM64 ELF files before accepting the image.
 
 Flyme stores legacy full-disk-encryption metadata in `/cache/metadata`. Its
 Android 7 `vold` contains the cipher name `aes-xts-fmp`. TWRP 9 reads
