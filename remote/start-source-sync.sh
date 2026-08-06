@@ -6,19 +6,12 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=common.sh
 source "$script_dir/common.sh"
 
-jobs="${PRO5_SOURCE_SYNC_JOBS:-4}"
-if [[ ! "$jobs" =~ ^[1-9][0-9]*$ ]] || ((jobs > 16)); then
-  printf 'Invalid PRO5_SOURCE_SYNC_JOBS: %s\n' "$jobs" >&2
-  exit 2
-fi
-
 "$script_dir/push-local.sh"
 
-"${pro5_ssh[@]}" bash -s -- "$PRO5_REMOTE_ROOT" "$jobs" <<'REMOTE'
+"${pro5_ssh[@]}" bash -s -- "$PRO5_REMOTE_ROOT" <<'REMOTE'
 set -euo pipefail
 
 remote_root="$1"
-jobs="$2"
 session_name="pro5-source-sync"
 worker="$remote_root/local/remote/worker-sync-source.sh"
 
@@ -28,9 +21,8 @@ if tmux has-session -t "$session_name" 2>/dev/null; then
 fi
 
 chmod 0755 "$worker"
-printf -v worker_command '%q %q' "$worker" "$jobs"
-tmux new-session -d -s "$session_name" "$worker_command"
-printf 'Started tmux session %s: jobs=%s\n' "$session_name" "$jobs"
+tmux new-session -d -s "$session_name" "$worker"
+printf 'Started tmux session %s: full sync is serial\n' "$session_name"
 REMOTE
 
 "$script_dir/source-sync-status.sh"

@@ -8,12 +8,6 @@ remote_root="$(cd "$local_root/.." && pwd)"
 source_root="$remote_root/src/lineage-17.1"
 log_dir="$remote_root/logs"
 manifest_lock="$log_dir/lineage-17.1-manifest.xml"
-sync_jobs="${1:-4}"
-
-if [[ ! "$sync_jobs" =~ ^[1-9][0-9]*$ ]] || ((sync_jobs > 16)); then
-  printf 'Invalid source sync job count: %s\n' "$sync_jobs" >&2
-  exit 2
-fi
 
 mkdir -p "$source_root" "$log_dir"
 exec > >(tee -a "$log_dir/source-sync.log") 2>&1
@@ -67,15 +61,13 @@ repo sync \
   -j2 \
   "${kernel_toolchains[@]}"
 
-# Separating fetch and checkout avoids the repo interleaved-worker deadlock
-# observed on this builder while retaining bounded parallel downloads.
-printf 'Syncing the full LineageOS checkout with %s jobs\n' "$sync_jobs"
+# repo 2.65's multiprocessing workers deadlock on this builder when processing
+# the complete manifest, including in no-interleaved mode. A serial full sync
+# is slower but resumes existing objects and has no worker-pool failure mode.
+printf 'Syncing the full LineageOS checkout serially\n'
 repo sync \
   "${repo_sync_args[@]}" \
-  --no-interleaved \
-  --jobs-network="$sync_jobs" \
-  --jobs-checkout="$sync_jobs" \
-  -j"$sync_jobs"
+  -j1
 
 repo manifest -r -o "$manifest_lock"
 printf 'Source sync completed at %s\n' "$(date --iso-8601=seconds)"

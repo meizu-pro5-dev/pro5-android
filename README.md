@@ -36,9 +36,10 @@ on the builder when available, without printing its contents. Google-hosted
 Android traffic uses that acceleration, while GitHub domains bypass it because
 direct transfers are measurably faster and more reliable on this builder.
 Source synchronization checks out the two GCC 4.9 kernel toolchains first and
-then uses separate network and checkout phases to avoid an observed `repo`
-interleaved-worker deadlock. Override its conservative four-way concurrency
-with `PRO5_SOURCE_SYNC_JOBS` (maximum 16).
+then processes the full manifest serially. `repo 2.65` repeatedly deadlocked
+its multiprocessing pool on this builder for the complete manifest, even with
+network and checkout phases separated; serial mode is slower but resumes the
+existing object cache reliably.
 
 Typical control flow:
 
