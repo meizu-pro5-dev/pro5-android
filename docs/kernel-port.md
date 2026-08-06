@@ -133,7 +133,11 @@ CONFIG_CMDLINE="androidboot.hardware=m86 androidboot.selinux=permissive"
 CONFIG_CMDLINE_EXTEND=y
 ```
 
-The stock-compatible Android v0 boot-image header remains empty. Permissive is
+The stock-compatible Android v0 boot-image header remains empty. Android 10's
+build core appends `buildvariant=<variant>` unconditionally, so the m86
+`BOARD_MKBOOTIMG_ARGS` supplies a final empty `--cmdline`; the generated image
+validator checks the resulting header rather than trusting Make variables.
+Permissive is
 limited to the R1/U1 userdebug bring-up gate and must be removed before S1;
 runtime confirmation of the effective command line remains a device test.
 Two clean builds of local revision `a418461c` are byte-identical:

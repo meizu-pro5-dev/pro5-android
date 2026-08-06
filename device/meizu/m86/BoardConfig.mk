@@ -115,7 +115,11 @@ BOARD_KERNEL_BASE := 0x40000000
 BOARD_KERNEL_CMDLINE :=
 BOARD_KERNEL_IMAGE_NAME := Image
 BOARD_KERNEL_PAGESIZE := 4096
+# Android 10 unconditionally appends buildvariant=<variant> to the internal
+# command line. mkbootimg accepts the last occurrence, so override it here to
+# preserve the empty stock header without changing the platform for others.
 BOARD_MKBOOTIMG_ARGS := \
+    --cmdline "" \
     --kernel_offset 0x00080000 \
     --ramdisk_offset 0x02000000 \
     --second_offset 0x00f00000 \

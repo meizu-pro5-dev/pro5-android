@@ -40,7 +40,10 @@ BOARD_KERNEL_CMDLINE :=
 # be appended to recovery.img or packed in a Samsung dtbhtool container.
 BOARD_KERNEL_BASE := 0x40000000
 BOARD_KERNEL_PAGESIZE := 4096
+# TWRP's Android 9 build core also appends buildvariant=<variant>. A final
+# empty value keeps the recovery header identical to the verified m86 ABI.
 BOARD_MKBOOTIMG_ARGS := \
+    --cmdline "" \
     --kernel_offset 0x00080000 \
     --ramdisk_offset 0x02000000 \
     --second_offset 0x00f00000 \
