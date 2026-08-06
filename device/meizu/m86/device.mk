@@ -45,4 +45,8 @@ PRODUCT_COPY_FILES += \
 
 TARGET_SYSTEM_PROP += $(LOCAL_PATH)/system.prop
 
+# Android's build logic appends adb for userdebug/eng. User builds retain MTP.
+PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
+    persist.sys.usb.config=mtp
+
 $(call inherit-product-if-exists, vendor/meizu/m86/m86-vendor.mk)

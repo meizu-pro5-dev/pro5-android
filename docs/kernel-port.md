@@ -310,6 +310,11 @@ must be reconciled by subsystem testing before the generated DTB is flashed.
 ## Explicit non-decisions
 
 - The donor's forced permissive SELinux change is not a production solution.
+  The current `androidboot.selinux=permissive` argument is a visible R1/U1
+  bring-up gate and must be removed for the S1 enforcing build. The kernel uses
+  `CONFIG_CMDLINE_EXTEND` because the non-empty DT `bootargs` would otherwise
+  replace `CONFIG_CMDLINE`, losing `androidboot.hardware=m86`; the verified v0
+  boot-image header itself stays empty.
 - The donor's Samsung DTBs, defconfigs, USB stack, battery, and display switch
   are not inherited by default.
 - No GPT-derived cache geometry is claimed until the paused backup phase is

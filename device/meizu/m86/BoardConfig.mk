@@ -8,6 +8,55 @@ M86_PATH := device/meizu/m86
 # boot-chain and partition value that is specific to Meizu.
 -include device/samsung/universal7420-common/BoardConfigCommon.mk
 
+# The common tree is a same-SoC build reference, not a Galaxy device parent.
+# Keep its Exynos graphics/media and Android 10 build integration, but remove
+# model-specific HAL selection, compatibility shims, policy, and identity.
+# Subsystems are enabled again only with an m86 package and ABI audit.
+LOCAL_PATH := $(M86_PATH)
+BOARD_VENDOR := meizu
+TARGET_UNOFFICIAL_BUILD_ID :=
+PRODUCT_SKIP_FINGERPRINT_FROM_FILE :=
+TARGET_BUILD_DEBUGGABLE :=
+
+TARGET_AUDIOHAL_VARIANT :=
+AUDIOSERVER_MULTILIB :=
+
+BOARD_BLUETOOTH_BDROID_BUILDCFG_INCLUDE_DIR :=
+BOARD_CUSTOM_BT_CONFIG :=
+BOARD_HAVE_SAMSUNG_BLUETOOTH :=
+
+BOARD_USE_SAMSUNG_CAMERAFORMAT_NV21 :=
+TARGET_KEEP_LEGACY_CAMERA_PACKAGE :=
+BOARD_BACK_CAMERA_SENSOR :=
+BOARD_BACK_CAMERA_ROTATION :=
+BOARD_FRONT_CAMERA_SENSOR :=
+BOARD_FRONT_CAMERA_ROTATION :=
+
+TARGET_SEC_FP_CALL_NOTIFY_ON_CANCEL :=
+TARGET_SEC_FP_CALL_CANCEL_ON_ENROLL_COMPLETION :=
+TARGET_SEC_FP_USES_PERCENTAGE_SAMPLES :=
+
+TARGET_LD_SHIM_LIBS :=
+TARGET_PROCESS_SDK_VERSION_OVERRIDE :=
+JAVA_SOURCE_OVERLAYS :=
+BOARD_NFC_HAL_SUFFIX :=
+BOARD_PROVIDES_LIBRIL :=
+ENABLE_VENDOR_RIL_SERVICE :=
+SIM_COUNT :=
+
+TARGET_EXFAT_DRIVER :=
+TARGET_FS_CONFIG_GEN :=
+BOARD_USE_CUSTOM_RECOVERY_FONT :=
+
+BOARD_SEPOLICY_DIRS :=
+BOARD_SEPOLICY_VERS :=
+SELINUX_IGNORE_NEVERALLOWS :=
+BOARD_SECCOMP_POLICY :=
+TARGET_NO_SENSOR_PERMISSION_CHECK :=
+
+BOARD_HAVE_SAMSUNG_WIFI :=
+TARGET_GAPPS_OVERRIDE :=
+
 # Architecture
 TARGET_ARCH := arm64
 TARGET_ARCH_VARIANT := armv8-a
@@ -33,6 +82,14 @@ TARGET_NO_BOOTLOADER := true
 TARGET_SCREEN_HEIGHT := 1920
 TARGET_SCREEN_WIDTH := 1080
 BACKLIGHT_PATH := /sys/devices/13930000.decon_fb/backlight/pwm-backlight.0/brightness
+
+# Charger paths are independently present in the historical booting m86 tree;
+# state them here instead of relying on the identical Galaxy defaults.
+WITH_LINEAGE_CHARGER := false
+BOARD_BATTERY_DEVICE_NAME := battery
+BOARD_CHARGER_ENABLE_SUSPEND := true
+BOARD_CHARGING_MODE_BOOTING_LPM := /sys/class/power_supply/battery/batt_lp_charging
+CHARGING_ENABLED_PATH := "/sys/class/power_supply/battery/batt_lp_charging"
 
 # Kernel and stock v0 boot-image geometry. Explicit positive offsets reproduce
 # all four addresses in the verified Flyme header without relying on overflow.
@@ -104,14 +161,23 @@ TARGET_BOARD_PLATFORM := exynos5
 TARGET_SOC := exynos7420
 BOARD_MODEM_TYPE := ss333
 
+# These are platform integration switches, not permission to package the
+# universal7420-common product or any Galaxy proprietary implementation.
+TARGET_SLSI_VARIANT := bsp
+TARGET_NEEDS_NETD_DIRECT_CONNECT_RULE := true
+
 # Broadcom connectivity
 BOARD_WLAN_DEVICE := bcmdhd
 WPA_SUPPLICANT_VERSION := VER_0_8_X
+WPA_SUPPLICANT_USE_HIDL := true
 BOARD_WPA_SUPPLICANT_DRIVER := NL80211
+BOARD_WPA_SUPPLICANT_PRIVATE_LIB := lib_driver_cmd_bcmdhd
 BOARD_HOSTAPD_DRIVER := NL80211
+BOARD_HOSTAPD_PRIVATE_LIB := lib_driver_cmd_bcmdhd
 WIFI_DRIVER_FW_PATH_PARAM := /sys/module/bcmdhd/parameters/firmware_path
 WIFI_DRIVER_FW_PATH_STA := /system/vendor/firmware/fw_bcmdhd.bin
 WIFI_DRIVER_FW_PATH_AP := /system/vendor/firmware/fw_bcmdhd_apsta.bin
+WIFI_BAND := 802_11_ABG
 BOARD_HAVE_BLUETOOTH := true
 BOARD_HAVE_BLUETOOTH_BCM := true
 
@@ -119,5 +185,8 @@ BOARD_HAVE_BLUETOOTH_BCM := true
 # Android 10 wrapper or replacement.
 DEVICE_MANIFEST_FILE := $(M86_PATH)/manifest.xml
 BOARD_USES_TRUST_KEYMASTER :=
+
+# Verified from Flyme 8.0.5.0A /system/build.prop, not the Galaxy donor.
+VENDOR_SECURITY_PATCH := 2019-08-01
 
 -include vendor/meizu/m86/BoardConfigVendor.mk

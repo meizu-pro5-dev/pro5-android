@@ -15,5 +15,13 @@
 6. Replace temporary compatibility workarounds, close SELinux policy, test
    encryption and upgrade paths, and produce a reproducible release manifest.
 
+For stages R1 through U1, the maintained kernel extends the DT boot arguments
+with `androidboot.hardware=m86 androidboot.selinux=permissive`. Extending is
+required because the separate current DTB supplies a non-empty `bootargs`, so
+the arm64 default `CMDLINE_FROM_BOOTLOADER` mode would otherwise discard the
+compiled Android hardware selector. The boot-image v0 header remains empty.
+`androidboot.selinux=permissive` is a named bring-up gate, not an acceptance
+condition: it must be removed and the kernel rebuilt reproducibly before S1.
+
 Every stage has a build-only gate before a device-flashing gate. Device backup
 and flashing remain paused until explicitly resumed.

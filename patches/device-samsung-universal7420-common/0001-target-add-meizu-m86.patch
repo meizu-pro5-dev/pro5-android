@@ -5,19 +5,20 @@ Subject: [PATCH] universal7420: recognize the Meizu m86 target
 
 The common Exynos 7420 BoardConfig deliberately rejects unknown Samsung
 product names. Allow m86 to reuse the platform definitions without pretending
-that it is a zero or noble/zen variant and without applying their display
-overlays.
+that it has a Samsung board vendor or is a zero/noble/zen variant. Do not add
+the donor's CDMA/GSM or panel overlays to this Meizu target.
 ---
- Android.mk | 2 +-
- target.mk  | 8 ++++++++
- 2 files changed, 9 insertions(+), 1 deletion(-)
+ Android.mk |  4 ++--
+ target.mk  | 11 ++++++++++-
+ 2 files changed, 12 insertions(+), 3 deletions(-)
 
 diff --git a/Android.mk b/Android.mk
 --- a/Android.mk
 +++ b/Android.mk
 @@ -17,6 +17,6 @@ LOCAL_PATH := $(call my-dir)
  
- ifeq ($(BOARD_VENDOR),samsung)
+-ifeq ($(BOARD_VENDOR),samsung)
++ifneq ($(filter samsung meizu,$(BOARD_VENDOR)),)
 -  ifneq ($(filter $(TARGET_DEVICE_IS_ZERO) $(TARGET_DEVICE_IS_NOBLE_ZEN),true),)
 +  ifneq ($(filter $(TARGET_DEVICE_IS_ZERO) $(TARGET_DEVICE_IS_NOBLE_ZEN) $(TARGET_DEVICE_IS_M86),true),)
      include $(call all-subdir-makefiles,$(LOCAL_PATH))
@@ -26,7 +27,7 @@ diff --git a/Android.mk b/Android.mk
 diff --git a/target.mk b/target.mk
 --- a/target.mk
 +++ b/target.mk
-@@ -20,6 +20,7 @@
+@@ -20,36 +20,45 @@
  TARGET_DEVICE_IS_ZERO := false
  TARGET_DEVICE_IS_NOBLE_ZEN := false
  TARGET_DEVICE_IS_CDMA := false
@@ -34,7 +35,12 @@ diff --git a/target.mk b/target.mk
  
  # Dynamically set the definitions based on the target device
  ifneq ($(filter noblelte nobleltecan nobleltedd nobleltedv nobleltejv nobleltektt nobleltelgt noblelteskt nobleltespr nobleltetmo nobleltextc nobleltezt zenlte zenltecan zenltedd zenltedv zenltejv zenltektt zenltelgt zenlteskt zenltetmo zenltexx zenltezt,$(TARGET_DEVICE)),)
-@@ -31,10 +32,16 @@ ifneq ($(filter zerofltespr zeroltespr nobleltespr,$(TARGET_DEVICE)),)
+   TARGET_DEVICE_IS_NOBLE_ZEN = true
+ endif
+ ifneq ($(filter zeroflte zerofltecan zeroflteduo zeroflteskt zerofltespr zerofltetmo zerofltexx zerolte zeroltecan zerolteduo zerolteskt zeroltespr zeroltetmo zeroltexx,$(TARGET_DEVICE)),)
+   TARGET_DEVICE_IS_ZERO = true
+ endif
+ ifneq ($(filter zerofltespr zeroltespr nobleltespr,$(TARGET_DEVICE)),)
    TARGET_DEVICE_IS_CDMA = true
  endif
  
@@ -52,5 +58,21 @@ diff --git a/target.mk b/target.mk
    endif
  endif
  
+ #
+ # Overlays
+ #
++ifneq ($(TARGET_DEVICE_IS_M86),true)
+ ## Variant-specific
+ ifeq ($(TARGET_DEVICE_IS_CDMA), true)
+   DEVICE_PACKAGE_OVERLAYS += device/samsung/universal7420-common/overlay-cdma
+ else
+   DEVICE_PACKAGE_OVERLAYS += device/samsung/universal7420-common/overlay-gsm
+ endif
+ ifeq ($(TARGET_DEVICE_IS_ZERO), true)
+   DEVICE_PACKAGE_OVERLAYS += device/samsung/universal7420-common/overlay-zero
+ else ifeq ($(TARGET_DEVICE_IS_NOBLE_ZEN), true)
+   DEVICE_PACKAGE_OVERLAYS += device/samsung/universal7420-common/overlay-noble-zen
+ endif
++endif
 -- 
 2.34.1

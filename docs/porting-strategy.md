@@ -107,6 +107,11 @@ It is only a reference for the following and must not be copied blindly:
 
 The checked-in patch teaches universal7420 common code that `m86` is a valid
 target without classifying it as a Galaxy S6 (`zero`) or Note 5 (`noble/zen`).
+It also keeps m86's `BOARD_VENDOR` as `meizu` and suppresses the donor's GSM,
+CDMA, and panel overlays. After the common BoardConfig is read, the local tree
+explicitly clears all Galaxy HAL selectors, shims, radio topology, Bluetooth
+identity, fs-config, and policy paths; only the audited Exynos platform flags
+remain active.
 
 ## Userspace subsystem plan
 
