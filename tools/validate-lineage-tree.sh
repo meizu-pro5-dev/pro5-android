@@ -192,8 +192,13 @@ require_fixed 'source "fs/exfat/Kconfig"' "$kernel_fs_kconfig"
 require_fixed 'obj-$(CONFIG_EXFAT_FS)' "$kernel_fs_makefile"
 require_fixed 'fs/exfat/exfat_core.o' "$build_worker"
 require_fixed 'fs/exfat/exfat_fs.o' "$build_worker"
+require_fixed 'CONFIG_EXFAT_VIRTUAL_XATTR=y' "$build_worker"
+require_fixed 'CONFIG_EXFAT_VIRTUAL_XATTR_SELINUX_LABEL=' "$build_worker"
 require_fixed 'fs/exfat/exfat_core.o' "$kernel_build_worker"
 require_fixed 'fs/exfat/exfat_fs.o' "$kernel_build_worker"
+require_fixed 'CONFIG_EXFAT_VIRTUAL_XATTR=y' "$kernel_build_worker"
+require_fixed 'CONFIG_EXFAT_VIRTUAL_XATTR_SELINUX_LABEL=' \
+  "$kernel_build_worker"
 require_fixed 'kernel-exfat-exynos7420.sha256' "$kernel_build_worker"
 
 require_empty_assignment() {

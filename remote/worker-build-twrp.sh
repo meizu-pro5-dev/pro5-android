@@ -257,13 +257,22 @@ build_twrp_pass() {
     CONFIG_MMC_DW_EXYNOS=y \
     CONFIG_EXT4_FS=y \
     CONFIG_VFAT_FS=y \
-    CONFIG_EXFAT_FS=y; do
+    CONFIG_EXFAT_FS=y \
+    CONFIG_EXFAT_VIRTUAL_XATTR=y \
+    'CONFIG_EXFAT_VIRTUAL_XATTR_SELINUX_LABEL="u:object_r:sdcard_external:s0"'; do
     if ! grep -F -x -q "$required_kernel_setting" "$kernel_out/.config"; then
       printf 'TWRP pass %s kernel config omitted %s.\n' \
         "$pass_name" "$required_kernel_setting" >&2
       return 1
     fi
   done
+  if grep -E -q \
+      'CONFIG_(FAT_VIRTUAL_XATTR|FAT_VIRTUAL_XATTR_SELINUX_LABEL|FAT_SUPPORT_STLOG|EXFAT_SUPPORT_STLOG)' \
+      "$kernel_out/.config"; then
+    printf 'TWRP pass %s retained a stale filesystem config option.\n' \
+      "$pass_name" >&2
+    return 1
+  fi
   for required_exfat_object in \
     fs/exfat/exfat_core.o \
     fs/exfat/exfat_fs.o; do

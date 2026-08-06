@@ -199,6 +199,9 @@ require_fixed 'sbin/gzip=$pigz_link_hash' "$twrp_build_worker"
 require_fixed 'sbin/gunzip=$pigz_link_hash' "$twrp_build_worker"
 require_fixed 'etc/recovery.fstab=$recovery_fstab_hash' "$twrp_build_worker"
 require_fixed 'required_kernel_setting' "$twrp_build_worker"
+require_fixed 'CONFIG_EXFAT_VIRTUAL_XATTR=y' "$twrp_build_worker"
+require_fixed 'CONFIG_EXFAT_VIRTUAL_XATTR_SELINUX_LABEL=' \
+  "$twrp_build_worker"
 require_fixed 'fs/exfat/exfat_core.o' "$twrp_build_worker"
 require_fixed 'fs/exfat/exfat_fs.o' "$twrp_build_worker"
 require_fixed 'project_checkout_complete()' "$twrp_sync_worker"
@@ -230,7 +233,7 @@ fi
 
 if rg -q '^[[:space:]]*TW_NO_EXFAT_FUSE[[:space:]]*:=[[:space:]]*true' \
     "$board_config"; then
-  printf 'm86 has no in-kernel exFAT driver; TWRP must retain exfat-fuse.\n' >&2
+  printf 'The currently gated recovery fallback requires exfat-fuse.\n' >&2
   exit 1
 fi
 

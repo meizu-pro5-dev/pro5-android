@@ -203,8 +203,20 @@ if [[ ! -s "$kernel_dtb" ]]; then
   printf 'The Android build did not produce the m86 raw DTB.\n' >&2
   exit 1
 fi
-if ! grep -F -x -q 'CONFIG_EXFAT_FS=y' "$kernel_out/.config"; then
-  printf 'The generated m86 kernel config omitted CONFIG_EXFAT_FS=y.\n' >&2
+for required_exfat_setting in \
+  CONFIG_EXFAT_FS=y \
+  CONFIG_EXFAT_VIRTUAL_XATTR=y \
+  'CONFIG_EXFAT_VIRTUAL_XATTR_SELINUX_LABEL="u:object_r:sdcard_external:s0"'; do
+  if ! grep -F -x -q "$required_exfat_setting" "$kernel_out/.config"; then
+    printf 'The generated m86 kernel config omitted %s.\n' \
+      "$required_exfat_setting" >&2
+    exit 1
+  fi
+done
+if grep -E -q \
+    'CONFIG_(FAT_VIRTUAL_XATTR|FAT_VIRTUAL_XATTR_SELINUX_LABEL|FAT_SUPPORT_STLOG|EXFAT_SUPPORT_STLOG)' \
+    "$kernel_out/.config"; then
+  printf 'The generated m86 kernel config retained a stale filesystem option.\n' >&2
   exit 1
 fi
 for required_exfat_object in \
