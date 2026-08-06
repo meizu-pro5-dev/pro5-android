@@ -17,6 +17,11 @@ sys.usb.ffs.aio_compat=1
 wifi.interface=wlan0
 wifi.direct.interface=p2p-dev-wlan0
 
+# NFC. These identify the final Flyme PN65T/PN547 I2C design; the open NXP
+# Android 10 HAL takes the concrete device and firmware names from its config.
+ro.nfc.platform=nxppn547
+ro.nfc.port=I2C
+
 # Radio. These values are taken from the final Flyme 8.0.5.0A system image.
 # The Android 10 rild is 64-bit and loads the latest m86 SITRIL directly.
 persist.radio.multisim.config=dsds

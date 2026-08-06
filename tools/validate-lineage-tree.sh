@@ -17,6 +17,7 @@ audio_effects="$device_root/audio/audio_effects.xml"
 audio_mixer="$device_root/audio/mixer_paths.xml"
 gps_conf="$device_root/gps/gps.conf"
 gps_xml="$device_root/gps/gps.xml"
+nfc_config="$device_root/nfc/libnfc-nxp.conf"
 sensors_service_rc="$device_root/sensors/android.hardware.sensors@1.0-service.rc"
 camera_bp="$device_root/camera/Android.bp"
 camera_shim="$device_root/camera/CameraCompat.cpp"
@@ -60,6 +61,7 @@ for required_file in \
   "$audio_mixer" \
   "$gps_conf" \
   "$gps_xml" \
+  "$nfc_config" \
   "$sensors_service_rc" \
   "$camera_bp" \
   "$camera_shim" \
@@ -237,6 +239,12 @@ for sensor_feature in accelerometer compass gyroscope light proximity stepcounte
 done
 require_fixed 'android.hardware.location.gps.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.location.gps.xml' \
   "$device_makefile"
+require_fixed 'android.hardware.nfc.hce.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.nfc.hce.xml' \
+  "$device_makefile"
+require_fixed 'android.hardware.nfc.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.nfc.xml' \
+  "$device_makefile"
+require_fixed 'com.android.nfc_extras.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/com.android.nfc_extras.xml' \
+  "$device_makefile"
 require_fixed 'android.hardware.bluetooth@1.0-impl.zero' "$device_makefile"
 require_fixed 'android.hardware.bluetooth@1.0-service' "$device_makefile"
 require_fixed '$(LOCAL_PATH)/bluetooth/bt_vendor.conf:$(TARGET_COPY_OUT_SYSTEM)/etc/bluetooth/bt_vendor.conf' \
@@ -284,6 +292,24 @@ require_fixed '$(LOCAL_PATH)/gps/gps.conf:$(TARGET_COPY_OUT_SYSTEM)/etc/gps.conf
   "$device_makefile"
 require_fixed '$(LOCAL_PATH)/gps/gps.xml:$(TARGET_COPY_OUT_SYSTEM)/etc/gps.xml' \
   "$device_makefile"
+for nfc_package in \
+  android.hardware.nfc@1.1-service \
+  com.android.nfc_extras \
+  nfc_nci_nxp \
+  NfcNci \
+  Tag; do
+  require_fixed "$nfc_package" "$device_makefile"
+done
+require_fixed '$(LOCAL_PATH)/nfc/libnfc-nxp.conf:$(TARGET_COPY_OUT_VENDOR)/etc/libnfc-nxp.conf' \
+  "$device_makefile"
+require_fixed 'ro.nfc.platform=nxppn547' "$system_prop"
+require_fixed 'ro.nfc.port=I2C' "$system_prop"
+require_fixed 'NXP_NFC_DEV_NODE="/dev/pn544"' "$nfc_config"
+require_fixed 'NXP_FW_NAME="libpn547_fw.so"' "$nfc_config"
+require_fixed 'NXP_NFC_CHIP=0x02' "$nfc_config"
+require_fixed 'NXP_RF_CONF_BLK_1={' "$nfc_config"
+require_fixed 'NXP_RF_CONF_BLK_5={' "$nfc_config"
+require_fixed 'NXP_P61_JCOP_DEFAULT_INTERFACE=0x01' "$nfc_config"
 require_fixed 'android.hardware.sensors@1.0-impl' "$device_makefile"
 require_fixed 'android.hardware.sensors@1.0-service' "$device_makefile"
 require_fixed 'group system wakelock input' "$sensors_service_rc"
@@ -336,6 +362,10 @@ require_fixed '/dev/video101                0660   cameraserver cameraserver' \
   "$ueventd_rc"
 require_fixed '/dev/video160                0660   cameraserver cameraserver' \
   "$ueventd_rc"
+require_fixed '/dev/pn544                   0660   nfc         nfc' \
+  "$ueventd_rc"
+require_fixed '/dev/p61                     0660   nfc         nfc' \
+  "$ueventd_rc"
 require_fixed 'chown bluetooth bluetooth /sys/class/rfkill/rfkill0/state' \
   "$device_root/rootdir/etc/init.m86.rc"
 require_fixed 'chmod 0660 /sys/class/rfkill/rfkill0/state' \
@@ -367,6 +397,13 @@ require_fixed 'service gpsd /system/bin/gpsd /system/etc/gps.xml' "$init_rc"
 require_fixed 'socket gps seqpacket 0660 gps system' "$init_rc"
 require_fixed 'socket rilgps.socket seqpacket 0660 gps system' "$init_rc"
 require_fixed 'mkdir /data/system/gps 0770 system system' "$init_rc"
+require_fixed 'mkdir /data/nfc 0770 nfc nfc' "$init_rc"
+require_fixed 'mkdir /data/nfc/param 0770 nfc nfc' "$init_rc"
+require_fixed 'mkdir /data/vendor/nfc 0770 nfc nfc' "$init_rc"
+require_fixed 'chown nfc nfc /dev/pn544' "$init_rc"
+require_fixed 'chmod 0660 /dev/pn544' "$init_rc"
+require_fixed 'chown nfc nfc /dev/p61' "$init_rc"
+require_fixed 'chmod 0660 /dev/p61' "$init_rc"
 require_fixed 'chmod 0600 /dev/ttySAC1' "$init_rc"
 require_fixed 'chmod 0770 /sys/class/misc/gps/device/pwr' "$init_rc"
 require_fixed 'chmod 0660 /sys/class/meizu/mx_hub/enable' "$sensors_init_rc"
@@ -426,6 +463,7 @@ require_fixed 'lib/libsitril-audio.so' "$blob_list"
 require_fixed 'bin/cbd' "$blob_list"
 require_fixed 'lib64/libsitril.so' "$blob_list"
 require_fixed 'vendor/firmware/modem.bin' "$blob_list"
+require_fixed 'vendor/firmware/libpn547_fw.so' "$blob_list"
 require_fixed 'bin/gpsd' "$blob_list"
 require_fixed 'lib64/hw/gps.default.so' "$blob_list"
 require_fixed 'lib64/hw/sensors.m86.so' "$blob_list"
@@ -503,6 +541,9 @@ require_sha256 \
 require_sha256 \
   eab2ec1b4b2c2855e0fc38f27a59e84522570020192925f63b11fd7ab7f75e5d \
   "$gps_xml"
+require_sha256 \
+  fea8e1b112cfeb6af53075e61952bbc68bf485704fc2d98ed3c728a44122e5a4 \
+  "$nfc_config"
 
 # A local source-only checkout does not contain the Android schemas. On the
 # builder, expand the standard XIncludes against the pinned LineageOS source
@@ -547,6 +588,8 @@ require_manifest_hal \
   android.hardware.light 2.0 hwbinder '' ILight
 require_manifest_hal \
   android.hardware.memtrack 1.0 passthrough 32+64 IMemtrack
+require_manifest_hal \
+  android.hardware.nfc 1.1 hwbinder '' INfc
 for radio_slot in slot1 slot2; do
   require_manifest_instance \
     android.hardware.radio 1.1 IRadio "$radio_slot"
@@ -563,6 +606,8 @@ require_manifest_hal \
   android.hardware.wifi.hostapd 1.1 hwbinder '' IHostapd
 require_manifest_hal \
   android.hardware.wifi.supplicant 1.2 hwbinder '' ISupplicant
+require_manifest_hal \
+  vendor.nxp.nxpnfc 1.0 hwbinder '' INxpNfc
 
 for inherited_variable in \
   TARGET_UNOFFICIAL_BUILD_ID \
@@ -617,6 +662,11 @@ fi
 if rg -q 'android\.hardware\.camera\.(full|raw)\.xml|camera\.exynos5' \
     "$device_makefile"; then
   printf 'm86 must not advertise unverified FULL/RAW camera or use the Galaxy wrapper.\n' >&2
+  exit 1
+fi
+if rg -q 'android\.hardware\.nfc\.hcef\.xml|NQNfcNci|sec-nfc|/dev/pn54x' \
+    "$device_makefile" "$nfc_config"; then
+  printf 'm86 must not advertise unverified HCE-F or use the wrong NFC generation/node.\n' >&2
   exit 1
 fi
 if rg -q 'gpioi2c|led_pattern|my_pattern|fopen' "$lights_source"; then

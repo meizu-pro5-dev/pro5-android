@@ -212,8 +212,16 @@ FULL/RAW capability until runtime tests support it.
   `/system/bin/gpsd` receives the API 27 linker override. Its old
   binder/gui/OpenSSL dependency surface remains an output-side symbol gate;
   no broad Android 7 platform library is imported.
-- NFC: use the actual NXP PN547/P61 device nodes and Flyme firmware/config,
-  not Samsung S.LSI NFC configuration.
+- NFC: Android 10's pinned NXP PN5xx HIDL 1.1 service drives the actual
+  `/dev/pn544` PN65T path and exposes the standard `NfcNci` application. The
+  final Flyme `libpn547_fw.so` is SHA-256 locked, while every active m86 RF,
+  clock, routing and P61 value is preserved in `libnfc-nxp.conf`; the transport
+  and firmware names are made explicit for the newer HAL. Samsung S.LSI NFC,
+  generic `/dev/pn54x`, the SN100-only NQ application, and unverified HCE-F are
+  excluded. Runtime acceptance covers enable/disable, tag read/write, Android
+  Beam-compatible peer discovery where supported, HCE, screen-off behavior,
+  suspend/resume and repeated service restarts; P61 wired/SPI secure-element
+  use remains a separate test gate.
 - Fingerprint: retain FPC device/input behavior; port to the Android 10
   biometrics service only after enrollment/authentication storage paths and
   TrustZone dependencies are understood.
