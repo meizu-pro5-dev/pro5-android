@@ -83,6 +83,28 @@ Vulkan feature XML remains deferred until the driver passes an on-device
 enumeration test; presence of entry points alone is not treated as functional
 evidence.
 
+### GNSS and sensors boundaries
+
+The verified 64-bit `gps.default.so` is exposed through the same-SoC
+`android.hardware.gnss@1.0-impl.zero` wrapper and talks to `gpsd` through
+`/dev/socket/gps`. The daemon consumes the final Flyme configuration at
+`/system/etc/gps.xml`; the local copies are locked to SHA-256
+`eab2ec1b4b2c2855e0fc38f27a59e84522570020192925f63b11fd7ab7f75e5d`
+for `gps.xml` and
+`44a960aec8d8322cba8386779fa54355e10d976c19871c45fe44547c4ccb11d0`
+for `gps.conf`. Because the Android 7 daemon imports old C++ sensor, binder,
+GUI and crypto interfaces, `/system/bin/gpsd=27` is the only process SDK
+override. The first full output must still prove every imported symbol
+against the built Android 10 libraries before GNSS is called functional.
+
+The verified `sensors.m86.so` depends only on the stable legacy HAL,
+libcutils/log and C library boundary, so Android 10's generic sensors 1.0
+bridge is used rather than Samsung's device-specific implementation. String
+and sysfs inspection identifies the Meizu CyWee hub plus separate ALS and
+proximity paths. Feature declarations are limited to the sensor types the
+blob actually reports; Galaxy barometer and heart-rate declarations are
+explicitly excluded.
+
 ## Milestone policy
 
 1. Kernel and the first boot image do not require the Flyme system blob set.

@@ -181,10 +181,18 @@ FULL/RAW capability until runtime tests support it.
 
 ### Sensors, GPS, NFC and fingerprint
 
-- Sensors: preserve the Meizu sensor-hub driver, firmware and calibration
-  sysfs ABI; wrap the stock HAL behind Android 10's sensors service.
-- GPS: inspect and shim the verified Flyme `gps.default`/gps daemon ABI before
-  declaring a GNSS HIDL version.
+- Sensors: Android 10's generic sensors 1.0 service wraps the verified
+  64-bit `sensors.m86.so`. Its exported inventory covers accelerometer,
+  compass, gyroscope, light, proximity, step detector and step counter; no
+  barometer or Galaxy-only health sensor is advertised. The service keeps
+  the `input` group and the final Flyme CyWee `/sys/class/meizu/mx_hub`, ALS,
+  PS and IIO ownership contract.
+- GPS: the universal7420 GNSS 1.0 wrapper loads the verified legacy
+  `gps.default.so`, which connects to the final Flyme `gpsd` socket ABI.
+  `gps.conf` and `gps.xml` are byte-exact Flyme 8.0.5.0A files, and only
+  `/system/bin/gpsd` receives the API 27 linker override. Its old
+  binder/gui/OpenSSL dependency surface remains an output-side symbol gate;
+  no broad Android 7 platform library is imported.
 - NFC: use the actual NXP PN547/P61 device nodes and Flyme firmware/config,
   not Samsung S.LSI NFC configuration.
 - Fingerprint: retain FPC device/input behavior; port to the Android 10

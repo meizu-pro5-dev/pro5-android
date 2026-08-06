@@ -1,0 +1,90 @@
+# Permissions reproduced from the final Flyme 8 m86 ramdisk for the CyWee
+# sensor hub and the separate Meizu ambient-light/proximity drivers.
+on boot
+    chown system system /sys/class/meizu/mx_hub/batch
+    chmod 0660 /sys/class/meizu/mx_hub/batch
+    chown system system /sys/class/meizu/mx_hub/calibrator_cmd
+    chmod 0660 /sys/class/meizu/mx_hub/calibrator_cmd
+    chown system system /sys/class/meizu/mx_hub/calibrator_data
+    chmod 0660 /sys/class/meizu/mx_hub/calibrator_data
+    chown system system /sys/class/meizu/mx_hub/enable
+    chmod 0660 /sys/class/meizu/mx_hub/enable
+    chown system system /sys/class/meizu/mx_hub/firmware_update_cmd
+    chmod 0664 /sys/class/meizu/mx_hub/firmware_update_cmd
+    chown system system /sys/class/meizu/mx_hub/firmware_update_data
+    chmod 0664 /sys/class/meizu/mx_hub/firmware_update_data
+    chown system system /sys/class/meizu/mx_hub/firmware_update_i2c
+    chmod 0664 /sys/class/meizu/mx_hub/firmware_update_i2c
+    chown system system /sys/class/meizu/mx_hub/firmware_update_status
+    chmod 0664 /sys/class/meizu/mx_hub/firmware_update_status
+    chown system system /sys/class/meizu/mx_hub/flush
+    chmod 0660 /sys/class/meizu/mx_hub/flush
+    chown system system /sys/class/meizu/mx_hub/mcu_mode
+    chmod 0660 /sys/class/meizu/mx_hub/mcu_mode
+    chown system system /sys/class/meizu/mx_hub/power
+    chmod 0660 /sys/class/meizu/mx_hub/power
+    chown system system /sys/class/meizu/mx_hub/raw_data0
+    chmod 0660 /sys/class/meizu/mx_hub/raw_data0
+    chown system system /sys/class/meizu/mx_hub/raw_data1
+    chmod 0660 /sys/class/meizu/mx_hub/raw_data1
+    chown system system /sys/class/meizu/mx_hub/raw_data2
+    chmod 0660 /sys/class/meizu/mx_hub/raw_data2
+    chown system system /sys/class/meizu/mx_hub/raw_data3
+    chmod 0660 /sys/class/meizu/mx_hub/raw_data3
+    chown system system /sys/class/meizu/mx_hub/raw_data4
+    chmod 0660 /sys/class/meizu/mx_hub/raw_data4
+    chown system system /sys/class/meizu/mx_hub/sys_cmd
+    chmod 0660 /sys/class/meizu/mx_hub/sys_cmd
+    chown system system /sys/class/meizu/mx_hub/timestamp
+    chmod 0660 /sys/class/meizu/mx_hub/timestamp
+    chown system system /sys/class/meizu/mx_hub/uevent
+    chmod 0660 /sys/class/meizu/mx_hub/uevent
+    chown system system /sys/class/meizu/mx_hub/version
+    chmod 0444 /sys/class/meizu/mx_hub/version
+    chown system system /sys/class/meizu/mx_hub/mag_special_data
+    chmod 0660 /sys/class/meizu/mx_hub/mag_special_data
+    chown system system /sys/class/meizu/mx_hub/iio
+    chown system system /sys/class/meizu/mx_hub/subsystem
+
+    chown system system /sys/bus/iio/devices/iio:device0/buffer/length
+    chmod 0664 /sys/bus/iio/devices/iio:device0/buffer/length
+    chown system system /sys/bus/iio/devices/iio:device0/buffer/enable
+    chmod 0664 /sys/bus/iio/devices/iio:device0/buffer/enable
+    chown system system /sys/bus/iio/devices/iio:device0/trigger/current_trigger
+    chmod 0664 /sys/bus/iio/devices/iio:device0/trigger/current_trigger
+    chown system system /sys/bus/iio/devices/trigger0/name
+    chmod 0660 /sys/bus/iio/devices/trigger0/name
+    chown system system /dev/iio:device0
+    chmod 0600 /dev/iio:device0
+
+    chown system system /sys/class/meizu/ps/als_data
+    chown system system /sys/class/meizu/ps/ps_calibration
+    chown system system /sys/class/meizu/ps/ps_calibbias
+    chown system system /sys/class/meizu/ps/ps_offset
+    chown system system /sys/class/meizu/ps/ps_flush
+    chown system system /sys/class/meizu/ps/ps_gpio
+    chown system system /sys/class/meizu/ps/ps_batch
+    chown system system /sys/class/meizu/ps/ps_data
+    chown system system /sys/class/meizu/ps/ps_enable
+    chown system system /sys/class/meizu/ps/ps_reg
+    chown system system /sys/class/meizu/ps/ps_wakeup_enable
+
+    chown system system /sys/class/meizu/als/adc_resolution_bits
+    chown system system /sys/class/meizu/als/adc_start_sync
+    chown system system /sys/class/meizu/als/als_batch
+    chown system system /sys/class/meizu/als/cct
+    chown system system /sys/class/meizu/als/debug
+    chown system system /sys/class/meizu/als/als_flush
+    chown system system /sys/class/meizu/als/intr_persistency
+    chown system system /sys/class/meizu/als/intr_threshold_assign
+    chown system system /sys/class/meizu/als/intr_threshold_high
+    chown system system /sys/class/meizu/als/intr_threshold_low
+    chown system system /sys/class/meizu/als/lux
+    chown system system /sys/class/meizu/als/mode
+    chown system system /sys/class/meizu/als/optical_range
+    chown system system /sys/class/meizu/als/poll_delay
+    chown system system /sys/class/meizu/als/raw_adc
+    chown system system /sys/class/meizu/als/als_reg
+    chown system system /sys/class/meizu/als/rgb_conv_intr
+    chown system system /sys/class/meizu/als/als_enable
+    chown system system /sys/class/meizu/als/xy_value

@@ -15,10 +15,14 @@ bluetooth_vendor_conf="$device_root/bluetooth/bt_vendor.conf"
 audio_policy="$device_root/audio/audio_policy_configuration.xml"
 audio_effects="$device_root/audio/audio_effects.xml"
 audio_mixer="$device_root/audio/mixer_paths.xml"
+gps_conf="$device_root/gps/gps.conf"
+gps_xml="$device_root/gps/gps.xml"
+sensors_service_rc="$device_root/sensors/android.hardware.sensors@1.0-service.rc"
 wifi_sta_overlay="$device_root/wifi/wpa_supplicant_overlay.conf"
 wifi_p2p_overlay="$device_root/wifi/p2p_supplicant_overlay.conf"
 usb_rc="$device_root/rootdir/etc/init.m86.usb.rc"
 init_rc="$device_root/rootdir/etc/init.m86.rc"
+sensors_init_rc="$device_root/rootdir/etc/init.m86.sensors.rc"
 ueventd_rc="$device_root/rootdir/etc/ueventd.m86.rc"
 recovery_fstab="$device_root/rootdir/etc/recovery.fstab"
 releasetools="$device_root/releasetools/releasetools.py"
@@ -41,10 +45,14 @@ for required_file in \
   "$audio_policy" \
   "$audio_effects" \
   "$audio_mixer" \
+  "$gps_conf" \
+  "$gps_xml" \
+  "$sensors_service_rc" \
   "$wifi_sta_overlay" \
   "$wifi_p2p_overlay" \
   "$usb_rc" \
   "$init_rc" \
+  "$sensors_init_rc" \
   "$ueventd_rc" \
   "$recovery_fstab" \
   "$releasetools" \
@@ -79,6 +87,26 @@ require_empty_assignment() {
   if ! rg -q "^${variable_name}[[:space:]]*:=[[:space:]]*$" "$source_file"; then
     printf 'Required empty LineageOS override is absent from %s: %s\n' \
       "$source_file" "$variable_name" >&2
+    exit 1
+  fi
+}
+
+require_sha256() {
+  local expected="$1"
+  local source_file="$2"
+  local actual
+
+  actual="$(python3 - "$source_file" <<'PY'
+import hashlib
+import sys
+
+with open(sys.argv[1], "rb") as source:
+    print(hashlib.sha256(source.read()).hexdigest())
+PY
+)"
+  if [[ "$actual" != "$expected" ]]; then
+    printf 'SHA-256 mismatch for %s: expected %s, got %s\n' \
+      "$source_file" "$expected" "$actual" >&2
     exit 1
   fi
 }
@@ -143,6 +171,8 @@ require_fixed 'BOARD_CHARGING_MODE_BOOTING_LPM := /sys/class/power_supply/batter
   "$board_config"
 require_fixed 'TARGET_SLSI_VARIANT := bsp' "$board_config"
 require_fixed 'AUDIOSERVER_MULTILIB := 32' "$board_config"
+require_fixed 'TARGET_PROCESS_SDK_VERSION_OVERRIDE := /system/bin/gpsd=27' \
+  "$board_config"
 require_fixed 'WIFI_DRIVER_FW_PATH_PARAM := /sys/module/bcmdhd/parameters/firmware_path' \
   "$board_config"
 require_fixed 'BOARD_BLUETOOTH_BDROID_BUILDCFG_INCLUDE_DIR := $(M86_PATH)/bluetooth' \
@@ -157,6 +187,12 @@ require_fixed 'android.hardware.wifi.direct.xml:$(TARGET_COPY_OUT_VENDOR)/etc/pe
 require_fixed 'android.hardware.wifi.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.wifi.xml' \
   "$device_makefile"
 require_fixed 'android.hardware.telephony.gsm.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.telephony.gsm.xml' \
+  "$device_makefile"
+for sensor_feature in accelerometer compass gyroscope light proximity stepcounter stepdetector; do
+  require_fixed "android.hardware.sensor.${sensor_feature}.xml:\$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.sensor.${sensor_feature}.xml" \
+    "$device_makefile"
+done
+require_fixed 'android.hardware.location.gps.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.location.gps.xml' \
   "$device_makefile"
 require_fixed 'android.hardware.bluetooth@1.0-impl.zero' "$device_makefile"
 require_fixed 'android.hardware.bluetooth@1.0-service' "$device_makefile"
@@ -187,6 +223,15 @@ require_fixed 'rild.libpath=/system/lib64/libsitril.so' "$system_prop"
 require_fixed 'rild.libargs=-d /dev/umts_ipc0' "$system_prop"
 require_fixed 'persist.radio.multisim.config=dsds' "$system_prop"
 require_fixed 'exynos.modempath=/system/vendor/firmware/modem.bin' "$system_prop"
+require_fixed 'android.hardware.gnss@1.0-impl.zero' "$device_makefile"
+require_fixed 'android.hardware.gnss@1.0-service' "$device_makefile"
+require_fixed '$(LOCAL_PATH)/gps/gps.conf:$(TARGET_COPY_OUT_SYSTEM)/etc/gps.conf' \
+  "$device_makefile"
+require_fixed '$(LOCAL_PATH)/gps/gps.xml:$(TARGET_COPY_OUT_SYSTEM)/etc/gps.xml' \
+  "$device_makefile"
+require_fixed 'android.hardware.sensors@1.0-impl' "$device_makefile"
+require_fixed 'android.hardware.sensors@1.0-service' "$device_makefile"
+require_fixed 'group system wakelock input' "$sensors_service_rc"
 for wifi_package in hostapd wpa_supplicant wpa_supplicant.conf; do
   if ! rg -q "^[[:space:]]*${wifi_package}( \\\\)?$" "$device_makefile"; then
     printf 'Required m86 Wi-Fi package is absent: %s\n' "$wifi_package" >&2
@@ -227,6 +272,18 @@ require_fixed 'service wpa_supplicant /vendor/bin/hw/wpa_supplicant \' \
 require_fixed 'interface android.hardware.wifi.supplicant@1.2::ISupplicant default' \
   "$init_rc"
 require_fixed 'service cpboot-daemon /system/bin/cbd -m user' "$init_rc"
+require_fixed 'service gpsd /system/bin/gpsd /system/etc/gps.xml' "$init_rc"
+require_fixed 'socket gps seqpacket 0660 gps system' "$init_rc"
+require_fixed 'socket rilgps.socket seqpacket 0660 gps system' "$init_rc"
+require_fixed 'mkdir /data/system/gps 0770 system system' "$init_rc"
+require_fixed 'chmod 0600 /dev/ttySAC1' "$init_rc"
+require_fixed 'chmod 0770 /sys/class/misc/gps/device/pwr' "$init_rc"
+require_fixed 'chmod 0660 /sys/class/meizu/mx_hub/enable' "$sensors_init_rc"
+require_fixed 'chmod 0600 /dev/iio:device0' "$sensors_init_rc"
+require_fixed 'chown system system /sys/class/meizu/als/als_enable' \
+  "$sensors_init_rc"
+require_fixed 'chown system system /sys/class/meizu/ps/ps_enable' \
+  "$sensors_init_rc"
 require_fixed 'stop vendor.ril-daemon' "$init_rc"
 require_fixed '/dev/umts_boot0              0660   radio      radio' "$ueventd_rc"
 require_fixed '/dev/umts_ipc0               0660   radio      radio' "$ueventd_rc"
@@ -274,6 +331,9 @@ require_fixed 'lib/libsitril-audio.so' "$blob_list"
 require_fixed 'bin/cbd' "$blob_list"
 require_fixed 'lib64/libsitril.so' "$blob_list"
 require_fixed 'vendor/firmware/modem.bin' "$blob_list"
+require_fixed 'bin/gpsd' "$blob_list"
+require_fixed 'lib64/hw/gps.default.so' "$blob_list"
+require_fixed 'lib64/hw/sensors.m86.so' "$blob_list"
 require_fixed 'copy_rule_count="$(' "$vendor_worker"
 require_fixed 'expected_rule="vendor/meizu/m86/proprietary/$relative_path:$output_path"' \
   "$vendor_worker"
@@ -300,6 +360,13 @@ fi
 xmllint --noout "$device_manifest"
 xmllint --noout "$audio_policy"
 xmllint --noout "$audio_effects"
+xmllint --noout "$gps_xml"
+require_sha256 \
+  44a960aec8d8322cba8386779fa54355e10d976c19871c45fe44547c4ccb11d0 \
+  "$gps_conf"
+require_sha256 \
+  eab2ec1b4b2c2855e0fc38f27a59e84522570020192925f63b11fd7ab7f75e5d \
+  "$gps_xml"
 
 # A local source-only checkout does not contain the Android schemas. On the
 # builder, expand the standard XIncludes against the pinned LineageOS source
@@ -337,6 +404,8 @@ require_manifest_hal \
 require_manifest_hal \
   android.hardware.graphics.mapper 2.0 passthrough 32+64 IMapper
 require_manifest_hal \
+  android.hardware.gnss 1.0 hwbinder '' IGnss
+require_manifest_hal \
   android.hardware.memtrack 1.0 passthrough 32+64 IMemtrack
 for radio_slot in slot1 slot2; do
   require_manifest_instance \
@@ -344,6 +413,8 @@ for radio_slot in slot1 slot2; do
   require_manifest_instance \
     android.hardware.radio.deprecated 1.0 IOemHook "$radio_slot"
 done
+require_manifest_hal \
+  android.hardware.sensors 1.0 hwbinder '' ISensors
 require_manifest_hal \
   android.hardware.wifi 1.3 hwbinder '' IWifi
 require_manifest_hal \
@@ -363,7 +434,6 @@ for inherited_variable in \
   TARGET_SEC_FP_CALL_CANCEL_ON_ENROLL_COMPLETION \
   TARGET_SEC_FP_USES_PERCENTAGE_SAMPLES \
   TARGET_LD_SHIM_LIBS \
-  TARGET_PROCESS_SDK_VERSION_OVERRIDE \
   JAVA_SOURCE_OVERLAYS \
   BOARD_NFC_HAL_SUFFIX \
   BOARD_PROVIDES_LIBRIL \
@@ -392,6 +462,10 @@ fi
 
 if rg -q 'inherit-product[^\n]*universal7420-common\.mk' "$device_makefile"; then
   printf 'The Galaxy universal7420 product must not be inherited by m86.\n' >&2
+  exit 1
+fi
+if rg -q 'android\.hardware\.sensor\.(barometer|heartrate)' "$device_makefile"; then
+  printf 'm86 must not advertise Galaxy-only pressure or heart-rate sensors.\n' >&2
   exit 1
 fi
 if rg -q '^[[:space:]]*(wifiloader|macloader)([[:space:]]*\\)?$' \

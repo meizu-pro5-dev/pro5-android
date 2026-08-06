@@ -40,7 +40,9 @@ TARGET_SEC_FP_CALL_CANCEL_ON_ENROLL_COMPLETION :=
 TARGET_SEC_FP_USES_PERCENTAGE_SAMPLES :=
 
 TARGET_LD_SHIM_LIBS :=
-TARGET_PROCESS_SDK_VERSION_OVERRIDE :=
+# Flyme gpsd predates Q and still uses legacy linker greylist/APEX behavior.
+# Scope the compatibility level to this one audited executable.
+TARGET_PROCESS_SDK_VERSION_OVERRIDE := /system/bin/gpsd=27
 JAVA_SOURCE_OVERLAYS :=
 BOARD_NFC_HAL_SUFFIX :=
 BOARD_PROVIDES_LIBRIL :=

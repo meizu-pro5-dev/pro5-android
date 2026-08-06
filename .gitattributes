@@ -1,0 +1,2 @@
+# Preserve byte-exact vendor configuration evidence.
+device/meizu/m86/gps/gps.xml -whitespace
