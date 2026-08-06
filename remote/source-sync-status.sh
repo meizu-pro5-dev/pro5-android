@@ -20,7 +20,7 @@ else
 fi
 
 if [[ -f "$log_file" ]]; then
-  tail -n 40 "$log_file"
+  tail -c 65536 "$log_file" | tr '\r' '\n' | tail -n 40
 else
   printf 'No source sync log yet.\n'
 fi
