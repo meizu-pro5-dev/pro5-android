@@ -8,6 +8,7 @@ device_root="$project_root/device/meizu/m86"
 board_config="$device_root/BoardConfig.mk"
 android_makefile="$device_root/Android.mk"
 device_makefile="$device_root/device.mk"
+device_manifest="$device_root/manifest.xml"
 system_prop="$device_root/system.prop"
 usb_rc="$device_root/rootdir/etc/init.m86.usb.rc"
 ueventd_rc="$device_root/rootdir/etc/ueventd.m86.rc"
@@ -23,6 +24,7 @@ for required_file in \
   "$board_config" \
   "$android_makefile" \
   "$device_makefile" \
+  "$device_manifest" \
   "$system_prop" \
   "$usb_rc" \
   "$ueventd_rc" \
@@ -61,6 +63,26 @@ require_empty_assignment() {
   fi
 }
 
+require_manifest_hal() {
+  local name="$1"
+  local version="$2"
+  local transport="$3"
+  local arch="$4"
+  local interface="$5"
+  local transport_predicate="transport[text()='$transport']"
+
+  if [[ -n "$arch" ]]; then
+    transport_predicate="transport[text()='$transport' and @arch='$arch']"
+  fi
+
+  local xpath="count(/manifest/hal[name='$name' and version='$version' and $transport_predicate and interface/name='$interface' and interface/instance='default'])"
+  if [[ "$(xmllint --xpath "$xpath" "$device_manifest")" != "1" ]]; then
+    printf 'Missing or invalid m86 VINTF HAL: %s@%s::%s/default\n' \
+      "$name" "$version" "$interface" >&2
+    exit 1
+  fi
+}
+
 require_fixed 'BOARD_KERNEL_BASE := 0x40000000' "$board_config"
 require_fixed 'BOARD_KERNEL_PAGESIZE := 4096' "$board_config"
 require_fixed '--kernel_offset 0x00080000' "$board_config"
@@ -90,6 +112,11 @@ require_fixed 'WIFI_DRIVER_FW_PATH_PARAM := /sys/module/bcmdhd/parameters/firmwa
   "$board_config"
 require_fixed 'sys.usb.ffs.aio_compat=1' "$system_prop"
 require_fixed 'persist.sys.usb.config=mtp' "$device_makefile"
+require_fixed 'android.hardware.graphics.allocator@2.0-service' "$device_makefile"
+require_fixed 'android.hardware.graphics.composer@2.1-impl' "$device_makefile"
+require_fixed 'android.hardware.graphics.mapper@2.0-impl' "$device_makefile"
+require_fixed 'android.hardware.memtrack@1.0-impl' "$device_makefile"
+require_fixed 'libhwc2on1adapter' "$device_makefile"
 require_fixed 'mount functionfs adb /dev/usb-ffs/adb uid=2000,gid=2000' \
   "$usb_rc"
 require_fixed 'write /sys/class/android_usb/android0/f_ffs/aliases adb' \
@@ -137,6 +164,22 @@ require_fixed '  "$device"' "$device_root/extract-files.sh"
 require_fixed 'set +u' "$device_root/setup-makefiles.sh"
 require_fixed '  true \' "$device_root/setup-makefiles.sh"
 require_fixed '  "$DEVICE"' "$device_root/setup-makefiles.sh"
+
+if ! command -v xmllint >/dev/null 2>&1; then
+  printf 'xmllint is required for m86 VINTF validation.\n' >&2
+  exit 1
+fi
+xmllint --noout "$device_manifest"
+require_manifest_hal \
+  android.hardware.configstore 1.1 hwbinder '' ISurfaceFlingerConfigs
+require_manifest_hal \
+  android.hardware.graphics.allocator 2.0 hwbinder '' IAllocator
+require_manifest_hal \
+  android.hardware.graphics.composer 2.1 passthrough 32+64 IComposer
+require_manifest_hal \
+  android.hardware.graphics.mapper 2.0 passthrough 32+64 IMapper
+require_manifest_hal \
+  android.hardware.memtrack 1.0 passthrough 32+64 IMemtrack
 
 for inherited_variable in \
   TARGET_UNOFFICIAL_BUILD_ID \

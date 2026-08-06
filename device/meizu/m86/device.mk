@@ -43,6 +43,20 @@ PRODUCT_COPY_FILES += \
     frameworks/native/data/etc/android.hardware.usb.host.xml:system/etc/permissions/android.hardware.usb.host.xml \
     frameworks/native/data/etc/handheld_core_hardware.xml:system/etc/permissions/handheld_core_hardware.xml
 
+# Graphics. The verified Flyme set supplies matching 32/64-bit Mali, gralloc,
+# HWC1 and memtrack implementations. These Android 10 wrappers expose that
+# legacy stack without inheriting the Galaxy product or its panel policy.
+# configstore@1.1-service is already supplied by full_base_telephony.
+PRODUCT_PACKAGES += \
+    android.hardware.graphics.allocator@2.0-impl \
+    android.hardware.graphics.allocator@2.0-service \
+    android.hardware.graphics.composer@2.1-impl \
+    android.hardware.graphics.mapper@2.0-impl \
+    android.hardware.memtrack@1.0-impl \
+    libfimg \
+    libhwc2on1adapter \
+    libion
+
 TARGET_SYSTEM_PROP += $(LOCAL_PATH)/system.prop
 
 # Android's build logic appends adb for userdebug/eng. User builds retain MTP.
