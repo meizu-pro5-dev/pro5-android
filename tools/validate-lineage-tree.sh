@@ -573,6 +573,12 @@ require_fixed '[[ ! -s "$log_dir/lineage-17.1-manifest.xml" ]]' \
 require_fixed '--force-sync' "$project_root/remote/worker-sync-platform.sh"
 require_fixed 'Refusing to replace dirty platform checkout' \
   "$project_root/remote/worker-sync-platform.sh"
+require_fixed 'remove_reviewed_project_patches "$project"' \
+  "$project_root/remote/worker-sync-platform.sh"
+require_fixed 'Reviewed platform patch series is missing' \
+  "$project_root/remote/worker-sync-platform.sh"
+require_fixed 'git -C "$project" apply --reverse "$patch_file"' \
+  "$project_root/remote/worker-sync-platform.sh"
 require_fixed 'mv "$manifest_tmp" "$manifest_lock"' \
   "$project_root/remote/worker-sync-platform.sh"
 require_fixed 'set +u' "$device_root/extract-files.sh"

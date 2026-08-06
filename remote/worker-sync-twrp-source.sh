@@ -84,9 +84,15 @@ sync_one_project() {
     status=$?
     set -e
 
-    if [[ "$status" -eq 0 ]]; then
+    if [[ "$status" -eq 0 ]] && project_checkout_complete "$project"; then
       configure_builder_aosp_source "${PRO5_AOSP_SOURCE:-ustc}"
       return 0
+    fi
+
+    if [[ "$status" -eq 0 ]]; then
+      status=125
+      printf 'TWRP sync returned success but checkout validation failed: %s\n' \
+        "$project" >&2
     fi
 
     printf 'TWRP sync attempt failed: project=%s aosp=%s status=%s\n' \
@@ -95,6 +101,47 @@ sync_one_project() {
 
   configure_builder_aosp_source "${PRO5_AOSP_SOURCE:-ustc}"
   return 1
+}
+
+project_checkout_complete() {
+  local project="$1"
+  local head_count
+  local index_count
+
+  if [[ ! -d "$project" ]] || \
+      ! git -C "$project" rev-parse --verify HEAD >/dev/null 2>&1; then
+    return 1
+  fi
+  head_count="$(git -C "$project" ls-tree -r --name-only HEAD | wc -l | tr -d ' ')"
+  index_count="$(git -C "$project" ls-files | wc -l | tr -d ' ')"
+  [[ "$head_count" =~ ^[1-9][0-9]*$ ]] || return 1
+  [[ "$index_count" == "$head_count" ]] || return 1
+  [[ -z "$(git -C "$project" status --porcelain --untracked-files=normal)" ]]
+}
+
+repair_empty_index_checkout() {
+  local project="$1"
+  local head_count
+  local index_count
+
+  [[ -d "$project" ]] || return 1
+  git -C "$project" rev-parse --verify HEAD >/dev/null 2>&1 || return 1
+  head_count="$(git -C "$project" ls-tree -r --name-only HEAD | wc -l | tr -d ' ')"
+  index_count="$(git -C "$project" ls-files | wc -l | tr -d ' ')"
+  if [[ ! "$head_count" =~ ^[1-9][0-9]*$ ]] || [[ "$index_count" != 0 ]]; then
+    return 1
+  fi
+
+  # A killed repo checkout can leave the exact commit checked out only
+  # partially with an empty index, while repo later reports the project as
+  # present. This narrow guard distinguishes that mechanical failure from a
+  # normal dirty checkout. Rebuild only this generated worktree from its
+  # already-pinned HEAD, then require a byte-clean result.
+  printf 'Repairing empty-index TWRP checkout from pinned HEAD: %s (%s files)\n' \
+    "$project" "$head_count"
+  git -C "$project" read-tree HEAD
+  git -C "$project" checkout-index --all --force
+  project_checkout_complete "$project"
 }
 
 mapfile -t projects < <(repo list --all -p | LC_ALL=C sort)
@@ -110,7 +157,7 @@ if [[ -s "$progress_manifest_file" ]] && \
     [[ "$prior_state" == complete ]] || continue
     [[ "$prior_total" == "$project_total" ]] || continue
     [[ -d "$prior_project" ]] || continue
-    if git -C "$prior_project" rev-parse --verify HEAD >/dev/null 2>&1; then
+    if project_checkout_complete "$prior_project"; then
       completed_projects["$prior_project"]=1
     fi
   done < "$progress_file"
@@ -131,6 +178,9 @@ for index in "${!projects[@]}"; do
 
   if [[ -n "${completed_projects[$project]+complete}" ]]; then
     printf '%s: %s retained from matching progress\n' "$phase" "$project"
+    state=complete
+  elif repair_empty_index_checkout "$project"; then
+    printf '%s: %s repaired from its pinned commit\n' "$phase" "$project"
     state=complete
   elif sync_one_project "$project" "$phase"; then
     state=complete
@@ -153,6 +203,14 @@ if [[ "${#failed_projects[@]}" -ne 0 ]]; then
   printf '  %s\n' "${failed_projects[@]}" >&2
   exit 1
 fi
+
+for project in "${projects[@]}"; do
+  if ! project_checkout_complete "$project"; then
+    printf 'TWRP checkout is incomplete or dirty after sync: %s\n' \
+      "$project" >&2
+    exit 1
+  fi
+done
 
 if [[ ! -s bootable/recovery/variables.h ]] || \
     ! rg -q 'TW_MAIN_VERSION_STR[[:space:]]+"3\.7\.0_9"' \

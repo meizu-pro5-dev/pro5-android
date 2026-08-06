@@ -8,6 +8,7 @@ remote_root="$(cd "$local_root/.." && pwd)"
 source_root="$remote_root/src/lineage-17.1"
 log_dir="$remote_root/logs"
 local_manifest="$local_root/manifests/pro5.xml"
+patch_series="$local_root/patches/series.tsv"
 manifest_lock="$log_dir/lineage-17.1-pro5-manifest.xml"
 manifest_tmp="${manifest_lock}.tmp"
 
@@ -102,6 +103,47 @@ sync_one_project() {
   return 1
 }
 
+remove_reviewed_project_patches() {
+  local project="$1"
+  local patch_file
+  local patch_index
+  local -a project_patches=()
+
+  if [[ ! -s "$patch_series" ]]; then
+    printf 'Reviewed platform patch series is missing: %s\n' \
+      "$patch_series" >&2
+    return 1
+  fi
+  if ! git -C "$project" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    return 0
+  fi
+  mapfile -t project_patches < <(
+    awk -F '\t' -v project="$project" '$1 == project { print $2 }' \
+      "$patch_series"
+  )
+  for ((patch_index = ${#project_patches[@]} - 1;
+       patch_index >= 0;
+       --patch_index)); do
+    patch_file="$local_root/${project_patches[$patch_index]}"
+    if [[ ! -f "$patch_file" ]]; then
+      printf 'Reviewed platform patch is missing: %s\n' "$patch_file" >&2
+      return 1
+    fi
+    if git -C "$project" apply --reverse --check "$patch_file" \
+        2>/dev/null; then
+      git -C "$project" apply --reverse "$patch_file"
+      printf 'Removed reviewed patch before sync: %s\n' \
+        "${project_patches[$patch_index]}"
+    elif git -C "$project" apply --check "$patch_file" 2>/dev/null; then
+      :
+    else
+      printf 'Platform checkout does not match reviewed patch state: %s\n' \
+        "$patch_file" >&2
+      return 1
+    fi
+  done
+}
+
 platform_projects=(
   build/soong
   device/samsung/universal7420-common
@@ -116,6 +158,8 @@ platform_projects=(
 for index in "${!platform_projects[@]}"; do
   project="${platform_projects[$index]}"
   phase="Platform project $((index + 1))/${#platform_projects[@]}"
+
+  remove_reviewed_project_patches "$project"
 
   # --force-sync may replace git metadata, so never apply it over local work.
   if git -C "$project" rev-parse --is-inside-work-tree >/dev/null 2>&1 && \

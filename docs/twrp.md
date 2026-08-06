@@ -15,13 +15,13 @@ these descriptive branch heads. The upstream sources are the
 [minimal TWRP Omni manifest](https://github.com/minimal-manifest-twrp/platform_manifest_twrp_omni/tree/twrp-9.0)
 and [TeamWin recovery](https://github.com/TeamWin/android_bootable_recovery/tree/android-9.0).
 
-The pinned OmniROM `frameworks/base` fork references `stats-log-api-gen` and a
-font linter but omits both source directories, which prevents Soong from
-generating a Ninja graph even for `recoveryimage`. The local compatibility
-series restores the complete tool directories from the matching official AOSP
-`android-9.0.0_r47` tag; source URLs and archive SHA-256 values are recorded in
-`patches/twrp-frameworks-base/README.md`, and every applied patch is copied
-into each accepted recovery artifact.
+Each synchronized project is accepted only when its pinned `HEAD` tree, Git
+index, and clean worktree contain the same complete file set. This caught a
+previously interrupted `frameworks/base` checkout whose empty index had left
+more than eleven thousand tracked files absent while `repo sync` still
+reported success. The sync worker can rebuild only this precisely identified
+empty-index state from the already-pinned commit; all other incomplete or
+dirty states are rejected and retried through `repo`.
 
 The official build FAQ normally maps a device that launched on Android 5.1 to
 the Android 6.0 TWRP branch. For m86 that branch would also freeze recovery at

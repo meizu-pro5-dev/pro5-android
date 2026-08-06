@@ -13,11 +13,7 @@ kernel_config="$project_root/kernel/meizu/m86/arch/arm64/configs/cm_pro5_defconf
 stock_lock="$project_root/locks/stock-flyme-8.0.5.0A.sha256"
 twrp_build_worker="$project_root/remote/worker-build-twrp.sh"
 twrp_install_worker="$project_root/remote/install-twrp-trees.sh"
-framework_patch_root="$project_root/patches/twrp-frameworks-base"
-framework_patch_series="$framework_patch_root/series"
-framework_stats_patch="$framework_patch_root/0001-restore-aosp-p-stats-log-api-gen.patch"
-framework_fonts_patch="$framework_patch_root/0002-restore-aosp-p-font-tools.patch"
-framework_patch_readme="$project_root/patches/twrp-frameworks-base/README.md"
+twrp_sync_worker="$project_root/remote/worker-sync-twrp-source.sh"
 
 for required_file in \
   "$board_config" \
@@ -30,10 +26,7 @@ for required_file in \
   "$stock_lock" \
   "$twrp_build_worker" \
   "$twrp_install_worker" \
-  "$framework_patch_series" \
-  "$framework_stats_patch" \
-  "$framework_fonts_patch" \
-  "$framework_patch_readme"; do
+  "$twrp_sync_worker"; do
   if [[ ! -s "$required_file" ]]; then
     printf 'Missing required TWRP source: %s\n' "$required_file" >&2
     exit 1
@@ -91,23 +84,8 @@ require_fixed 'CONFIG_RTC_CLASS=y' "$kernel_config"
 require_fixed 'CONFIG_RTC_DRV_SEC=y' "$kernel_config"
 require_fixed 'export BUILD_DATETIME=1538238534' "$twrp_build_worker"
 require_fixed "localedef -i en_US -f UTF-8 en_US.UTF-8" "$twrp_build_worker"
-require_fixed 'TWRP-FRAMEWORKS-BASE-PATCHES.sha256' \
+require_fixed 'source_checkout_validation=HEAD tree equals index and clean worktree' \
   "$twrp_build_worker"
-require_fixed 'git -C "$framework_base" apply --check "$framework_patch"' \
-  "$twrp_install_worker"
-require_fixed 'git -C "$framework_base" apply --reverse --check "$framework_patch"' \
-  "$twrp_install_worker"
-require_fixed '0001-restore-aosp-p-stats-log-api-gen.patch' \
-  "$framework_patch_series"
-require_fixed '0002-restore-aosp-p-font-tools.patch' "$framework_patch_series"
-require_fixed 'tools/stats_log_api_gen/Android.bp' "$framework_stats_patch"
-require_fixed 'name: "stats-log-api-gen"' "$framework_stats_patch"
-require_fixed 'tools/fonts/fontchain_linter.py' "$framework_fonts_patch"
-require_fixed 'android-9.0.0_r47' "$framework_patch_readme"
-require_fixed 'ed2e8eacedf554419dcc45e5ecca2a6395b740f4de53b7bb610463fe2184081c' \
-  "$framework_patch_readme"
-require_fixed '6bd39ecfe2ee57a74737fed8078b3260c66d9fb3db8baf54a0b87bb53a6b49c0' \
-  "$framework_patch_readme"
 require_fixed 'build_twrp_pass 1 "$first_out"' "$twrp_build_worker"
 require_fixed 'build_twrp_pass 2 "$second_out"' "$twrp_build_worker"
 require_fixed 'cmp --silent "$first_file" "$second_file"' \
@@ -115,10 +93,20 @@ require_fixed 'cmp --silent "$first_file" "$second_file"' \
 require_fixed 'REPRODUCIBILITY.txt' "$twrp_build_worker"
 require_fixed 'reproducibility=byte-identical recovery.img dtb kernel.config' \
   "$twrp_build_worker"
-require_fixed 'manifest_tmp="${manifest_lock}.tmp"' \
-  "$project_root/remote/worker-sync-twrp-source.sh"
+require_fixed 'project_checkout_complete()' "$twrp_sync_worker"
+require_fixed 'git -C "$project" ls-tree -r --name-only HEAD' \
+  "$twrp_sync_worker"
+require_fixed 'git -C "$project" ls-files' "$twrp_sync_worker"
+require_fixed 'status --porcelain --untracked-files=normal' "$twrp_sync_worker"
+require_fixed 'repair_empty_index_checkout()' "$twrp_sync_worker"
+require_fixed '[[ "$index_count" != 0 ]]' "$twrp_sync_worker"
+require_fixed 'git -C "$project" read-tree HEAD' "$twrp_sync_worker"
+require_fixed 'git -C "$project" checkout-index --all --force' \
+  "$twrp_sync_worker"
+require_fixed 'for project in "${projects[@]}"; do' "$twrp_sync_worker"
+require_fixed 'manifest_tmp="${manifest_lock}.tmp"' "$twrp_sync_worker"
 require_fixed 'mv "$manifest_tmp" "$manifest_lock"' \
-  "$project_root/remote/worker-sync-twrp-source.sh"
+  "$twrp_sync_worker"
 require_fixed \
   '6362b3058217451a29638c6538ec2dc0f8910702679363bf0a4a96e11c63896d  system.img/vendor/firmware/st_fts.bin' \
   "$stock_lock"

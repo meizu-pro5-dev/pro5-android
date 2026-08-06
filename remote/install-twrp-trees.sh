@@ -39,39 +39,6 @@ for source_and_target in \
   printf 'Installed TWRP tree: %s\n' "$target_relative"
 done
 
-# OmniROM's pinned android_frameworks_base_old branch contains two references
-# to stats-log-api-gen but omitted the matching AOSP Pie source directory.
-# Restore the exact android-9.0.0_r47 files so unmodified Soong can construct
-# the recovery build graph. Keep this idempotent across repeated clean builds.
-framework_base="$source_root/frameworks/base"
-framework_patch_root="$local_root/patches/twrp-frameworks-base"
-framework_patch_series="$framework_patch_root/series"
-if [[ ! -s "$framework_patch_series" ]]; then
-  printf 'Missing pinned TWRP frameworks/base patch series.\n' >&2
-  exit 1
-fi
-while IFS= read -r framework_patch_name; do
-  [[ -n "$framework_patch_name" ]] || continue
-  framework_patch="$framework_patch_root/$framework_patch_name"
-  if [[ ! -f "$framework_patch" ]]; then
-    printf 'Missing TWRP frameworks/base patch: %s\n' \
-      "$framework_patch_name" >&2
-    exit 1
-  fi
-  if git -C "$framework_base" apply --check "$framework_patch"; then
-    git -C "$framework_base" apply "$framework_patch"
-    printf 'Applied TWRP frameworks/base patch: %s\n' \
-      "$framework_patch_name"
-  elif git -C "$framework_base" apply --reverse --check "$framework_patch"; then
-    printf 'Retained TWRP frameworks/base patch: %s\n' \
-      "$framework_patch_name"
-  else
-    printf 'TWRP frameworks/base does not match patch: %s\n' \
-      "$framework_patch_name" >&2
-    exit 1
-  fi
-done < "$framework_patch_series"
-
 overlay_root="$local_root/overlays/kernel-meizu-m86-case-sensitive"
 overlay_hashes="$overlay_root/SHA256SUMS"
 if [[ ! -f "$overlay_hashes" ]]; then
