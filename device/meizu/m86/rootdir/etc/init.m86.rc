@@ -21,6 +21,9 @@ on post-fs-data
 on boot
     chown bluetooth bluetooth /dev/ttySAC4
     chmod 0660 /dev/ttySAC4
+    chown bluetooth bluetooth /sys/class/rfkill/rfkill0/state
+    chmod 0660 /sys/class/rfkill/rfkill0/state
+    chown bluetooth bluetooth /sys/class/rfkill/rfkill0/type
     chown gps system /dev/ttySAC1
     chmod 0660 /dev/ttySAC1
     chown nfc nfc /dev/pn544

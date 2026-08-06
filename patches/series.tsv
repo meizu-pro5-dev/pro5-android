@@ -1,2 +1,3 @@
 # repository path	patch path
 device/samsung/universal7420-common	patches/device-samsung-universal7420-common/0001-target-add-meizu-m86.patch
+device/samsung/universal7420-common	patches/device-samsung-universal7420-common/0002-bluetooth-add-m86-address-fallback.patch

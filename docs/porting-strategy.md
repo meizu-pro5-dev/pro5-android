@@ -146,8 +146,13 @@ protection, headset, and Hi-Fi DAC modes.
 Use the m86 Broadcom `bcmdhd` kernel driver and verified Flyme firmware and
 calibration. Audit BCM43455/BCM4349 firmware selection rather than assuming a
 Galaxy file. Reuse Android 10 legacy Wi-Fi service patterns and Broadcom vendor
-HAL interfaces where ABI-compatible. Preserve the actual Meizu Bluetooth MAC
-storage path after it is confirmed from stock runtime evidence.
+HAL interfaces where ABI-compatible. The Android 10 wrapper checks a factory
+file, `ro.boot.btmacaddr`, and the old persistent property first. Because the
+verified Flyme ramdisk leaves its factory path unset, m86 alone derives a
+stable locally administered fallback from the bootloader serial instead of
+aborting or generating a different address each boot. The first device test
+must record which higher-priority source is actually present; a real factory
+address always supersedes the fallback.
 
 ### Camera
 

@@ -178,8 +178,12 @@ WIFI_DRIVER_FW_PATH_PARAM := /sys/module/bcmdhd/parameters/firmware_path
 WIFI_DRIVER_FW_PATH_STA := /system/vendor/firmware/fw_bcmdhd.bin
 WIFI_DRIVER_FW_PATH_AP := /system/vendor/firmware/fw_bcmdhd_apsta.bin
 WIFI_BAND := 802_11_ABG
+BOARD_BLUETOOTH_BDROID_BUILDCFG_INCLUDE_DIR := $(M86_PATH)/bluetooth
 BOARD_HAVE_BLUETOOTH := true
-BOARD_HAVE_BLUETOOTH_BCM := true
+# Flyme 8 supplies the m86-specific Broadcom vendor interface. Do not also
+# define hardware/broadcom's same-named source module and depend on duplicate
+# install-rule ordering.
+BOARD_HAVE_BLUETOOTH_BCM :=
 
 # Use a deliberately minimal manifest until each stock HAL has a validated
 # Android 10 wrapper or replacement.

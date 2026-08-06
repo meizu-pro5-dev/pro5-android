@@ -10,12 +10,16 @@ android_makefile="$device_root/Android.mk"
 device_makefile="$device_root/device.mk"
 device_manifest="$device_root/manifest.xml"
 system_prop="$device_root/system.prop"
+bluetooth_buildcfg="$device_root/bluetooth/bdroid_buildcfg.h"
+bluetooth_vendor_conf="$device_root/bluetooth/bt_vendor.conf"
 usb_rc="$device_root/rootdir/etc/init.m86.usb.rc"
 ueventd_rc="$device_root/rootdir/etc/ueventd.m86.rc"
 recovery_fstab="$device_root/rootdir/etc/recovery.fstab"
 releasetools="$device_root/releasetools/releasetools.py"
 kernel_config="$project_root/kernel/meizu/m86/arch/arm64/configs/cm_pro5_defconfig"
 platform_patch="$project_root/patches/device-samsung-universal7420-common/0001-target-add-meizu-m86.patch"
+bluetooth_patch="$project_root/patches/device-samsung-universal7420-common/0002-bluetooth-add-m86-address-fallback.patch"
+patch_series="$project_root/patches/series.tsv"
 build_worker="$project_root/remote/worker-build.sh"
 vendor_worker="$project_root/remote/prepare-vendor.sh"
 blob_list="$device_root/proprietary-files.txt"
@@ -26,12 +30,16 @@ for required_file in \
   "$device_makefile" \
   "$device_manifest" \
   "$system_prop" \
+  "$bluetooth_buildcfg" \
+  "$bluetooth_vendor_conf" \
   "$usb_rc" \
   "$ueventd_rc" \
   "$recovery_fstab" \
   "$releasetools" \
   "$kernel_config" \
   "$platform_patch" \
+  "$bluetooth_patch" \
+  "$patch_series" \
   "$build_worker" \
   "$vendor_worker" \
   "$blob_list"; do
@@ -110,8 +118,17 @@ require_fixed 'BOARD_CHARGING_MODE_BOOTING_LPM := /sys/class/power_supply/batter
 require_fixed 'TARGET_SLSI_VARIANT := bsp' "$board_config"
 require_fixed 'WIFI_DRIVER_FW_PATH_PARAM := /sys/module/bcmdhd/parameters/firmware_path' \
   "$board_config"
+require_fixed 'BOARD_BLUETOOTH_BDROID_BUILDCFG_INCLUDE_DIR := $(M86_PATH)/bluetooth' \
+  "$board_config"
+require_fixed 'BOARD_HAVE_BLUETOOTH := true' "$board_config"
 require_fixed 'sys.usb.ffs.aio_compat=1' "$system_prop"
 require_fixed 'persist.sys.usb.config=mtp' "$device_makefile"
+require_fixed 'android.hardware.bluetooth_le.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.bluetooth_le.xml' \
+  "$device_makefile"
+require_fixed 'android.hardware.bluetooth@1.0-impl.zero' "$device_makefile"
+require_fixed 'android.hardware.bluetooth@1.0-service' "$device_makefile"
+require_fixed '$(LOCAL_PATH)/bluetooth/bt_vendor.conf:$(TARGET_COPY_OUT_SYSTEM)/etc/bluetooth/bt_vendor.conf' \
+  "$device_makefile"
 require_fixed 'android.hardware.graphics.allocator@2.0-service' "$device_makefile"
 require_fixed 'android.hardware.graphics.composer@2.1-impl' "$device_makefile"
 require_fixed 'android.hardware.graphics.mapper@2.0-impl' "$device_makefile"
@@ -133,8 +150,20 @@ require_fixed '/dev/ion                     0666   system      system' \
   "$ueventd_rc"
 require_fixed '/dev/video23                 0660   media       graphics' \
   "$ueventd_rc"
+require_fixed 'chown bluetooth bluetooth /sys/class/rfkill/rfkill0/state' \
+  "$device_root/rootdir/etc/init.m86.rc"
+require_fixed 'chmod 0660 /sys/class/rfkill/rfkill0/state' \
+  "$device_root/rootdir/etc/init.m86.rc"
 require_fixed 'ifneq ($(filter samsung meizu,$(BOARD_VENDOR)),)' "$platform_patch"
 require_fixed 'ifneq ($(TARGET_DEVICE_IS_M86),true)' "$platform_patch"
+require_fixed 'derive_m86_address_from_serial' "$bluetooth_patch"
+require_fixed 'strcmp(hardware, "m86") != 0' "$bluetooth_patch"
+require_fixed 'local_addr[0] = 0x02;' "$bluetooth_patch"
+require_fixed 'patches/device-samsung-universal7420-common/0002-bluetooth-add-m86-address-fallback.patch' \
+  "$patch_series"
+require_fixed '#define BTM_DEF_LOCAL_NAME "Meizu PRO 5"' "$bluetooth_buildcfg"
+require_fixed 'UartPort = /dev/ttySAC4' "$bluetooth_vendor_conf"
+require_fixed 'FwPatchFilePath = /vendor/firmware/' "$bluetooth_vendor_conf"
 require_fixed 'CONFIG_CMDLINE="androidboot.hardware=m86 androidboot.selinux=permissive"' \
   "$kernel_config"
 require_fixed 'CONFIG_CMDLINE_EXTEND=y' "$kernel_config"
@@ -144,6 +173,7 @@ require_fixed 'vendor_blob_count="$(wc -l < "$vendor_blob_lock"' \
   "$build_worker"
 require_fixed 'sha256sum --quiet -c "$vendor_blob_lock"' "$build_worker"
 require_fixed 'm86-proprietary-sha256s.txt' "$build_worker"
+require_fixed 'vendor/lib/libbt-vendor.so' "$blob_list"
 require_fixed 'vendor/lib/egl/libGLES_mali.so' "$blob_list"
 require_fixed 'vendor/lib64/egl/libGLES_mali.so' "$blob_list"
 require_fixed 'copy_rule_count="$(' "$vendor_worker"
@@ -171,6 +201,8 @@ if ! command -v xmllint >/dev/null 2>&1; then
 fi
 xmllint --noout "$device_manifest"
 require_manifest_hal \
+  android.hardware.bluetooth 1.0 hwbinder '' IBluetoothHci
+require_manifest_hal \
   android.hardware.configstore 1.1 hwbinder '' ISurfaceFlingerConfigs
 require_manifest_hal \
   android.hardware.graphics.allocator 2.0 hwbinder '' IAllocator
@@ -185,7 +217,6 @@ for inherited_variable in \
   TARGET_UNOFFICIAL_BUILD_ID \
   TARGET_BUILD_DEBUGGABLE \
   TARGET_AUDIOHAL_VARIANT \
-  BOARD_BLUETOOTH_BDROID_BUILDCFG_INCLUDE_DIR \
   BOARD_CUSTOM_BT_CONFIG \
   BOARD_HAVE_SAMSUNG_BLUETOOTH \
   BOARD_USE_SAMSUNG_CAMERAFORMAT_NV21 \
@@ -210,6 +241,7 @@ for inherited_variable in \
   BOARD_HAVE_SAMSUNG_WIFI; do
   require_empty_assignment "$inherited_variable" "$board_config"
 done
+require_empty_assignment BOARD_HAVE_BLUETOOTH_BCM "$board_config"
 
 if ! rg -q '^BOARD_KERNEL_CMDLINE :=[[:space:]]*$' "$board_config"; then
   printf 'The verified m86 v0 boot header must have an empty command line.\n' >&2

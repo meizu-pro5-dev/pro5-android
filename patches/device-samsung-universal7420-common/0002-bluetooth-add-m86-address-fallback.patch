@@ -1,0 +1,84 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: PRO 5 Android 10 Port <pro5-port@localhost>
+Date: Fri, 7 Aug 2026 03:00:00 +0800
+Subject: [PATCH] bluetooth: add a stable m86 address fallback
+
+Flyme's pre-HIDL stack generated and persisted an address when neither a
+factory file nor a boot property was available. Android 10's HIDL wrapper
+instead aborts, while the m86 stock ramdisk leaves ro.bt.bdaddr_path unset.
+
+Keep all upstream address sources first. For m86 only, derive a stable locally
+administered unicast address from the bootloader serial as a last resort. This
+keeps clean-data boots functional without assigning a new address on every
+boot or changing behavior for the Samsung targets.
+---
+ hardware/bluetooth/bluetooth_address.cc | 41 +++++++++++++++++++++++++++++++++
+ 1 file changed, 41 insertions(+)
+
+diff --git a/hardware/bluetooth/bluetooth_address.cc b/hardware/bluetooth/bluetooth_address.cc
+--- a/hardware/bluetooth/bluetooth_address.cc
++++ b/hardware/bluetooth/bluetooth_address.cc
+@@ -19,6 +19,7 @@
+ #include <cutils/properties.h>
+ #include <errno.h>
+ #include <fcntl.h>
++#include <string.h>
+ #include <unistd.h>
+ #include <utils/Log.h>
+ 
+@@ -28,6 +29,44 @@ namespace bluetooth {
+ namespace V1_0 {
+ namespace implementation {
+ 
++namespace {
++
++bool derive_m86_address_from_serial(uint8_t* local_addr) {
++  char hardware[PROPERTY_VALUE_MAX] = {0};
++  if (property_get("ro.hardware", hardware, nullptr) <= 0 ||
++      strcmp(hardware, "m86") != 0) {
++    return false;
++  }
++
++  char serial[PROPERTY_VALUE_MAX] = {0};
++  if (property_get("ro.serialno", serial, nullptr) <= 0 &&
++      property_get("ro.boot.serialno", serial, nullptr) <= 0) {
++    ALOGE("%s: m86 has no factory BDA or device serial", __func__);
++    return false;
++  }
++
++  // FNV-1a supplies a deterministic 40-bit device suffix. 0x02 marks the
++  // result as a locally administered unicast address.
++  uint64_t hash = 14695981039346656037ULL;
++  for (const unsigned char* value =
++           reinterpret_cast<const unsigned char*>(serial);
++       *value != '\0'; ++value) {
++    hash ^= *value;
++    hash *= 1099511628211ULL;
++  }
++  local_addr[0] = 0x02;
++  for (size_t index = 1; index < BluetoothAddress::kBytes; ++index) {
++    local_addr[index] = static_cast<uint8_t>(hash >> ((index - 1) * 8));
++  }
++
++  char address[BluetoothAddress::kStringLength + 1] = {0};
++  BluetoothAddress::bytes_to_string(local_addr, address);
++  ALOGW("%s: derived stable m86 fallback BDA %s", __func__, address);
++  return true;
++}
++
++}  // namespace
++
+ void BluetoothAddress::bytes_to_string(const uint8_t* addr, char* addr_str) {
+   sprintf(addr_str, "%02x:%02x:%02x:%02x:%02x:%02x", addr[0], addr[1], addr[2],
+           addr[3], addr[4], addr[5]);
+@@ -87,6 +126,8 @@ bool BluetoothAddress::get_local_address(uint8_t* local_addr) {
+     return true;
+   }
+ 
++  if (derive_m86_address_from_serial(local_addr)) return true;
++
+   return false;
+ }
+ 
+-- 
+2.34.1

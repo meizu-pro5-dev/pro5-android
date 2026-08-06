@@ -39,6 +39,7 @@ PRODUCT_COPY_FILES += \
 # Minimum feature declaration for the first boot/recovery milestone.
 PRODUCT_COPY_FILES += \
     frameworks/native/data/etc/android.hardware.touchscreen.multitouch.jazzhand.xml:system/etc/permissions/android.hardware.touchscreen.multitouch.jazzhand.xml \
+    frameworks/native/data/etc/android.hardware.bluetooth_le.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.bluetooth_le.xml \
     frameworks/native/data/etc/android.hardware.usb.accessory.xml:system/etc/permissions/android.hardware.usb.accessory.xml \
     frameworks/native/data/etc/android.hardware.usb.host.xml:system/etc/permissions/android.hardware.usb.host.xml \
     frameworks/native/data/etc/handheld_core_hardware.xml:system/etc/permissions/handheld_core_hardware.xml
@@ -56,6 +57,15 @@ PRODUCT_PACKAGES += \
     libfimg \
     libhwc2on1adapter \
     libion
+
+# Bluetooth. The same-SoC wrapper adds the required SCO configuration step;
+# it loads the hash-locked m86 libbt-vendor.so at runtime.
+PRODUCT_PACKAGES += \
+    android.hardware.bluetooth@1.0-impl.zero \
+    android.hardware.bluetooth@1.0-service
+
+PRODUCT_COPY_FILES += \
+    $(LOCAL_PATH)/bluetooth/bt_vendor.conf:$(TARGET_COPY_OUT_SYSTEM)/etc/bluetooth/bt_vendor.conf
 
 TARGET_SYSTEM_PROP += $(LOCAL_PATH)/system.prop
 
