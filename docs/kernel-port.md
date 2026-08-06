@@ -109,6 +109,13 @@ source's bootargs, Mali clocks, and modem buffer counts. The DTC rule now
 includes `$(objtree)/include/generated/autoconf.h` so external and in-tree
 builds evaluate board conditionals consistently.
 
+Two clean builds of the same target initially differed by 22 bytes. The only
+variable payload was Broadcom DHD's debug version string containing
+`__DATE__`/`__TIME__`; its two changed timestamp bytes also changed the
+20-byte linker build ID. The runtime-irrelevant wall-clock suffix is removed
+while retaining the driver version and source path. Consecutive clean builds
+must now produce identical `Image`, DTB, and config hashes.
+
 The stock Flyme DTB remains a separate hardware reference. It has the same
 root model and compatible strings but uses the older `fpc,fpc_irq` fingerprint
 node and a `meizu,simple_adc` thermistor node, while the community/current tree
