@@ -55,7 +55,7 @@ The seed blob list can be checked without mounting or modifying the image:
 PYTHONPATH=../work/pro5-flyme-8.0.5.0A/python-deps \
   ./tools/audit-proprietary-files.py \
   ../work/pro5-flyme-8.0.5.0A/extracted/system.img \
-  vendor/meizu/m86/proprietary-files.txt
+  device/meizu/m86/proprietary-files.txt
 ```
 
 The script exits nonzero while any seed entry is absent, so the audit can be

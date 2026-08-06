@@ -12,7 +12,8 @@ metadata, manifests, patches, build scripts, source locks, and bring-up notes.
 
 - `device/meizu/m86/`: Android device configuration authored for this port.
 - `kernel/meizu/m86/`: maintained kernel source used by the port.
-- `vendor/meizu/m86/`: extraction scripts and proprietary-file metadata.
+- `device/meizu/m86/`: device configuration and proprietary extraction metadata.
+- `vendor/meizu/m86/`: generated vendor build definitions; binaries are ignored.
 - `manifests/`: LineageOS and reference-source declarations.
 - `overlays/`: case-sensitive source fragments that cannot coexist directly
   in the default macOS working tree.
@@ -50,9 +51,9 @@ Typical control flow:
 ./remote/push-local.sh
 ./remote/start-source-sync.sh
 ./remote/source-sync-status.sh
-./remote/push-stock-blobs.sh
 ./remote/start-platform-sync.sh
 ./remote/platform-sync-status.sh
+./remote/prepare-vendor.sh
 ./remote/start-kernel-build.sh
 ./remote/kernel-build-status.sh
 ./remote/start-build.sh bootimage

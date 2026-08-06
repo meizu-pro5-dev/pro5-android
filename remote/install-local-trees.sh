@@ -34,7 +34,14 @@ for relative_path in \
   fi
 
   mkdir -p "$build_tree"
-  rsync -a --delete-delay "$local_tree/" "$build_tree/"
+  rsync_args=(-a --delete-delay)
+  if [[ "$relative_path" == vendor/meizu/m86 ]]; then
+    # Proprietary bytes are staged separately from the verified stock dump.
+    # They are intentionally absent from the local Git tree and must survive
+    # repeated installation of the generated vendor definitions.
+    rsync_args+=(--exclude proprietary/)
+  fi
+  rsync "${rsync_args[@]}" "$local_tree/" "$build_tree/"
   printf 'Installed: %s\n' "$relative_path"
 done
 
