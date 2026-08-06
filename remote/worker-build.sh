@@ -307,6 +307,14 @@ if [[ "$target" == bacon ]]; then
     printf 'OTA contains a forbidden firmware or backup-partition payload.\n' >&2
     exit 1
   fi
+
+  "$local_root/tools/audit-camera-abi.sh" \
+    "$source_root" \
+    "$out_root" \
+    "$product_out/system/lib/libm86camera_shim.so" |
+    tee "$artifact_dir/CAMERA-ABI.txt"
+  "$local_root/tools/audit-fingerprint-output.sh" "$product_out" |
+    tee "$artifact_dir/FINGERPRINT-OUTPUT.txt"
 fi
 
 copy_required \

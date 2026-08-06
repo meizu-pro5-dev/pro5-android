@@ -53,6 +53,7 @@ push_worker="$project_root/remote/push-local.sh"
 platform_sync_worker="$project_root/remote/worker-sync-platform.sh"
 vendor_worker="$project_root/remote/prepare-vendor.sh"
 camera_audit_tool="$project_root/tools/audit-camera-abi.sh"
+fingerprint_audit_tool="$project_root/tools/audit-fingerprint-output.sh"
 blob_list="$device_root/proprietary-files.txt"
 vendor_definition_root="$project_root/vendor/meizu/m86"
 vendor_android_makefile="$vendor_definition_root/Android.mk"
@@ -110,6 +111,7 @@ for required_file in \
   "$platform_sync_worker" \
   "$vendor_worker" \
   "$camera_audit_tool" \
+  "$fingerprint_audit_tool" \
   "$blob_list" \
   "$vendor_android_makefile" \
   "$vendor_board_config" \
@@ -135,6 +137,9 @@ require_fixed() {
 
 require_fixed 'jobs="${PRO5_BUILD_JOBS:-8}"' "$start_build"
 require_fixed 'jobs="${2:-8}"' "$build_worker"
+require_fixed 'audit-camera-abi.sh' "$build_worker"
+require_fixed 'audit-fingerprint-output.sh' "$build_worker"
+require_fixed 'fingerprint output audit passed.' "$fingerprint_audit_tool"
 
 require_empty_assignment() {
   local variable_name="$1"
