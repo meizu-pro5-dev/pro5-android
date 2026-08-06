@@ -51,6 +51,43 @@ reference snapshot. Individual commit identifiers are used to explain and
 review the port; patches are applied to the local Meizu tree, never only to the
 builder checkout.
 
+Android 10's released kernel-config repository contains Q requirements for
+4.9, 4.14, and 4.19 only; its 4.9 conditional file requires at least 4.9.165.
+The m86 Linux 3.10.61 base is therefore a deliberate legacy compatibility
+port, not a claim of Android 10 FCM or VTS kernel compliance. Required-looking
+options are accepted only when both Android userspace and this 3.10 base can
+support them. In particular, the Q condition permits the legacy Android low
+memory killer instead of `MEMCG` plus swap accounting. Since m86 already has
+the former and enabling `MEMCG` adds per-page overhead, memory cgroups remain
+off until runtime evidence requires them.
+
+The first low-risk subset taken from the
+[released Q 4.9 base fragment](https://android.googlesource.com/kernel/configs/+/refs/tags/android-10.0.0_r41/q/android-4.9/android-base.config)
+and confirmed in the same-SoC donor is:
+
+```text
+CONFIG_IKCONFIG=y
+CONFIG_IKCONFIG_PROC=y
+CONFIG_TASKSTATS=y
+CONFIG_TASK_XACCT=y
+CONFIG_TASK_IO_ACCOUNTING=y
+```
+
+This makes the exact running configuration available through
+`/proc/config.gz` and provides task/I/O accounting without enabling delay
+accounting. A clean build compiled and linked `configs.o` and `taskstats.o`
+and produced:
+
+| Artifact | Size | SHA-256 |
+| --- | ---: | --- |
+| `Image` | 17,133,912 | `1e2319675e6dbf9d50a68e25efc218d7d867b99da58060a2cc16a92715ea4f35` |
+| config-aware DTB | 146,172 | `0b537be248ed155a925d58c9a6b927ec1c4cdfaa0624ea714e848abddfba7d84` |
+| generated config | 99,780 | `2d5b26afc6afd525819d81df808a4b5bd929daf51069d58236075487d81a5d19` |
+
+The retained local evidence directory is
+`artifacts/pro5-a10-kernel-20260807-002347-q-base-config` in the parent Android
+workspace.
+
 ## Port order and gates
 
 1. Build the unchanged `cm_pro5_defconfig` with the LineageOS 17.1 GCC 4.9
