@@ -128,7 +128,12 @@ for index in "${!projects[@]}"; do
   project_number=$((index + 1))
   phase="Project ${project_number}/${project_total}"
 
-  if sync_one_project "$project" "$phase"; then
+  if [[ "$project" == "${kernel_toolchains[0]}" ]] || \
+      [[ "$project" == "${kernel_toolchains[1]}" ]]; then
+    printf '%s: %s already completed by the toolchain gate\n' \
+      "$phase" "$project"
+    state=complete
+  elif sync_one_project "$project" "$phase"; then
     state=complete
   else
     state=failed
