@@ -64,7 +64,10 @@ used as a bring-up gate once the inventory is reconciled.
 The imported CM 14.1 seed contained 226 unique paths. The Flyme 8 audit found
 202 at the same paths, four Mobicore libraries relocated under `vendor/lib`
 and `vendor/lib64`, and 20 legacy files no longer shipped by Meizu. The
-reconciled inventory contains 206 unique entries and all 206 resolve in the
-verified image. Removed entries are not silently sourced from an older OTA;
-any future need for one must be demonstrated by runtime evidence and recorded
-as an explicit compatibility exception.
+path-reconciled inventory contained 206 unique entries and all 206 resolved in
+the verified image. ELF analysis then added 13 direct private/legacy
+dependencies used by the stock camera, display-effect, and audio-effect
+binaries, producing 219 verified source paths. Removed entries are not
+silently sourced from an older OTA; any future need for one must be
+demonstrated by runtime evidence and recorded as an explicit compatibility
+exception.

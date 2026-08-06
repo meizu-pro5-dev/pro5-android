@@ -23,3 +23,17 @@ PYTHONPATH=../work/pro5-flyme-8.0.5.0A/python-deps \
 
 Run `extract-files.sh PATH_TO_EXPANDED_ROM` only from an installed LineageOS
 17.1 checkout so the branch-matched `extract_utils.sh` generates the makefiles.
+
+When an ELF dependency is not provided by the current list or Android 10
+platform, locate an exact stock candidate without mounting the image:
+
+```bash
+PYTHONPATH=../work/pro5-flyme-8.0.5.0A/python-deps \
+  ./tools/find-ext4-files.py \
+  ../work/pro5-flyme-8.0.5.0A/extracted/system.img \
+  libexample.so
+```
+
+Finding a matching basename does not by itself authorize adding it. The
+calling blob, architecture, ABI, license boundary, and Android 10 replacement
+must still be recorded.
