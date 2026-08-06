@@ -31,6 +31,14 @@ def decode_c_string(value: bytes) -> str:
     return value.split(b"\0", 1)[0].decode("utf-8", "replace")
 
 
+def parse_archive_path(value: str) -> str:
+    archive_path = value.removeprefix("/").removeprefix("./")
+    path_parts = archive_path.split("/")
+    if not archive_path or any(part in ("", ".", "..") for part in path_parts):
+        raise argparse.ArgumentTypeError("expected a safe RAMDISK_PATH")
+    return archive_path
+
+
 def parse_hash_expectation(value: str) -> tuple[str, str]:
     try:
         archive_path, expected_hash = value.rsplit("=", 1)
@@ -39,14 +47,10 @@ def parse_hash_expectation(value: str) -> tuple[str, str]:
             "expected RAMDISK_PATH=SHA256"
         ) from exc
 
-    archive_path = archive_path.removeprefix("/").removeprefix("./")
-    path_parts = archive_path.split("/")
+    archive_path = parse_archive_path(archive_path)
     expected_hash = expected_hash.lower()
-    if (
-        not archive_path
-        or any(part in ("", ".", "..") for part in path_parts)
-        or len(expected_hash) != 64
-        or any(character not in "0123456789abcdef" for character in expected_hash)
+    if len(expected_hash) != 64 or any(
+        character not in "0123456789abcdef" for character in expected_hash
     ):
         raise argparse.ArgumentTypeError(
             "expected a safe RAMDISK_PATH and a 64-character SHA-256"
@@ -117,6 +121,22 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--expect-ramdisk-compression",
         choices=("gzip", "lzma", "xz", "lz4", "unknown"),
+    )
+    parser.add_argument(
+        "--expect-ramdisk-elf",
+        action="append",
+        default=[],
+        type=parse_archive_path,
+        metavar="RAMDISK_PATH",
+        help="require an ELF file inside a gzip-compressed newc ramdisk",
+    )
+    parser.add_argument(
+        "--expect-ramdisk-file",
+        action="append",
+        default=[],
+        type=parse_archive_path,
+        metavar="RAMDISK_PATH",
+        help="require a file inside a gzip-compressed newc ramdisk",
     )
     parser.add_argument(
         "--expect-ramdisk-file-sha256",
@@ -224,7 +244,14 @@ def main() -> int:
         failures.append(f"image exceeds limit: {image_size} > {args.max_size}")
 
     inspected_ramdisk_files: list[tuple[str, int, str]] = []
-    if args.expect_ramdisk_file_sha256:
+    requested_ramdisk_files: dict[str, str | None] = {
+        archive_path: None for archive_path in args.expect_ramdisk_file
+    }
+    requested_ramdisk_files.update(
+        {archive_path: None for archive_path in args.expect_ramdisk_elf}
+    )
+    requested_ramdisk_files.update(dict(args.expect_ramdisk_file_sha256))
+    if requested_ramdisk_files:
         if ramdisk_compression != "gzip":
             failures.append(
                 "RAM disk file inspection requires a gzip-compressed ramdisk"
@@ -235,7 +262,7 @@ def main() -> int:
             except (OSError, ValueError) as error:
                 failures.append(f"unable to parse gzip/newc ramdisk: {error}")
             else:
-                for archive_path, expected_hash in args.expect_ramdisk_file_sha256:
+                for archive_path, expected_hash in requested_ramdisk_files.items():
                     content = ramdisk_entries.get(archive_path)
                     if content is None:
                         failures.append(f"ramdisk file is absent: {archive_path}")
@@ -244,7 +271,12 @@ def main() -> int:
                     inspected_ramdisk_files.append(
                         (archive_path, len(content), actual_hash)
                     )
-                    if actual_hash != expected_hash:
+                    if (
+                        archive_path in args.expect_ramdisk_elf
+                        and not content.startswith(b"\x7fELF")
+                    ):
+                        failures.append(f"ramdisk file is not ELF: {archive_path}")
+                    if expected_hash is not None and actual_hash != expected_hash:
                         failures.append(
                             f"ramdisk file hash for {archive_path}: expected "
                             f"{expected_hash}, found {actual_hash}"

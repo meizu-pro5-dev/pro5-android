@@ -237,6 +237,25 @@ build_twrp_pass() {
       "$pass_name" >&2
     return 1
   fi
+  for required_kernel_setting in \
+    CONFIG_DM_CRYPT=y \
+    CONFIG_FMP=y \
+    CONFIG_UFS_FMP_DM_CRYPT=y \
+    CONFIG_INPUT_EVDEV=y \
+    CONFIG_TOUCHSCREEN_FTS=y \
+    CONFIG_USB_DWC3_DUAL_ROLE=y \
+    CONFIG_USB_G_ANDROID=y \
+    CONFIG_USB_STORAGE=y \
+    CONFIG_MMC_DW_EXYNOS=y \
+    CONFIG_EXT4_FS=y \
+    CONFIG_VFAT_FS=y \
+    CONFIG_EXFAT_FS=y; do
+    if ! grep -F -x -q "$required_kernel_setting" "$kernel_out/.config"; then
+      printf 'TWRP pass %s kernel config omitted %s.\n' \
+        "$pass_name" "$required_kernel_setting" >&2
+      return 1
+    fi
+  done
 
   # recoveryimage correctly contains no DT section. Build the matching raw
   # partition image from the same configured kernel output for each pass.
@@ -334,6 +353,17 @@ done < "$twrp_patch_series"
     "$(sha256sum "$kernel_out/.config" | awk '{ print $1 }')"
 } > "$artifact_dir/REPRODUCIBILITY.txt"
 
+recovery_fstab_hash="$(
+  sha256sum "$source_root/device/meizu/m86/recovery.fstab" | awk '{ print $1 }'
+)"
+root_fstab_hash="$(
+  sha256sum "$source_root/device/meizu/m86/rootdir/fstab.m86" | awk '{ print $1 }'
+)"
+recovery_init_hash="$(
+  sha256sum \
+    "$source_root/device/meizu/m86/recovery/root/init.recovery.m86.rc" |
+    awk '{ print $1 }'
+)"
 python3 "$local_root/tools/inspect-android-boot-image.py" \
   "$artifact_dir/recovery.img" \
   --expect-page-size 4096 \
@@ -345,6 +375,21 @@ python3 "$local_root/tools/inspect-android-boot-image.py" \
   --expect-dt-size 0 \
   --expect-empty-cmdline \
   --expect-ramdisk-compression gzip \
+  --expect-ramdisk-elf sbin/recovery \
+  --expect-ramdisk-elf sbin/adbd \
+  --expect-ramdisk-elf sbin/libminadbd.so \
+  --expect-ramdisk-elf sbin/libfusesideload.so \
+  --expect-ramdisk-elf sbin/libtwrpmtp-ffs.so \
+  --expect-ramdisk-elf sbin/libcryptfsfde.so \
+  --expect-ramdisk-elf sbin/libe4crypt.so \
+  --expect-ramdisk-elf sbin/fsck.exfat \
+  --expect-ramdisk-elf sbin/mkfs.ntfs \
+  --expect-ramdisk-elf sbin/mount.ntfs \
+  --expect-ramdisk-file-sha256 \
+    "etc/recovery.fstab=$recovery_fstab_hash" \
+  --expect-ramdisk-file-sha256 "fstab.m86=$root_fstab_hash" \
+  --expect-ramdisk-file-sha256 \
+    "init.recovery.m86.rc=$recovery_init_hash" \
   --expect-ramdisk-file-sha256 \
     "etc/firmware/st_fts.bin=$expected_touch_hash" \
   --max-size 33550336 | tee "$artifact_dir/RECOVERY-HEADER.txt"

@@ -130,6 +130,17 @@ require_fixed 'output_path_policy=same absolute OUT_DIR for both clean passes' \
 require_fixed 'REPRODUCIBILITY.txt' "$twrp_build_worker"
 require_fixed 'reproducibility=byte-identical recovery.img dtb kernel.config' \
   "$twrp_build_worker"
+require_fixed '--expect-ramdisk-elf sbin/adbd' "$twrp_build_worker"
+require_fixed '--expect-ramdisk-elf sbin/libfusesideload.so' \
+  "$twrp_build_worker"
+require_fixed '--expect-ramdisk-elf sbin/libtwrpmtp-ffs.so' \
+  "$twrp_build_worker"
+require_fixed '--expect-ramdisk-elf sbin/libcryptfsfde.so' \
+  "$twrp_build_worker"
+require_fixed '--expect-ramdisk-elf sbin/fsck.exfat' "$twrp_build_worker"
+require_fixed '--expect-ramdisk-elf sbin/mount.ntfs' "$twrp_build_worker"
+require_fixed 'etc/recovery.fstab=$recovery_fstab_hash' "$twrp_build_worker"
+require_fixed 'required_kernel_setting' "$twrp_build_worker"
 require_fixed 'project_checkout_complete()' "$twrp_sync_worker"
 require_fixed 'git -C "$project" ls-tree -r --name-only HEAD' \
   "$twrp_sync_worker"
