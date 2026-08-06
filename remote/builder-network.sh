@@ -64,12 +64,19 @@ configure_builder_aosp_source() {
 # more reliable through /etc/network_turbo on this builder.
 configure_builder_network() {
   local direct_bypass
+  local caller_shell_flags="$-"
 
   if [[ -r /etc/network_turbo ]]; then
+    # The provider script is not nounset-safe. Temporarily relax nounset but
+    # restore the caller's original state instead of changing every worker.
     set +u
     # shellcheck disable=SC1091
     source /etc/network_turbo >/dev/null 2>&1
-    set -u
+    if [[ "$caller_shell_flags" == *u* ]]; then
+      set -u
+    else
+      set +u
+    fi
   fi
 
   direct_bypass='mirrors.cernet.edu.cn,.mirrors.cernet.edu.cn,mirrors.ustc.edu.cn,.mirrors.ustc.edu.cn,mirrors.bfsu.edu.cn,.mirrors.bfsu.edu.cn,mirrors.tuna.tsinghua.edu.cn,.mirrors.tuna.tsinghua.edu.cn'
