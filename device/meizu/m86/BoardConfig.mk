@@ -19,7 +19,10 @@ PRODUCT_SKIP_FINGERPRINT_FROM_FILE :=
 TARGET_BUILD_DEBUGGABLE :=
 
 TARGET_AUDIOHAL_VARIANT :=
-AUDIOSERVER_MULTILIB :=
+# The verified Flyme primary HAL has matching 32/64-bit builds. Keep the
+# Android 10 audio process on the donor-proven 32-bit ABI first, which also
+# matches every required m86 TFA/SITRIL dependency.
+AUDIOSERVER_MULTILIB := 32
 
 BOARD_BLUETOOTH_BDROID_BUILDCFG_INCLUDE_DIR :=
 BOARD_CUSTOM_BT_CONFIG :=

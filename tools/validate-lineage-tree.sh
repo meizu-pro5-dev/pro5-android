@@ -12,6 +12,9 @@ device_manifest="$device_root/manifest.xml"
 system_prop="$device_root/system.prop"
 bluetooth_buildcfg="$device_root/bluetooth/bdroid_buildcfg.h"
 bluetooth_vendor_conf="$device_root/bluetooth/bt_vendor.conf"
+audio_policy="$device_root/audio/audio_policy_configuration.xml"
+audio_effects="$device_root/audio/audio_effects.xml"
+audio_mixer="$device_root/audio/mixer_paths.xml"
 wifi_sta_overlay="$device_root/wifi/wpa_supplicant_overlay.conf"
 wifi_p2p_overlay="$device_root/wifi/p2p_supplicant_overlay.conf"
 usb_rc="$device_root/rootdir/etc/init.m86.usb.rc"
@@ -35,6 +38,9 @@ for required_file in \
   "$system_prop" \
   "$bluetooth_buildcfg" \
   "$bluetooth_vendor_conf" \
+  "$audio_policy" \
+  "$audio_effects" \
+  "$audio_mixer" \
   "$wifi_sta_overlay" \
   "$wifi_p2p_overlay" \
   "$usb_rc" \
@@ -122,6 +128,7 @@ require_fixed 'VENDOR_SECURITY_PATCH := 2019-08-01' "$board_config"
 require_fixed 'BOARD_CHARGING_MODE_BOOTING_LPM := /sys/class/power_supply/battery/batt_lp_charging' \
   "$board_config"
 require_fixed 'TARGET_SLSI_VARIANT := bsp' "$board_config"
+require_fixed 'AUDIOSERVER_MULTILIB := 32' "$board_config"
 require_fixed 'WIFI_DRIVER_FW_PATH_PARAM := /sys/module/bcmdhd/parameters/firmware_path' \
   "$board_config"
 require_fixed 'BOARD_BLUETOOTH_BDROID_BUILDCFG_INCLUDE_DIR := $(M86_PATH)/bluetooth' \
@@ -144,6 +151,14 @@ require_fixed 'android.hardware.graphics.composer@2.1-impl' "$device_makefile"
 require_fixed 'android.hardware.graphics.mapper@2.0-impl' "$device_makefile"
 require_fixed 'android.hardware.memtrack@1.0-impl' "$device_makefile"
 require_fixed 'libhwc2on1adapter' "$device_makefile"
+require_fixed 'android.hardware.audio@5.0-impl' "$device_makefile"
+require_fixed 'android.hardware.audio.effect@5.0-impl' "$device_makefile"
+require_fixed 'audio.r_submix.default' "$device_makefile"
+require_fixed 'audio.usb.default' "$device_makefile"
+require_fixed '$(LOCAL_PATH)/audio/audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_policy_configuration.xml' \
+  "$device_makefile"
+require_fixed '$(LOCAL_PATH)/audio/mixer_paths.xml:$(TARGET_COPY_OUT_SYSTEM)/etc/mixer_paths.xml' \
+  "$device_makefile"
 require_fixed 'android.hardware.wifi@1.0-service.legacy' "$device_makefile"
 require_fixed '$(LOCAL_PATH)/wifi/p2p_supplicant_overlay.conf:$(TARGET_COPY_OUT_VENDOR)/etc/wifi/p2p_supplicant_overlay.conf' \
   "$device_makefile"
@@ -170,6 +185,12 @@ require_fixed '/dev/mali0                   0666   system      system' \
 require_fixed '/dev/ion                     0666   system      system' \
   "$ueventd_rc"
 require_fixed '/dev/video23                 0660   media       graphics' \
+  "$ueventd_rc"
+require_fixed '/dev/i2c-7                   0660   system      audio' \
+  "$ueventd_rc"
+require_fixed '/dev/adnc2                   0660   system      audio' \
+  "$ueventd_rc"
+require_fixed '/dev/video16                 0660   system      audio' \
   "$ueventd_rc"
 require_fixed 'chown bluetooth bluetooth /sys/class/rfkill/rfkill0/state' \
   "$device_root/rootdir/etc/init.m86.rc"
@@ -217,6 +238,10 @@ require_fixed 'vendor/lib64/egl/libGLES_mali.so' "$blob_list"
 require_fixed 'etc/wifi/bcmdhd.cal' "$blob_list"
 require_fixed 'vendor/firmware/fw_bcmdhd.bin' "$blob_list"
 require_fixed 'vendor/firmware/fw_bcmdhd_apsta.bin' "$blob_list"
+require_fixed 'lib/hw/audio.primary.m86.so' "$blob_list"
+require_fixed 'lib64/hw/audio.primary.m86.so' "$blob_list"
+require_fixed 'lib/libtfa9890.so' "$blob_list"
+require_fixed 'lib/libsitril-audio.so' "$blob_list"
 require_fixed 'copy_rule_count="$(' "$vendor_worker"
 require_fixed 'expected_rule="vendor/meizu/m86/proprietary/$relative_path:$output_path"' \
   "$vendor_worker"
@@ -241,6 +266,34 @@ if ! command -v xmllint >/dev/null 2>&1; then
   exit 1
 fi
 xmllint --noout "$device_manifest"
+xmllint --noout "$audio_policy"
+xmllint --noout "$audio_effects"
+
+# A local source-only checkout does not contain the Android schemas. On the
+# builder, expand the standard XIncludes against the pinned LineageOS source
+# and validate the complete Android 10 policy rather than only well-formedness.
+lineage_source_root="${PRO5_LINEAGE_SOURCE_ROOT:-$(cd "$project_root/.." && pwd)/src/lineage-17.1}"
+audio_policy_schema="$lineage_source_root/hardware/interfaces/audio/5.0/config/audio_policy_configuration.xsd"
+audio_effects_schema="$lineage_source_root/hardware/interfaces/audio/effect/2.0/xml/audio_effects_conf.xsd"
+audio_config_root="$lineage_source_root/frameworks/av/services/audiopolicy/config"
+if [[ -s "$audio_policy_schema" ]] && [[ -s "$audio_effects_schema" ]]; then
+  sed \
+    -e "s#/vendor/etc/a2dp_audio_policy_configuration.xml#$audio_config_root/a2dp_audio_policy_configuration.xml#" \
+    -e "s#/vendor/etc/usb_audio_policy_configuration.xml#$audio_config_root/usb_audio_policy_configuration.xml#" \
+    -e "s#/vendor/etc/r_submix_audio_policy_configuration.xml#$audio_config_root/r_submix_audio_policy_configuration.xml#" \
+    -e "s#/vendor/etc/audio_policy_volumes.xml#$audio_config_root/audio_policy_volumes.xml#" \
+    -e "s#/vendor/etc/default_volume_tables.xml#$audio_config_root/default_volume_tables.xml#" \
+    "$audio_policy" | \
+    xmllint --xinclude --noxincludenode --format - | \
+    sed -E 's/ xml:base="[^"]*"//g' | \
+    xmllint --noout --schema "$audio_policy_schema" -
+  xmllint --noout --schema "$audio_effects_schema" "$audio_effects"
+fi
+
+require_manifest_hal \
+  android.hardware.audio 5.0 passthrough 32 IDevicesFactory
+require_manifest_hal \
+  android.hardware.audio.effect 5.0 passthrough 32 IEffectsFactory
 require_manifest_hal \
   android.hardware.bluetooth 1.0 hwbinder '' IBluetoothHci
 require_manifest_hal \

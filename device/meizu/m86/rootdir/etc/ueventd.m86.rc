@@ -5,6 +5,18 @@
 /dev/fpc1020                 0660   system      system
 /dev/tspdrv                  0660   system      system
 
+# m86 audio DSP, Smart-PA and mixer nodes. Android 10 hosts the passthrough
+# primary HAL in audioserver, whose supplementary audio/media groups replace
+# the broader Flyme process credentials.
+/dev/i2c-7                   0660   system      audio
+/dev/adnc0                   0660   system      audio
+/dev/adnc1                   0660   system      audio
+/dev/adnc2                   0660   system      audio
+/dev/adnc3                   0660   system      audio
+/dev/adnc4                   0660   system      audio
+/dev/adnc5                   0660   system      audio
+/dev/video16                 0660   system      audio
+
 # Exynos display/GPU nodes. These ownerships are common to the verified Flyme
 # 8 m86 ramdisk and the Android 10 universal7420 ueventd reference. The Mali
 # driver requires per-application access; composition/scaler nodes remain
