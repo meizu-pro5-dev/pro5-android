@@ -33,6 +33,10 @@ never used for Android source or build output. `/etc/network_turbo` is sourced
 on the builder when available, without printing its contents. Google-hosted
 Android traffic uses that acceleration, while GitHub domains bypass it because
 direct transfers are measurably faster and more reliable on this builder.
+Source synchronization checks out the two GCC 4.9 kernel toolchains first and
+then uses separate network and checkout phases to avoid an observed `repo`
+interleaved-worker deadlock. Override its conservative four-way concurrency
+with `PRO5_SOURCE_SYNC_JOBS` (maximum 16).
 
 Typical control flow:
 
