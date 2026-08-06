@@ -20,6 +20,10 @@ if [[ -n "$(git -C "$project_root" status --porcelain --untracked-files=normal)"
   local_revision="${local_revision}-dirty"
 fi
 
+# TWRP needs the verified Flyme 8 STM touch firmware during recovery boot.
+# This is an incremental, hash-verified transfer and keeps proprietary bytes
+# outside the authoritative source repository.
+"$script_dir/push-stock-blobs.sh"
 "$script_dir/install-twrp-trees.sh"
 
 "${pro5_ssh[@]}" bash -s -- \

@@ -72,8 +72,8 @@ TARGET_SCREEN_WIDTH := 1080
 TARGET_RECOVERY_PIXEL_FORMAT := "RGBA_8888"
 BOARD_HAS_NO_SELECT_BUTTON := true
 
-# TWRP 3.7.0_9 feature set. m86 has legacy file-based FDE metadata rather than
-# an inline footer, data/media internal storage, removable microSD, and OTG.
+# TWRP 3.7.0_9 feature set. m86 has legacy full-disk-encryption metadata in
+# /cache/metadata, data/media internal storage, removable microSD, and OTG.
 RECOVERY_VARIANT := twrp
 TW_THEME := portrait_hdpi
 TW_INCLUDE_CRYPTO := true

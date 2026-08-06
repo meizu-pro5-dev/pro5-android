@@ -70,4 +70,37 @@ for variant in upper lower; do
   done < <(find "$overlay_root/$variant" -type f -print0)
 done
 printf 'Installed: 24 case-sensitive m86 kernel files\n'
+
+stock_touch_blob="$remote_root/stock/flyme-8.0.5.0A/blob-dump/system/vendor/firmware/st_fts.bin"
+stock_lock="$local_root/locks/stock-flyme-8.0.5.0A.sha256"
+recovery_touch_blob="$source_root/device/meizu/m86/recovery/root/etc/firmware/st_fts.bin"
+expected_touch_hash="$(
+  awk '$2 == "system.img/vendor/firmware/st_fts.bin" { print $1 }' \
+    "$stock_lock"
+)"
+
+if [[ ! "$expected_touch_hash" =~ ^[0-9a-f]{64}$ ]]; then
+  printf 'The stock lock has no unique STM touch firmware hash.\n' >&2
+  exit 1
+fi
+if [[ ! -f "$stock_touch_blob" ]]; then
+  printf 'Verified Flyme STM touch firmware is missing: %s\n' \
+    "$stock_touch_blob" >&2
+  exit 1
+fi
+if [[ "$(stat -c %s "$stock_touch_blob")" != "65568" ]]; then
+  printf 'Unexpected Flyme STM touch firmware size: %s\n' \
+    "$(stat -c %s "$stock_touch_blob")" >&2
+  exit 1
+fi
+actual_touch_hash="$(sha256sum "$stock_touch_blob" | awk '{ print $1 }')"
+if [[ "$actual_touch_hash" != "$expected_touch_hash" ]]; then
+  printf 'Flyme STM touch firmware hash mismatch: %s != %s\n' \
+    "$actual_touch_hash" "$expected_touch_hash" >&2
+  exit 1
+fi
+
+install -D -m 0644 "$stock_touch_blob" "$recovery_touch_blob"
+printf 'Installed verified Flyme 8 STM touch firmware: %s\n' \
+  "$expected_touch_hash"
 REMOTE

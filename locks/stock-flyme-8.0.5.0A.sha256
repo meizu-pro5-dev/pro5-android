@@ -15,6 +15,9 @@ db25b0614ab6856ad91256cd7db2a925cac6ee4782eb4555b8043146ae53d335  system.transfe
 # Reconstructed local image
 184149003c9bbe156e6f73d9461a13a1712d186740e45632f03435c239717e6a  system.img
 
+# Recovery runtime blob extracted read-only from the reconstructed image
+6362b3058217451a29638c6538ec2dc0f8910702679363bf0a4a96e11c63896d  system.img/vendor/firmware/st_fts.bin
+
 # Components extracted read-only from the verified boot.img
 06de6eb833fb26e15acdae1445777ebb73fdeb988cc1df6355d48683259f6000  boot.img/kernel
 03955a1b7d9bc2142c99359a70887ca61180c790f12a109a028511d2d9728355  boot.img/ramdisk.gz

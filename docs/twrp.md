@@ -29,15 +29,31 @@ The latest verified production base available to this port is Flyme
 8.0.5.0A, Android 7 / API 24, archive SHA-256
 `7d1585b86aaf8fd1ab6a5e12f8a3a50f9ed6a759d8f91d51ca1b1d4c13a77a28`.
 All 219 current proprietary-file entries resolve byte-for-byte from that
-image. Its partition names, file-based FDE key location, boot header, display
+image. Its partition names, FDE metadata location, boot header, display
 driver, and removable-storage topology define this recovery tree.
 
-Recovery itself needs no Flyme userland hardware blob: framebuffer, touch,
-UFS, USB, microSD, dm-crypt and filesystems are provided by the maintained
-kernel and open TWRP userspace. This is preferable to silently carrying the
-old recovery's Android 6 libraries, SuperSU payload, or prebuilt kernel. The
-artifact still includes the Flyme stock lock so that its compatibility base is
-auditable alongside the full Lineage build using the latest verified blobs.
+Framebuffer, UFS, USB, microSD, dm-crypt and filesystems are provided by the
+maintained kernel and open TWRP userspace. Recovery has one necessary Flyme
+runtime blob: `vendor/firmware/st_fts.bin`, because the STM touch driver starts
+an automatic firmware check after probe and requests `st_fts.bin`. The
+65,568-byte Flyme 8 copy has SHA-256
+`6362b3058217451a29638c6538ec2dc0f8910702679363bf0a4a96e11c63896d`;
+it is byte-identical to the file in the previously booting TWRP 3.0 ramdisk.
+The build injects this file from the verified off-Git stock dump and then
+checks the copy embedded in `recovery.img`. It does not carry the old
+recovery's Android 6 libraries, SuperSU payload, or prebuilt kernel.
+
+Flyme stores legacy full-disk-encryption metadata in `/cache/metadata`. Its
+Android 7 `vold` contains the cipher name `aes-xts-fmp`. TWRP 9 reads
+`crypto_type_name` from that metadata and, on the normal dm-crypt path used by
+m86, passes the name unchanged to the kernel. The maintained kernel's
+`dm-crypt.c` recognizes `aes-xts-fmp` as the Exynos hardware-FMP path and the
+defconfig enables `CONFIG_DM_CRYPT`, `CONFIG_FMP`, and
+`CONFIG_UFS_FMP_DM_CRYPT`. `TARGET_HW_DISK_ENCRYPTION` is intentionally not
+enabled: that TWRP switch selects the unrelated QCOM `cryptfs_hw` interface
+and `req-crypt` target. This establishes a coherent static path, but the
+actual handset metadata KDF and password/PIN decryption remain runtime gates
+after backup access resumes.
 
 ## Boot and partition contract
 
@@ -72,7 +88,8 @@ Static build acceptance requires:
 
 1. a clean `omni_m86-eng recoveryimage` build from the pinned manifest;
 2. a generated `recovery.img` and matching raw m86 DTB;
-3. passing boot-header, ramdisk, DTB and partition-size validators;
+3. passing boot-header, ramdisk, embedded STM firmware, FMP config, DTB and
+   partition-size validators;
 4. a second clean build with byte-identical recovery and DTB hashes;
 5. retained manifest, local revision, generated kernel config, full log,
    stock lock and SHA-256 list.

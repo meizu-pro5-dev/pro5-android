@@ -47,8 +47,10 @@ acceptable.
 
 ## Milestone policy
 
-1. Kernel, recovery, and the first boot image do not require the Flyme system
-   blob set.
+1. Kernel and the first boot image do not require the Flyme system blob set.
+   Recovery consumes only the hash-locked `st_fts.bin` needed by the STM touch
+   driver's automatic firmware check; it does not inherit the Android 7 HAL
+   or platform-library set.
 2. Display/UI adds only Mali, allocator/composer dependencies, and Meizu panel
    support after source-vs-blob selection.
 3. Radio, connectivity, audio, sensors/GPS, and camera each receive a separate

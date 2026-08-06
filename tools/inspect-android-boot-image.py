@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+import gzip
+import hashlib
 import struct
 import sys
 from pathlib import Path
@@ -29,6 +31,78 @@ def decode_c_string(value: bytes) -> str:
     return value.split(b"\0", 1)[0].decode("utf-8", "replace")
 
 
+def parse_hash_expectation(value: str) -> tuple[str, str]:
+    try:
+        archive_path, expected_hash = value.rsplit("=", 1)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            "expected RAMDISK_PATH=SHA256"
+        ) from exc
+
+    archive_path = archive_path.removeprefix("/").removeprefix("./")
+    path_parts = archive_path.split("/")
+    expected_hash = expected_hash.lower()
+    if (
+        not archive_path
+        or any(part in ("", ".", "..") for part in path_parts)
+        or len(expected_hash) != 64
+        or any(character not in "0123456789abcdef" for character in expected_hash)
+    ):
+        raise argparse.ArgumentTypeError(
+            "expected a safe RAMDISK_PATH and a 64-character SHA-256"
+        )
+    return archive_path, expected_hash
+
+
+def parse_newc_archive(archive: bytes) -> dict[str, bytes]:
+    entries: dict[str, bytes] = {}
+    offset = 0
+
+    while True:
+        header_end = offset + 110
+        if header_end > len(archive):
+            raise ValueError("truncated newc header")
+        header = archive[offset:header_end]
+        if header[:6] not in (b"070701", b"070702"):
+            raise ValueError(
+                f"unsupported cpio magic at offset {offset}: {header[:6]!r}"
+            )
+        try:
+            fields = [
+                int(header[field_offset : field_offset + 8], 16)
+                for field_offset in range(6, 110, 8)
+            ]
+        except ValueError as exc:
+            raise ValueError(f"invalid newc header at offset {offset}") from exc
+
+        file_size = fields[6]
+        name_size = fields[11]
+        if name_size < 1:
+            raise ValueError(f"invalid cpio name size at offset {offset}")
+
+        name_start = header_end
+        name_end = name_start + name_size
+        if name_end > len(archive) or archive[name_end - 1] != 0:
+            raise ValueError(f"truncated or unterminated cpio name at offset {offset}")
+        try:
+            name = archive[name_start : name_end - 1].decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise ValueError(f"non-UTF-8 cpio name at offset {offset}") from exc
+
+        data_start = align(name_end, 4)
+        data_end = data_start + file_size
+        if data_end > len(archive):
+            raise ValueError(f"truncated cpio payload for {name!r}")
+        if name == "TRAILER!!!":
+            return entries
+
+        normalized_name = name.removeprefix("./").removeprefix("/")
+        if normalized_name in entries:
+            raise ValueError(f"duplicate cpio entry: {normalized_name!r}")
+        entries[normalized_name] = archive[data_start:data_end]
+        offset = align(data_end, 4)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument("image", type=Path)
@@ -43,6 +117,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--expect-ramdisk-compression",
         choices=("gzip", "lzma", "xz", "lz4", "unknown"),
+    )
+    parser.add_argument(
+        "--expect-ramdisk-file-sha256",
+        action="append",
+        default=[],
+        type=parse_hash_expectation,
+        metavar="RAMDISK_PATH=SHA256",
+        help="require a file and hash inside a gzip-compressed newc ramdisk",
     )
     parser.add_argument("--max-size", type=integer)
     return parser
@@ -86,6 +168,7 @@ def main() -> int:
     failures: list[str] = []
     ramdisk_magic = b""
     ramdisk_compression = "unknown"
+    ramdisk_payload = b""
     if page_size < 512 or page_size & (page_size - 1):
         failures.append(f"invalid page size: {page_size}")
         packed_size = 0
@@ -102,7 +185,8 @@ def main() -> int:
         )
         with args.image.open("rb") as image_file:
             image_file.seek(ramdisk_offset)
-            ramdisk_magic = image_file.read(8)
+            ramdisk_payload = image_file.read(ramdisk_size)
+        ramdisk_magic = ramdisk_payload[:8]
         if ramdisk_magic.startswith(b"\x1f\x8b"):
             ramdisk_compression = "gzip"
         elif ramdisk_magic.startswith(b"\x5d\x00\x00"):
@@ -139,6 +223,33 @@ def main() -> int:
     if args.max_size is not None and image_size > args.max_size:
         failures.append(f"image exceeds limit: {image_size} > {args.max_size}")
 
+    inspected_ramdisk_files: list[tuple[str, int, str]] = []
+    if args.expect_ramdisk_file_sha256:
+        if ramdisk_compression != "gzip":
+            failures.append(
+                "RAM disk file inspection requires a gzip-compressed ramdisk"
+            )
+        else:
+            try:
+                ramdisk_entries = parse_newc_archive(gzip.decompress(ramdisk_payload))
+            except (OSError, ValueError) as error:
+                failures.append(f"unable to parse gzip/newc ramdisk: {error}")
+            else:
+                for archive_path, expected_hash in args.expect_ramdisk_file_sha256:
+                    content = ramdisk_entries.get(archive_path)
+                    if content is None:
+                        failures.append(f"ramdisk file is absent: {archive_path}")
+                        continue
+                    actual_hash = hashlib.sha256(content).hexdigest()
+                    inspected_ramdisk_files.append(
+                        (archive_path, len(content), actual_hash)
+                    )
+                    if actual_hash != expected_hash:
+                        failures.append(
+                            f"ramdisk file hash for {archive_path}: expected "
+                            f"{expected_hash}, found {actual_hash}"
+                        )
+
     print(f"path={args.image}")
     print(f"file_size={image_size}")
     print(f"kernel_size={kernel_size}")
@@ -155,6 +266,9 @@ def main() -> int:
     print(f"cmdline={cmdline!r}")
     print(f"ramdisk_magic={ramdisk_magic.hex()}")
     print(f"ramdisk_compression={ramdisk_compression}")
+    for archive_path, file_size, actual_hash in inspected_ramdisk_files:
+        print(f"ramdisk_file[{archive_path}].size={file_size}")
+        print(f"ramdisk_file[{archive_path}].sha256={actual_hash}")
     print(f"calculated_payload_size={packed_size}")
     print(f"trailing_size={image_size - packed_size if packed_size else 0}")
 

@@ -6,7 +6,8 @@ LOCAL_PATH := $(call my-dir)
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/recovery/root/init.recovery.m86.rc:recovery/root/init.recovery.m86.rc \
     $(LOCAL_PATH)/recovery/root/ueventd.m86.rc:recovery/root/ueventd.m86.rc \
-    $(LOCAL_PATH)/rootdir/fstab.m86:recovery/root/fstab.m86
+    $(LOCAL_PATH)/rootdir/fstab.m86:recovery/root/fstab.m86 \
+    $(LOCAL_PATH)/recovery/root/etc/firmware/st_fts.bin:recovery/root/etc/firmware/st_fts.bin
 
 PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
     ro.build.product=m86 \

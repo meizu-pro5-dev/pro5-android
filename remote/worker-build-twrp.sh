@@ -60,6 +60,24 @@ if [[ ! -f "$source_root/kernel/meizu/m86/arch/arm64/configs/cm_pro5_defconfig" 
   exit 1
 fi
 
+stock_lock="$local_root/locks/stock-flyme-8.0.5.0A.sha256"
+touch_firmware="$source_root/device/meizu/m86/recovery/root/etc/firmware/st_fts.bin"
+expected_touch_hash="$(
+  awk '$2 == "system.img/vendor/firmware/st_fts.bin" { print $1 }' \
+    "$stock_lock"
+)"
+if [[ ! "$expected_touch_hash" =~ ^[0-9a-f]{64}$ ]]; then
+  printf 'The stock lock has no unique STM touch firmware hash.\n' >&2
+  exit 1
+fi
+if [[ ! -f "$touch_firmware" ]] || \
+    [[ "$(stat -c %s "$touch_firmware")" != "65568" ]] || \
+    [[ "$(sha256sum "$touch_firmware" | awk '{ print $1 }')" != \
+       "$expected_touch_hash" ]]; then
+  printf 'The injected Flyme 8 STM recovery firmware is absent or invalid.\n' >&2
+  exit 1
+fi
+
 python2_dir="$source_root/prebuilts/python/linux-x86/2.7.5/bin"
 if [[ ! -x "$python2_dir/python2.7" ]]; then
   printf 'TWRP 9.0 requires its synchronized Python 2.7 prebuilt.\n' >&2
@@ -98,6 +116,14 @@ product_out="$out_root/target/product/m86"
 recovery_image="$product_out/recovery.img"
 if [[ ! -s "$recovery_image" ]]; then
   printf 'TWRP did not produce recovery.img.\n' >&2
+  exit 1
+fi
+
+staged_touch_firmware="$product_out/recovery/root/etc/firmware/st_fts.bin"
+if [[ ! -f "$staged_touch_firmware" ]] || \
+    [[ "$(sha256sum "$staged_touch_firmware" | awk '{ print $1 }')" != \
+       "$expected_touch_hash" ]]; then
+  printf 'The recovery staging tree omitted or changed st_fts.bin.\n' >&2
   exit 1
 fi
 
@@ -163,6 +189,8 @@ python3 "$local_root/tools/inspect-android-boot-image.py" \
   --expect-dt-size 0 \
   --expect-empty-cmdline \
   --expect-ramdisk-compression gzip \
+  --expect-ramdisk-file-sha256 \
+    "etc/firmware/st_fts.bin=$expected_touch_hash" \
   --max-size 33550336 | tee "$artifact_dir/RECOVERY-HEADER.txt"
 
 python3 "$local_root/tools/inspect-dtb.py" \
@@ -185,7 +213,8 @@ twrp_version="$(
   printf 'out_root=%s\n' "$out_root"
   printf 'jobs=%s\n' "$jobs"
   printf 'stock_base=Flyme 8.0.5.0A / Android 7 / API 24\n'
-  printf 'proprietary_recovery_blobs=none\n'
+  printf 'proprietary_recovery_blobs=etc/firmware/st_fts.bin\n'
+  printf 'st_fts_sha256=%s\n' "$expected_touch_hash"
   printf 'recovery_partition_limit=33550336\n'
   printf 'dtb_packaging=raw separate partition\n'
   printf 'ramdisk_compression=gzip only\n'
