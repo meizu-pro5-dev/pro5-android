@@ -469,6 +469,8 @@ require_fixed 'CONFIG_BCMDHD_FW_PATH="/system/vendor/firmware/fw_bcmdhd.bin"' \
 require_fixed 'CONFIG_BCMDHD_NVRAM_PATH="/system/etc/wifi/bcmdhd.cal"' \
   "$kernel_config"
 require_fixed 'export BUILD_DATETIME=1786017600' "$build_worker"
+require_fixed 'git -C "$webview_project" lfs pull' "$build_worker"
+require_fixed 'unzip -tq "$webview_apk"' "$build_worker"
 require_fixed 'local caller_shell_flags="$-"' \
   "$project_root/remote/builder-network.sh"
 require_fixed 'if [[ "$caller_shell_flags" == *u* ]]' \

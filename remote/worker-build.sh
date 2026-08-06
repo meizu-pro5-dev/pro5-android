@@ -84,6 +84,51 @@ if [[ -x "$renderscript_clang" ]]; then
   fi
 fi
 
+# repo intentionally leaves Git LFS pointers in place when smudge is skipped.
+# The arm64 WebView prebuilt is required by this product and must be a verified
+# APK before Ninja starts. Derive the expected object ID from the pinned Git
+# object, materialize only that file, then verify both its digest and ZIP
+# structure. This keeps the build reproducible and catches partial downloads.
+webview_project="$source_root/external/chromium-webview/prebuilt/arm64"
+webview_apk="$webview_project/webview.apk"
+if [[ "$target" == bacon ]]; then
+  if ! git -C "$webview_project" rev-parse --verify HEAD >/dev/null 2>&1; then
+    printf 'Pinned arm64 WebView project is missing: %s\n' \
+      "$webview_project" >&2
+    exit 1
+  fi
+  webview_pointer="$(git -C "$webview_project" show HEAD:webview.apk)"
+  webview_oid="$(sed -n 's/^oid sha256:\([0-9a-f]\{64\}\)$/\1/p' \
+    <<<"$webview_pointer")"
+  webview_size="$(sed -n 's/^size \([0-9][0-9]*\)$/\1/p' \
+    <<<"$webview_pointer")"
+  if [[ ! "$webview_oid" =~ ^[0-9a-f]{64}$ ]] || \
+      [[ ! "$webview_size" =~ ^[1-9][0-9]*$ ]]; then
+    printf 'Pinned arm64 WebView has no valid Git LFS pointer metadata.\n' >&2
+    exit 1
+  fi
+  if [[ ! -f "$webview_apk" ]] || \
+      [[ "$(stat -c %s "$webview_apk")" != "$webview_size" ]] || \
+      [[ "$(sha256sum "$webview_apk" | awk '{ print $1 }')" != \
+         "$webview_oid" ]]; then
+    printf 'Materializing pinned arm64 WebView Git LFS object %s.\n' \
+      "$webview_oid"
+    git -C "$webview_project" lfs pull \
+      --include=webview.apk \
+      --exclude=''
+  fi
+  if [[ ! -f "$webview_apk" ]] || \
+      [[ "$(stat -c %s "$webview_apk")" != "$webview_size" ]] || \
+      [[ "$(sha256sum "$webview_apk" | awk '{ print $1 }')" != \
+         "$webview_oid" ]] || \
+      ! unzip -tq "$webview_apk" >/dev/null; then
+    printf 'The pinned arm64 WebView APK is absent, incomplete, or invalid.\n' >&2
+    exit 1
+  fi
+  printf 'Verified pinned arm64 WebView APK: sha256=%s size=%s\n' \
+    "$webview_oid" "$webview_size"
+fi
+
 export USE_CCACHE=1
 export CCACHE_DIR="$remote_root/ccache"
 export CCACHE_BASEDIR="$source_root"
