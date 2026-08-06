@@ -40,7 +40,7 @@ repo sync \
   --no-tags \
   --optimized-fetch \
   --prune \
-  --retry-fetches=3 \
+  --retry-fetches=10 \
   -j8 \
   build/soong \
   device/samsung/universal7420-common \

@@ -20,4 +20,13 @@ configure_builder_network() {
     export no_proxy="$github_bypass"
   fi
   export NO_PROXY="$no_proxy"
+
+  # GitHub's HTTP/2 path has produced silent long-lived stalls on this host.
+  # Force Git's libcurl transport to HTTP/1.1 and bound zero-progress waits so
+  # repo can retry a failed project instead of occupying a worker forever.
+  export GIT_CONFIG_COUNT=1
+  export GIT_CONFIG_KEY_0=http.version
+  export GIT_CONFIG_VALUE_0=HTTP/1.1
+  export GIT_HTTP_LOW_SPEED_LIMIT=1024
+  export GIT_HTTP_LOW_SPEED_TIME=120
 }
