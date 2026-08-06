@@ -40,3 +40,13 @@ PYTHONPATH=../work/pro5-flyme-8.0.5.0A/python-deps \
 Finding a matching basename does not by itself authorize adding it. The
 calling blob, architecture, ABI, license boundary, and Android 10 replacement
 must still be recorded.
+
+To audit every regular file for a literal byte string without mounting or
+expanding the full image, run:
+
+```bash
+PYTHONPATH=../work/pro5-flyme-8.0.5.0A/python-deps \
+  ./tools/search-ext4-bytes.py \
+  ../work/pro5-flyme-8.0.5.0A/extracted/system.img \
+  /dev/mem /dev/kmem
+```

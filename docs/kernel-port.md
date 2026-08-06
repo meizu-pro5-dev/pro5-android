@@ -89,6 +89,23 @@ The retained local evidence directories are
 `artifacts/pro5-a10-kernel-20260807-002602-q-base-config-repro` in the parent
 Android workspace.
 
+The same Q base fragment disables both `/dev/mem` and `/dev/kmem`, as do all
+of the locked universal7420 Android 10 donor defconfigs. An exhaustive
+read-only scan of Flyme 8.0.5.0A's ext4 system image covered 2,008 regular
+files and 2,017,698,942 file bytes. The only `/dev/mem` prefix occurred in
+stock `lmkd`, where the complete strings were
+`/dev/memcg/memory.pressure_level` and `/dev/memcg/cgroup.event_control`;
+`/dev/kmem` did not occur. Neither raw-memory character device is therefore a
+stock userspace dependency, and the maintained defconfig disables both. The
+scan is reproducible with:
+
+```bash
+PYTHONPATH=../work/pro5-flyme-8.0.5.0A/python-deps \
+  ./tools/search-ext4-bytes.py \
+  ../work/pro5-flyme-8.0.5.0A/extracted/system.img \
+  /dev/mem /dev/kmem
+```
+
 ## Port order and gates
 
 1. Build the unchanged `cm_pro5_defconfig` with the LineageOS 17.1 GCC 4.9
