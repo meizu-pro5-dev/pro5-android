@@ -42,6 +42,7 @@ kernel_mfc_uapi="$project_root/kernel/meizu/m86/include/uapi/linux/videodev2_exy
 platform_patch="$project_root/patches/device-samsung-universal7420-common/0001-target-add-meizu-m86.patch"
 bluetooth_patch="$project_root/patches/device-samsung-universal7420-common/0002-bluetooth-add-m86-address-fallback.patch"
 glib_patch="$project_root/patches/external-glib/0001-build-libglib-for-m86-vendor.patch"
+glib_clang_patch="$project_root/patches/external-glib/0002-clang-allow-legacy-defined-macro.patch"
 libfprint_patch="$project_root/patches/legacy-m86-libfprint/0001-port-m86-fpc-to-android10.patch"
 patch_series="$project_root/patches/series.tsv"
 platform_manifest="$project_root/manifests/pro5.xml"
@@ -97,6 +98,7 @@ for required_file in \
   "$platform_patch" \
   "$bluetooth_patch" \
   "$glib_patch" \
+  "$glib_clang_patch" \
   "$libfprint_patch" \
   "$patch_series" \
   "$platform_manifest" \
@@ -383,6 +385,10 @@ require_fixed 'message.data.enumerated.remaining_templates' "$fingerprint_source
 require_fixed 'message.data.removed.remaining_templates' "$fingerprint_source"
 require_fixed 'LOCAL_VENDOR_MODULE := true' "$glib_patch"
 require_fixed 'LOCAL_MULTILIB := 64' "$glib_patch"
+require_fixed 'LOCAL_CFLAGS += -Wno-error=expansion-to-defined' \
+  "$glib_clang_patch"
+require_fixed 'patches/external-glib/0002-clang-allow-legacy-defined-macro.patch' \
+  "$patch_series"
 require_fixed 'git -C "$build_fprint" apply --check "$fprint_patch"' \
   "$install_worker"
 require_fixed 'Expected 42 archived m86 libfprint build files.' \
