@@ -184,6 +184,54 @@ The retained local evidence directories are
 `artifacts/pro5-a10-kernel-20260806-{220329,220551}-binder*` in the parent
 Android workspace.
 
+## Android 10 socket-destroy gate
+
+The Meizu source already exposed `SOCK_DESTROY_BACKPORT` in its UAPI header
+and mapped that request to SELinux's netlink write permission, but its
+sock/inet_diag implementation could only dump sockets. Android 10's network
+stack uses the privileged destroy operation to terminate TCP connections that
+belong to a network which is being torn down. Leaving only the request number
+in the UAPI would therefore advertise an operation that always failed with
+`EINVAL`.
+
+The implementation is ported from the Android common 3.10 sequence
+`9eaff90`, `d60326c`, `3d4ce85`, `529dfc6`, `9c712fe`, and `15d65ff`.
+This splits lookup from dump, wires the destroy callbacks through sock_diag
+and inet_diag, implements `tcp_abort()`, handles listening and IPv4-mapped
+IPv6 sockets, and retains the Meizu network tree around those focused hunks.
+The matching SELinux change `2c33242` and UAPI request number were already in
+the Meizu baseline and are not duplicated. The locked universal7420 Android
+10 donor independently contains the same core callbacks.
+
+The defconfig now enables:
+
+```text
+CONFIG_INET_DIAG=y
+CONFIG_INET_TCP_DIAG=y
+CONFIG_INET_UDP_DIAG=y
+CONFIG_INET_DIAG_DESTROY=y
+```
+
+`INET_UDP_DIAG` provides UDP socket monitoring; this gate only implements the
+official 3.10 TCP destroy sequence and does not claim UDP destroy support.
+The generated objects `sock_diag.o`, `inet_diag.o`, `tcp_diag.o`, and
+`udp_diag.o` all compile, and the linked kernel exports
+`inet_diag_find_one_icsk`, `sock_diag_destroy`, and `tcp_abort` while retaining
+the local `tcp_diag_destroy` callback.
+
+Two consecutive clean builds produced byte-identical target artifacts:
+
+| Artifact | Size | SHA-256 |
+| --- | ---: | --- |
+| `Image` | 17,100,952 | `d7530cb7af6387bf4b430f0118e8cbc7eda2599766e943914735fd78d8502f41` |
+| config-aware DTB | 146,172 | `0b537be248ed155a925d58c9a6b927ec1c4cdfaa0624ea714e848abddfba7d84` |
+| generated config | 99,695 | `d5baa7b11ac82b5dff8299498f0e38d2a7100fa4c009588c8dd2fab089c168f8` |
+
+The retained local evidence directories are
+`artifacts/pro5-a10-kernel-20260807-001237-sock-destroy` and
+`artifacts/pro5-a10-kernel-20260807-001407-sock-destroy-repro` in the parent
+Android workspace.
+
 The stock Flyme DTB remains a separate hardware reference. It has the same
 root model and compatible strings but uses the older `fpc,fpc_irq` fingerprint
 node and a `meizu,simple_adc` thermistor node, while the community/current tree
