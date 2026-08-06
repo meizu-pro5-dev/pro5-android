@@ -116,7 +116,9 @@ fi
 # repo 2.65's worker pool can deadlock on this builder after a project fetch
 # fails, even at -j1. Give each manifest project its own bounded repo process,
 # retain successful objects/checkouts, and continue collecting failures.
-mapfile -t projects < <(repo list -p | LC_ALL=C sort)
+# Without --all, repo list omits manifest projects that have not yet acquired a
+# worktree. That would make a resumed partial checkout look deceptively whole.
+mapfile -t projects < <(repo list --all -p | LC_ALL=C sort)
 project_total="${#projects[@]}"
 failed_projects=()
 
