@@ -71,7 +71,9 @@ Typical control flow:
 `start-build.sh` accepts `kernel`, `bootimage`, `recoveryimage`, or `bacon`.
 It applies the checked-in platform patches and installs the local device,
 kernel, and vendor trees before launching a logged build in tmux. Override the
-default 24-way build with `PRO5_BUILD_JOBS`.
+memory-safe default 8-way build with `PRO5_BUILD_JOBS`. The builder exposes
+more host RAM than the job cgroup permits, so high parallelism can make
+`dex2oat` fail an otherwise valid build with `ENOMEM`.
 
 `start-kernel-build.sh` is the earlier standalone gate. It needs only the
 LineageOS GCC 4.9 prebuilts, builds the unmodified m86 `Image` and raw

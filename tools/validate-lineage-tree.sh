@@ -47,6 +47,7 @@ libfprint_patch="$project_root/patches/legacy-m86-libfprint/0001-port-m86-fpc-to
 patch_series="$project_root/patches/series.tsv"
 platform_manifest="$project_root/manifests/pro5.xml"
 build_worker="$project_root/remote/worker-build.sh"
+start_build="$project_root/remote/start-build.sh"
 install_worker="$project_root/remote/install-local-trees.sh"
 push_worker="$project_root/remote/push-local.sh"
 platform_sync_worker="$project_root/remote/worker-sync-platform.sh"
@@ -103,6 +104,7 @@ for required_file in \
   "$patch_series" \
   "$platform_manifest" \
   "$build_worker" \
+  "$start_build" \
   "$install_worker" \
   "$push_worker" \
   "$platform_sync_worker" \
@@ -130,6 +132,9 @@ require_fixed() {
     exit 1
   fi
 }
+
+require_fixed 'jobs="${PRO5_BUILD_JOBS:-8}"' "$start_build"
+require_fixed 'jobs="${2:-8}"' "$build_worker"
 
 require_empty_assignment() {
   local variable_name="$1"

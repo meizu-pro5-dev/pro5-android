@@ -11,7 +11,7 @@ run_root="$remote_root/run"
 artifact_root="$remote_root/artifacts"
 
 target="${1:-bootimage}"
-jobs="${2:-24}"
+jobs="${2:-8}"
 status_file="${3:-$run_root/build-latest.status}"
 log_file="${4:-$run_root/build-latest.log}"
 build_stamp="${5:-$(date +%Y%m%d-%H%M%S)}"

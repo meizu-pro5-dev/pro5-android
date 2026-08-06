@@ -8,7 +8,7 @@ project_root="$(cd "$script_dir/.." && pwd)"
 source "$script_dir/common.sh"
 
 target="${1:-${PRO5_BUILD_TARGET:-bootimage}}"
-jobs="${PRO5_BUILD_JOBS:-24}"
+jobs="${PRO5_BUILD_JOBS:-8}"
 
 case "$target" in
   kernel | bootimage | recoveryimage | bacon) ;;
