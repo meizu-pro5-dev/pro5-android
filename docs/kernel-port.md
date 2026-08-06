@@ -113,8 +113,18 @@ Two clean builds of the same target initially differed by 22 bytes. The only
 variable payload was Broadcom DHD's debug version string containing
 `__DATE__`/`__TIME__`; its two changed timestamp bytes also changed the
 20-byte linker build ID. The runtime-irrelevant wall-clock suffix is removed
-while retaining the driver version and source path. Consecutive clean builds
-must now produce identical `Image`, DTB, and config hashes.
+while retaining the driver version and source path.
+
+Two consecutive clean builds of commit
+`b068e2feeb933a742a06a82734e5211f34964153` then produced byte-identical
+target artifacts. Their metadata differs only in the expected `built_at`
+value:
+
+| Artifact | Size | SHA-256 |
+| --- | ---: | --- |
+| `Image` | 17,031,920 | `6208611881777050b8350032c43cdb3a36ee58caf5555cd5979a9909ac01560d` |
+| config-aware DTB | 146,172 | `0b537be248ed155a925d58c9a6b927ec1c4cdfaa0624ea714e848abddfba7d84` |
+| generated config | 99,498 | `e82ea521a12a9142a5dc405fb8a37c2d19db67183f610765042e89a48ad60040` |
 
 The stock Flyme DTB remains a separate hardware reference. It has the same
 root model and compatible strings but uses the older `fpc,fpc_irq` fingerprint
