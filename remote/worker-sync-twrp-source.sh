@@ -9,10 +9,12 @@ source_root="$remote_root/src/twrp-9.0"
 lineage_reference="$remote_root/src/lineage-17.1"
 log_dir="$remote_root/logs"
 manifest_lock="$log_dir/twrp-9.0-manifest.xml"
+manifest_tmp="${manifest_lock}.tmp"
 progress_file="$remote_root/run/twrp-source-sync-progress.tsv"
 progress_manifest_file="$remote_root/run/twrp-source-sync-progress.manifest.sha256"
 
 mkdir -p "$source_root" "$log_dir" "$remote_root/run"
+rm -f -- "$manifest_lock" "$manifest_tmp"
 exec > >(tee -a "$log_dir/twrp-source-sync.log") 2>&1
 
 # shellcheck source=builder-network.sh
@@ -159,7 +161,12 @@ if [[ ! -s bootable/recovery/variables.h ]] || \
   exit 1
 fi
 
-repo manifest -r -o "$manifest_lock"
+repo manifest -r -o "$manifest_tmp"
+if [[ ! -s "$manifest_tmp" ]]; then
+  printf 'Pinned TWRP manifest generation produced no data.\n' >&2
+  exit 1
+fi
+mv "$manifest_tmp" "$manifest_lock"
 printf 'TWRP source sync completed at %s\n' "$(date --iso-8601=seconds)"
 du -sh "$source_root"
 df -h "$remote_root"

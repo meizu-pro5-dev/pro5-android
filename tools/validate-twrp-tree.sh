@@ -86,6 +86,10 @@ require_fixed 'cmp --silent "$first_file" "$second_file"' \
 require_fixed 'REPRODUCIBILITY.txt' "$twrp_build_worker"
 require_fixed 'reproducibility=byte-identical recovery.img dtb kernel.config' \
   "$twrp_build_worker"
+require_fixed 'manifest_tmp="${manifest_lock}.tmp"' \
+  "$project_root/remote/worker-sync-twrp-source.sh"
+require_fixed 'mv "$manifest_tmp" "$manifest_lock"' \
+  "$project_root/remote/worker-sync-twrp-source.sh"
 require_fixed \
   '6362b3058217451a29638c6538ec2dc0f8910702679363bf0a4a96e11c63896d  system.img/vendor/firmware/st_fts.bin' \
   "$stock_lock"

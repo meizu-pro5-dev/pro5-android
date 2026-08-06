@@ -98,6 +98,14 @@ require_fixed 'vendor_blob_count="$(wc -l < "$vendor_blob_lock"' \
   "$build_worker"
 require_fixed 'sha256sum --quiet -c "$vendor_blob_lock"' "$build_worker"
 require_fixed 'm86-proprietary-sha256s.txt' "$build_worker"
+require_fixed 'manifest_tmp="${manifest_lock}.tmp"' \
+  "$project_root/remote/worker-sync-source.sh"
+require_fixed 'mv "$manifest_tmp" "$manifest_lock"' \
+  "$project_root/remote/worker-sync-source.sh"
+require_fixed '[[ ! -s "$log_dir/lineage-17.1-manifest.xml" ]]' \
+  "$project_root/remote/worker-sync-platform.sh"
+require_fixed 'mv "$manifest_tmp" "$manifest_lock"' \
+  "$project_root/remote/worker-sync-platform.sh"
 require_fixed 'set +u' "$device_root/extract-files.sh"
 require_fixed '  "$clean_vendor" \' "$device_root/extract-files.sh"
 require_fixed '  "$device"' "$device_root/extract-files.sh"

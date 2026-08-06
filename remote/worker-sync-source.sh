@@ -8,10 +8,12 @@ remote_root="$(cd "$local_root/.." && pwd)"
 source_root="$remote_root/src/lineage-17.1"
 log_dir="$remote_root/logs"
 manifest_lock="$log_dir/lineage-17.1-manifest.xml"
+manifest_tmp="${manifest_lock}.tmp"
 progress_file="$remote_root/run/source-sync-progress.tsv"
 progress_manifest_file="$remote_root/run/source-sync-progress.manifest.sha256"
 
 mkdir -p "$source_root" "$log_dir" "$remote_root/run"
+rm -f -- "$manifest_lock" "$manifest_tmp"
 exec > >(tee -a "$log_dir/source-sync.log") 2>&1
 
 # shellcheck source=builder-network.sh
@@ -185,7 +187,12 @@ if [[ "${#failed_projects[@]}" -ne 0 ]]; then
   exit 1
 fi
 
-repo manifest -r -o "$manifest_lock"
+repo manifest -r -o "$manifest_tmp"
+if [[ ! -s "$manifest_tmp" ]]; then
+  printf 'Pinned LineageOS manifest generation produced no data.\n' >&2
+  exit 1
+fi
+mv "$manifest_tmp" "$manifest_lock"
 printf 'Source sync completed at %s\n' "$(date --iso-8601=seconds)"
 du -sh "$source_root" "$remote_root/ccache"
 df -h "$remote_root"

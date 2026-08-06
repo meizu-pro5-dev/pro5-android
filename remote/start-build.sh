@@ -43,7 +43,7 @@ for session_name in pro5-source-sync pro5-platform-sync; do
   fi
 done
 
-if [[ ! -f "$remote_root/logs/lineage-17.1-pro5-manifest.xml" ]]; then
+if [[ ! -s "$remote_root/logs/lineage-17.1-pro5-manifest.xml" ]]; then
   printf 'Platform sync has not completed successfully.\n' >&2
   exit 1
 fi

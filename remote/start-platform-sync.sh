@@ -20,6 +20,11 @@ if tmux has-session -t pro5-source-sync 2>/dev/null; then
   exit 1
 fi
 
+if [[ ! -s "$remote_root/logs/lineage-17.1-manifest.xml" ]]; then
+  printf 'Base source sync has no valid pinned manifest.\n' >&2
+  exit 1
+fi
+
 if tmux has-session -t "$session_name" 2>/dev/null; then
   printf 'tmux session %s is already running\n' "$session_name"
   exit 0
