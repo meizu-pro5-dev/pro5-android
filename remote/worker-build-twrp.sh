@@ -79,12 +79,44 @@ if [[ ! -f "$touch_firmware" ]] || \
   exit 1
 fi
 
-python2_dir="$source_root/prebuilts/python/linux-x86/2.7.5/bin"
+python2_root="$source_root/prebuilts/python/linux-x86/2.7.5"
+python2_dir="$python2_root/bin"
+python2_source="$source_root/external/python/cpython2"
+python2_overlay="$remote_root/work/twrp-python2-host"
 if [[ ! -x "$python2_dir/python2.7" ]]; then
   printf 'TWRP 9.0 requires its synchronized Python 2.7 prebuilt.\n' >&2
   exit 1
 fi
+for python2_zlib_input in \
+  "$python2_source/Include/Python.h" \
+  "$python2_source/Modules/zlibmodule.c" \
+  "$python2_root/include/python2.7/pyconfig.h"; do
+  if [[ ! -s "$python2_zlib_input" ]]; then
+    printf 'Pinned Python 2 zlib build input is missing: %s\n' \
+      "$python2_zlib_input" >&2
+    exit 1
+  fi
+done
+
+# AOSP's pinned 32-bit Python 2.7.5 runtime omits its zlib extension, but Pie
+# host tools import compressed Python modules. Build only that extension from
+# the manifest-pinned CPython 2 source against the builder's 32-bit zlib ABI.
+# Both required host development packages are provisioned by bootstrap-builder.
+mkdir -p "$python2_overlay"
+gcc -m32 -O2 -fPIC -shared \
+  -I"$python2_source/Include" \
+  -I"$python2_root/include/python2.7" \
+  "$python2_source/Modules/zlibmodule.c" \
+  -lz \
+  -o "$python2_overlay/zlib.so.tmp"
+mv "$python2_overlay/zlib.so.tmp" "$python2_overlay/zlib.so"
+export PYTHONPATH="$python2_overlay"
 export PATH="$python2_dir:$PATH"
+if ! python2.7 -c \
+    'import zlib; assert zlib.decompress(zlib.compress("m86")) == "m86"'; then
+  printf 'Pinned Python 2 host zlib extension failed its round-trip test.\n' >&2
+  exit 1
+fi
 
 export ALLOW_MISSING_DEPENDENCIES=true
 export USE_CCACHE=1
@@ -126,6 +158,8 @@ printf 'Source: %s\nJobs: %s\nOutput pass 1: %s\nOutput pass 2: %s\n' \
   "$source_root" "$jobs" "$first_out" "$second_out"
 printf 'Local revision: %s\n' "$local_revision"
 printf 'Python: %s\n' "$(python2.7 --version 2>&1)"
+printf 'Python zlib: %s\n' \
+  "$(python2.7 -c 'import zlib; print(zlib.ZLIB_VERSION)')"
 
 kernel_root="$source_root/kernel/meizu/m86"
 aarch64_prefix="$source_root/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin/aarch64-linux-android-"
@@ -314,6 +348,10 @@ twrp_version="$(
   printf 'dtb_packaging=raw separate partition\n'
   printf 'ramdisk_compression=gzip only\n'
   printf 'python_runtime=%s\n' "$(python2.7 --version 2>&1)"
+  printf 'python_zlib_runtime=%s\n' \
+    "$(python2.7 -c 'import zlib; print(zlib.ZLIB_VERSION)')"
+  printf 'python_zlib_source_revision=%s\n' \
+    "$(git -C "$python2_source" rev-parse HEAD)"
 } > "$artifact_dir/BUILD-METADATA"
 
 printf 'TWRP build completed at %s\n' "$(date --iso-8601=seconds)"

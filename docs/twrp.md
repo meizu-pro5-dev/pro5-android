@@ -25,6 +25,14 @@ dirty states are rejected and retried through `repo`. Upstream's intentional
 empty placeholder repositories remain valid when both the commit tree and
 index contain zero paths.
 
+The manifest's 32-bit AOSP Python 2.7.5 prebuilt does not ship a `zlib`
+extension, although Pie host tools import compressed Python modules. Before
+building, the worker compiles only this extension from the same manifest's
+pinned `external/python/cpython2` source and exports it through `PYTHONPATH`.
+The 32-bit compiler and zlib development ABI are explicit builder bootstrap
+dependencies, and a compress/decompress round trip must pass before Soong is
+started.
+
 The official build FAQ normally maps a device that launched on Android 5.1 to
 the Android 6.0 TWRP branch. For m86 that branch would also freeze recovery at
 the 2016 TWRP 3.0 generation already represented by the old working image.
