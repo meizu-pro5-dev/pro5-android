@@ -40,3 +40,23 @@ bring-up artifacts are limited to explicitly reviewed `bootimg`, `dtb`, and
 The reconstructed ext4 system image is 2,484,350,976 bytes. It is the source
 for proprietary-file inventory and ABI inspection; it is not copied into the
 source repository.
+
+The seed blob list can be checked without mounting or modifying the image:
+
+```bash
+PYTHONPATH=../work/pro5-flyme-8.0.5.0A/python-deps \
+  ./tools/audit-proprietary-files.py \
+  ../work/pro5-flyme-8.0.5.0A/extracted/system.img \
+  vendor/meizu/m86/proprietary-files.txt
+```
+
+The script exits nonzero while any seed entry is absent, so the audit can be
+used as a bring-up gate once the inventory is reconciled.
+
+The imported CM 14.1 seed contained 226 unique paths. The Flyme 8 audit found
+202 at the same paths, four Mobicore libraries relocated under `vendor/lib`
+and `vendor/lib64`, and 20 legacy files no longer shipped by Meizu. The
+reconciled inventory contains 206 unique entries and all 206 resolve in the
+verified image. Removed entries are not silently sourced from an older OTA;
+any future need for one must be demonstrated by runtime evidence and recorded
+as an explicit compatibility exception.

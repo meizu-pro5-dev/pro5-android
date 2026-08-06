@@ -1,6 +1,6 @@
 # Imported from the final cm-14.1 m86 tree at commit
-# 26c45279376f4a55dcef8f32a3640f522012df0a. Every entry must be reconciled
-# against the verified Flyme 8.0.5.0A system image before release.
+# 26c45279376f4a55dcef8f32a3640f522012df0a, then reconciled against the
+# verified Flyme 8.0.5.0A system image (UUID da594c53-9beb-f85c-85c5-cedf76546f7a).
 app/mcRegistry/04010000000000000000000000000000.tlbin
 app/mcRegistry/04020000000000000000000000000000.tlbin
 app/mcRegistry/07020000000000000000000000000000.tlbin
@@ -12,13 +12,10 @@ bin/check_OTP.sh
 bin/climax_tfa9890
 bin/dis_effect
 bin/gpsd
-bin/gpslogd
 bin/immvibed
 bin/march_hotplug
 bin/mcDriverDaemon
-bin/modem_switch.sh
 bin/radiooptions_exynos
-bin/record_panic_msg
 bin/rild_exynos
 bin/wl
 etc/firmware/audience/cvqmodels/adnc_cvq_detection_bkg.bin
@@ -27,8 +24,6 @@ etc/firmware/audience/cvqmodels/adnc_cvq_training_bkg.bin
 etc/firmware/audience/cvqmodels/oemkw_NihaoMeizu.bin
 etc/firmware/audience/es705/audience-es705-fw.bin
 etc/firmware/audience/es705/audience-es705-vs.bin
-etc/firmware/stage1.txt
-etc/firmware/stage2.txt
 etc/tfa98xx/MZ_M86_speaker.speaker
 etc/tfa98xx/TFA9890_N1B12_N1C3_v3.config
 etc/tfa98xx/TFA9890_N1C3_2_1_1.patch
@@ -51,7 +46,6 @@ lib/extend/libCodec.mpegdec.so
 lib/extend/libCodec.radec.so
 lib/extend/libCodec.raw.so
 lib/extend/libCodec.rvdec.so
-lib/extend/libCodec.wmadec.so
 lib/extend/libExtractor.AC3.so
 lib/extend/libExtractor.AIFF.so
 lib/extend/libExtractor.APE.so
@@ -76,30 +70,23 @@ lib/hw/memtrack.exynos5.so
 lib/libExynosHWCService.so
 lib/libExynosOMX_Core.so
 lib/libExynosOMX_Resourcemanager.so
-lib/libMcClient.so
-lib/libMcRegistry.so
 lib/libSonyIMX230PdafLibrary.so
 lib/libcsc.so
 lib/libdisplay.so
-lib/libdisplaymodule.so
 lib/libexynoscamera.so
 lib/libexynosgscaler.so
 lib/libexynosscaler.so
 lib/libexynosutils.so
 lib/libexynosv4l2.so
 lib/libhdmi.so
-lib/libhdmimodule.so
 lib/libhwcutils.so
-lib/libhwcutilsmodule.so
 lib/libhwjpeg.so
 lib/libimageproc.so
 lib/libion.so
-lib/libion_exynos.so
 lib/libmeizucamera.so
 lib/libmpp.so
 lib/libril_sitril.so
 lib/librilutils_sitril.so
-lib/libsfb.so
 lib/libsitril-audio.so
 lib/libsitril-client.so
 lib/libsitril-gps.so
@@ -109,8 +96,6 @@ lib/libsitril-wlan.so
 lib/libsitril.so
 lib/libstagefrighthw.so
 lib/libtfa9890.so
-lib/libvirtualdisplay.so
-lib/libvirtualdisplaymodule.so
 lib/omx/libOMX.Exynos.AVC.Decoder.so
 lib/omx/libOMX.Exynos.AVC.Encoder.so
 lib/omx/libOMX.Exynos.HEVC.Decoder.so
@@ -154,24 +139,17 @@ lib64/hw/sensors.m86.so
 lib64/libExynosHWCService.so
 lib64/libExynosOMX_Core.so
 lib64/libExynosOMX_Resourcemanager.so
-lib64/libMcClient.so
-lib64/libMcRegistry.so
 lib64/libcsc.so
 lib64/libdisplay.so
-lib64/libdisplaymodule.so
 lib64/libexynosgscaler.so
 lib64/libexynosscaler.so
 lib64/libexynosutils.so
 lib64/libexynosv4l2.so
-lib64/libgps_shim.so
 lib64/libhdmi.so
-lib64/libhdmimodule.so
 lib64/libhwcutils.so
-lib64/libhwcutilsmodule.so
 lib64/libhwjpeg.so
 lib64/libimageproc.so
 lib64/libion.so
-lib64/libion_exynos.so
 lib64/libmeizucamera.so
 lib64/libmpp.so
 lib64/libril_sitril.so
@@ -185,8 +163,6 @@ lib64/libsitril-wlan.so
 lib64/libsitril.so
 lib64/libstagefrighthw.so
 lib64/libtfa9890.so
-lib64/libvirtualdisplay.so
-lib64/libvirtualdisplaymodule.so
 lib64/omx/libOMX.Exynos.AVC.Decoder.so
 lib64/omx/libOMX.Exynos.AVC.Encoder.so
 lib64/omx/libOMX.Exynos.HEVC.Decoder.so
@@ -221,9 +197,13 @@ vendor/firmware/setfile_imx230.bin
 vendor/firmware/setfile_ov5670.bin
 vendor/firmware/st_fts.bin
 vendor/lib/egl/libGLES_mali.so
+vendor/lib/libMcClient.so
+vendor/lib/libMcRegistry.so
 vendor/lib/libbt-vendor.so
 vendor/lib/libexynosuvs.so
 vendor/lib/mediadrm/libdrmclearkeyplugin.so
 vendor/lib64/egl/libGLES_mali.so
+vendor/lib64/libMcClient.so
+vendor/lib64/libMcRegistry.so
 vendor/lib64/libskia_opt.so
 vendor/lib64/mediadrm/libdrmclearkeyplugin.so
