@@ -53,6 +53,7 @@ platform_manifest="$project_root/manifests/pro5.xml"
 build_worker="$project_root/remote/worker-build.sh"
 kernel_build_worker="$project_root/remote/worker-build-kernel.sh"
 start_build="$project_root/remote/start-build.sh"
+fetch_artifacts="$project_root/remote/fetch-lineage-artifacts.sh"
 install_worker="$project_root/remote/install-local-trees.sh"
 push_worker="$project_root/remote/push-local.sh"
 platform_sync_worker="$project_root/remote/worker-sync-platform.sh"
@@ -116,6 +117,7 @@ for required_file in \
   "$build_worker" \
   "$kernel_build_worker" \
   "$start_build" \
+  "$fetch_artifacts" \
   "$install_worker" \
   "$push_worker" \
   "$platform_sync_worker" \
@@ -171,6 +173,14 @@ require_absent() {
 
 require_fixed 'jobs="${PRO5_BUILD_JOBS:-8}"' "$start_build"
 require_fixed 'jobs="${2:-8}"' "$build_worker"
+require_fixed 'artifacts/lineage-latest' "$fetch_artifacts"
+require_fixed 'sha256sum --quiet -c SHA256SUMS' "$fetch_artifacts"
+require_fixed "'target=lineage_m86-userdebug bacon'" "$fetch_artifacts"
+require_fixed 'ota_packages=(lineage-17.1-*.zip)' "$fetch_artifacts"
+require_fixed 'target_files_packages=(*-target_files-*.zip)' \
+  "$fetch_artifacts"
+require_fixed 'partial_artifact_dir="${local_artifact_dir}.partial"' \
+  "$fetch_artifacts"
 require_fixed 'jobs="${PRO5_KERNEL_BUILD_JOBS:-8}"' \
   "$project_root/remote/start-kernel-build.sh"
 require_fixed 'jobs="${1:-8}"' "$kernel_build_worker"

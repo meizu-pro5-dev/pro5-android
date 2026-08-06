@@ -61,6 +61,8 @@ Typical control flow:
 ./remote/kernel-build-status.sh
 ./remote/start-build.sh bootimage
 ./remote/build-status.sh
+./remote/start-build.sh bacon
+./remote/fetch-lineage-artifacts.sh
 ./remote/start-twrp-source-sync.sh
 ./remote/twrp-source-sync-status.sh
 ./remote/start-twrp-build.sh
