@@ -45,6 +45,17 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-setup_vendor "$device" "$vendor" "$lineage_root" false "$clean_vendor"
+# LineageOS 17.1's extract_utils.sh predates nounset-safe optional arguments
+# and reads all six setup_vendor parameters directly. Pass the vendor makefile
+# name explicitly so this script remains strict without changing its output.
+set +u
+setup_vendor \
+  "$device" \
+  "$vendor" \
+  "$lineage_root" \
+  false \
+  "$clean_vendor" \
+  "$device"
 extract "$script_dir/proprietary-files.txt" "$source_path" "$section"
+set -u
 "$script_dir/setup-makefiles.sh"

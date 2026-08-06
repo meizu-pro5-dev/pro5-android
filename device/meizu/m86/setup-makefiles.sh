@@ -25,7 +25,18 @@ DEVICE="$device"
 VENDOR="$vendor"
 INITIAL_COPYRIGHT_YEAR="$initial_copyright_year"
 
-setup_vendor "$DEVICE" "$VENDOR" "$lineage_root"
+# LineageOS 17.1's helper reads its nominally optional arguments even when the
+# caller enables nounset. Supplying all six retains the default non-common,
+# clean vendor/m86 layout while keeping this script in strict mode.
+set +u
+setup_vendor \
+  "$DEVICE" \
+  "$VENDOR" \
+  "$lineage_root" \
+  false \
+  true \
+  "$DEVICE"
 write_headers
 write_makefiles "$script_dir/proprietary-files.txt" true
 write_footers
+set -u

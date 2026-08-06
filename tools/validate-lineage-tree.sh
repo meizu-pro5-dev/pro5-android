@@ -98,6 +98,12 @@ require_fixed 'vendor_blob_count="$(wc -l < "$vendor_blob_lock"' \
   "$build_worker"
 require_fixed 'sha256sum --quiet -c "$vendor_blob_lock"' "$build_worker"
 require_fixed 'm86-proprietary-sha256s.txt' "$build_worker"
+require_fixed 'set +u' "$device_root/extract-files.sh"
+require_fixed '  "$clean_vendor" \' "$device_root/extract-files.sh"
+require_fixed '  "$device"' "$device_root/extract-files.sh"
+require_fixed 'set +u' "$device_root/setup-makefiles.sh"
+require_fixed '  true \' "$device_root/setup-makefiles.sh"
+require_fixed '  "$DEVICE"' "$device_root/setup-makefiles.sh"
 
 for inherited_variable in \
   TARGET_UNOFFICIAL_BUILD_ID \
