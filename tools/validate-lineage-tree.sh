@@ -62,6 +62,7 @@ platform_sync_worker="$project_root/remote/worker-sync-platform.sh"
 vendor_worker="$project_root/remote/prepare-vendor.sh"
 camera_audit_tool="$project_root/tools/audit-camera-abi.sh"
 fingerprint_audit_tool="$project_root/tools/audit-fingerprint-output.sh"
+ota_audit_tool="$project_root/tools/audit-lineage-ota.sh"
 blob_list="$device_root/proprietary-files.txt"
 vendor_definition_root="$project_root/vendor/meizu/m86"
 vendor_android_makefile="$vendor_definition_root/Android.mk"
@@ -128,6 +129,7 @@ for required_file in \
   "$vendor_worker" \
   "$camera_audit_tool" \
   "$fingerprint_audit_tool" \
+  "$ota_audit_tool" \
   "$blob_list" \
   "$vendor_android_makefile" \
   "$vendor_board_config" \
@@ -657,6 +659,12 @@ require_fixed 'vendor_blob_count="$(wc -l < "$vendor_blob_lock"' \
   "$build_worker"
 require_fixed 'sha256sum --quiet -c "$vendor_blob_lock"' "$build_worker"
 require_fixed 'm86-proprietary-sha256s.txt' "$build_worker"
+require_fixed 'cd "$product_out/system"' "$build_worker"
+require_fixed 'PROPRIETARY-OUTPUT.txt' "$build_worker"
+require_fixed 'ota-required-cache=0' "$ota_audit_tool"
+require_fixed 'transfer_operations=' "$ota_audit_tool"
+require_fixed 'block_targets=bootimg,dtb,system' "$ota_audit_tool"
+require_fixed 'OTA-AUDIT.txt' "$build_worker"
 require_fixed 'vendor/lib/libbt-vendor.so' "$blob_list"
 require_fixed 'vendor/lib/egl/libGLES_mali.so' "$blob_list"
 require_fixed 'vendor/lib64/egl/libGLES_mali.so' "$blob_list"

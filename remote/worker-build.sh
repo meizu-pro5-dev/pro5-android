@@ -334,22 +334,21 @@ if [[ "$target" == bacon ]]; then
   fi
 
   ota_package="${ota_packages[0]}"
-  unzip -t "$ota_package" >/dev/null
-  if ! unzip -p "$ota_package" dtb.img | cmp --quiet - "$kernel_dtb"; then
-    printf 'OTA DTB differs from the configured kernel DTB.\n' >&2
+  "$local_root/tools/audit-lineage-ota.sh" \
+    "$ota_package" \
+    "$artifact_dir/boot.img" \
+    "$kernel_dtb" |
+    tee "$artifact_dir/OTA-AUDIT.txt"
+
+  if ! (
+    cd "$product_out/system"
+    sha256sum --quiet -c "$vendor_blob_lock"
+  ); then
+    printf 'Installed system tree differs from the 219 locked Flyme inputs.\n' >&2
     exit 1
   fi
-  if ! unzip -p "$ota_package" META-INF/com/google/android/updater-script |
-      grep -F 'package_extract_file("dtb.img", "/dev/block/platform/15570000.ufs/by-name/dtb");' \
-        >/dev/null; then
-    printf 'OTA updater does not contain the reviewed DTB write.\n' >&2
-    exit 1
-  fi
-  if unzip -Z1 "$ota_package" |
-      grep -E '^(bootloader|ldfw|bootlogo|dtb_backup)([./]|$)' >/dev/null; then
-    printf 'OTA contains a forbidden firmware or backup-partition payload.\n' >&2
-    exit 1
-  fi
+  printf 'verified_installed_blob_count=%s\n' "$vendor_blob_count" |
+    tee "$artifact_dir/PROPRIETARY-OUTPUT.txt"
 
   "$local_root/tools/audit-camera-abi.sh" \
     "$source_root" \

@@ -137,16 +137,18 @@ recording, autofocus, flash/torch, rotation, suspend/resume, and repeated open.
 4. Flyme codec and extractor extensions are optional. They remain deferred if
    they require old internal Stagefright ABI or conflict with Android 10
    modules.
-5. A source-built Android 10 library always wins over copying an Android 7
-   platform library. A shim must name the exact missing symbols and calling
-   blob; broad compatibility libraries are rejected.
+5. A source-built Android 10 library wins unless the destination is explicitly
+   owned by the reviewed 219-file Flyme lock. A shim must name the exact
+   missing symbols and calling blob; broad compatibility libraries are
+   rejected.
 
 Before every full `bacon` build, the remote worker requires the 219-line hash
 lock produced by extraction and verifies every staged proprietary input in
 place. The lock is copied into the artifact directory, alongside the pinned
-source manifest and stock-image lock. This proves the full build consumed the
-audited Flyme 8 byte set; output-side ELF/symbol comparison remains a separate
-post-build ABI gate.
+source manifest and stock-image lock. After `bacon`, the worker applies the
+same lock to the installed system tree, so duplicate make rules cannot replace
+an explicitly selected Flyme file with different bytes. Output-side ELF and
+symbol compatibility remains a separate post-build ABI gate.
 
 `tools/audit-elf-deps.sh` reproduces the class and SONAME counts on the Linux
 builder. After the first system build, its output is combined with
