@@ -30,5 +30,11 @@ for deterministic `system.img` construction. It does not authorize or prove
 runtime access to either partition; mount contents and denials remain device
 tests, and the complete policy must still reach enforcing for S1.
 
+The paused GPT backup also means no PRO 5 cache capacity is claimed. A reviewed
+releasetools patch permits only a full block OTA with an empty source image in
+that state; it contains no diff transfers or stashes. Incremental OTA creation
+without a verified cache size fails explicitly. Record the handset GPT value
+and remove this gate before incremental-update acceptance.
+
 Every stage has a build-only gate before a device-flashing gate. Device backup
 and flashing remain paused until explicitly resumed.

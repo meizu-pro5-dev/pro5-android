@@ -46,6 +46,7 @@ kernel_uapi_kbuild="$project_root/kernel/meizu/m86/include/uapi/linux/Kbuild"
 kernel_mfc_uapi="$project_root/kernel/meizu/m86/include/uapi/linux/videodev2_exynos_media.h"
 platform_patch="$project_root/patches/device-samsung-universal7420-common/0001-target-add-meizu-m86.patch"
 bluetooth_patch="$project_root/patches/device-samsung-universal7420-common/0002-bluetooth-add-m86-address-fallback.patch"
+full_ota_patch="$project_root/patches/build-make/0001-releasetools-allow-full-ota-without-cache-size.patch"
 glib_patch="$project_root/patches/external-glib/0001-build-libglib-for-m86-vendor.patch"
 glib_stub_patch="$project_root/patches/external-glib/0003-clang-port-legacy-android-stubs.patch"
 libfprint_patch="$project_root/patches/legacy-m86-libfprint/0001-port-m86-fpc-to-android10.patch"
@@ -111,6 +112,7 @@ for required_file in \
   "$kernel_mfc_uapi" \
   "$platform_patch" \
   "$bluetooth_patch" \
+  "$full_ota_patch" \
   "$glib_patch" \
   "$glib_stub_patch" \
   "$libfprint_patch" \
@@ -622,6 +624,15 @@ require_fixed 'strcmp(hardware, "m86") != 0' "$bluetooth_patch"
 require_fixed 'local_addr[0] = 0x02;' "$bluetooth_patch"
 require_fixed 'patches/device-samsung-universal7420-common/0002-bluetooth-add-m86-address-fallback.patch' \
   "$patch_series"
+require_fixed 'build/make' "$patch_series"
+require_fixed 'patches/build-make/0001-releasetools-allow-full-ota-without-cache-size.patch' \
+  "$patch_series"
+require_fixed 'if not isinstance(self.src, EmptyImage):' "$full_ota_patch"
+require_fixed 'cache size is required for incremental block OTA generation' \
+  "$full_ota_patch"
+require_fixed 'test_FindTransfers_fullOtaWithoutCacheSize' "$full_ota_patch"
+require_fixed 'test_FindTransfers_incrementalRequiresCacheSize' \
+  "$full_ota_patch"
 require_fixed '#define BTM_DEF_LOCAL_NAME "Meizu PRO 5"' "$bluetooth_buildcfg"
 require_fixed 'UartPort = /dev/ttySAC4' "$bluetooth_vendor_conf"
 require_fixed 'FwPatchFilePath = /vendor/firmware/' "$bluetooth_vendor_conf"

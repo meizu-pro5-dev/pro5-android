@@ -1,0 +1,79 @@
+From: PRO 5 Android 10 bring-up <pro5-port@localhost>
+Date: Fri, 7 Aug 2026 09:01:00 +0800
+Subject: [PATCH] releasetools: allow full OTA without cache geometry
+
+Non-A/B block OTA generation normally derives its per-transfer split limit
+from cache_size.  A full OTA has an EmptyImage source and therefore emits no
+diff transfers or stashes, but FindTransfers still dereferences a missing
+cache_size before it sees that fact.
+
+Permit the no-source full-OTA case to use the target image size as an inert
+split limit.  Continue to reject incremental generation without a verified
+cache size so the build cannot silently claim an unsafe stash budget.
+---
+ tools/releasetools/blockimgdiff.py      | 14 +++++++++++---
+ tools/releasetools/test_blockimgdiff.py | 27 +++++++++++++++++++++++++++
+ 2 files changed, 38 insertions(+), 3 deletions(-)
+
+diff --git a/tools/releasetools/blockimgdiff.py b/tools/releasetools/blockimgdiff.py
+--- a/tools/releasetools/blockimgdiff.py
++++ b/tools/releasetools/blockimgdiff.py
+@@ -1760,9 +1760,17 @@ class BlockImageDiff(object):
+     large_apks = []
+     split_large_apks = []
+     cache_size = common.OPTIONS.cache_size
+-    split_threshold = 0.125
+-    max_blocks_per_transfer = int(cache_size * split_threshold /
+-                                  self.tgt.blocksize)
++    if cache_size is None:
++      if not isinstance(self.src, EmptyImage):
++        raise ValueError(
++            "cache size is required for incremental block OTA generation")
++      # A full OTA has no source blocks, diff transfers, or stashes.  This
++      # value is therefore only an inert upper bound for unreachable splitting.
++      max_blocks_per_transfer = max(1, self.tgt.total_blocks)
++    else:
++      split_threshold = 0.125
++      max_blocks_per_transfer = max(
++          1, int(cache_size * split_threshold / self.tgt.blocksize))
+     empty = RangeSet()
+     for tgt_fn, tgt_ranges in sorted(self.tgt.file_map.items()):
+       if tgt_fn == "__ZERO":
+diff --git a/tools/releasetools/test_blockimgdiff.py b/tools/releasetools/test_blockimgdiff.py
+--- a/tools/releasetools/test_blockimgdiff.py
++++ b/tools/releasetools/test_blockimgdiff.py
+@@ -246,5 +246,32 @@ class BlockImageDiffTest(ReleaseToolsTestCase):
+         block_image_diff.imgdiff_stats.stats)
+ 
+ 
++  def test_FindTransfers_fullOtaWithoutCacheSize(self):
++    old_cache_size = common.OPTIONS.cache_size
++    try:
++      common.OPTIONS.cache_size = None
++      block_image_diff = BlockImageDiff(DataImage(b"a" * 4096))
++      block_image_diff.FindTransfers()
++      self.assertEqual(
++          ["new"], [transfer.style for transfer in
++                    block_image_diff.transfers])
++    finally:
++      common.OPTIONS.cache_size = old_cache_size
++
++  def test_FindTransfers_incrementalRequiresCacheSize(self):
++    old_cache_size = common.OPTIONS.cache_size
++    try:
++      common.OPTIONS.cache_size = None
++      block_image_diff = BlockImageDiff(
++          DataImage(b"b" * 4096), DataImage(b"a" * 4096))
++      with self.assertRaises(ValueError) as context:
++        block_image_diff.FindTransfers()
++      self.assertIn(
++          "cache size is required for incremental block OTA generation",
++          str(context.exception))
++    finally:
++      common.OPTIONS.cache_size = old_cache_size
++
++
+ class ImgdiffStatsTest(ReleaseToolsTestCase):
+ 
+-- 
+2.39.5
