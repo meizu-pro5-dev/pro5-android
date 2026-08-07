@@ -255,20 +255,7 @@ case "$target" in
   bacon)
     copy_required "$product_out/boot.img"
     copy_required "$product_out/recovery.img"
-    copy_required "$product_out/system.img"
     copy_required "$product_out/dtb.img"
-
-    mapfile -t ota_packages < <(
-      find "$product_out" -maxdepth 1 -type f \
-        -name 'lineage-17.1-*.zip' -print | LC_ALL=C sort
-    )
-    if [[ "${#ota_packages[@]}" -ne 1 ]]; then
-      printf 'Expected one LineageOS OTA ZIP, found %s.\n' \
-        "${#ota_packages[@]}" >&2
-      printf '  %s\n' "${ota_packages[@]}" >&2
-      exit 1
-    fi
-    copy_required "${ota_packages[0]}"
 
     mapfile -t target_files_packages < <(
       find "$product_out/obj/PACKAGING/target_files_intermediates" \
@@ -281,6 +268,25 @@ case "$target" in
       printf '  %s\n' "${target_files_packages[@]}" >&2
       exit 1
     fi
+
+    # Android 10's bacon target retains the canonical sparse system image
+    # under the expanded target-files directory instead of PRODUCT_OUT. Copy
+    # that exact packaged image so the retained evidence matches the image
+    # used to generate the block OTA.
+    packaged_system_image="${target_files_packages[0]%.zip}/IMAGES/system.img"
+    copy_required "$packaged_system_image"
+
+    mapfile -t ota_packages < <(
+      find "$product_out" -maxdepth 1 -type f \
+        -name 'lineage-17.1-*.zip' -print | LC_ALL=C sort
+    )
+    if [[ "${#ota_packages[@]}" -ne 1 ]]; then
+      printf 'Expected one LineageOS OTA ZIP, found %s.\n' \
+        "${#ota_packages[@]}" >&2
+      printf '  %s\n' "${ota_packages[@]}" >&2
+      exit 1
+    fi
+    copy_required "${ota_packages[0]}"
     copy_required "${target_files_packages[0]}"
     ;;
 esac
@@ -378,6 +384,9 @@ repo manifest -r -o "$artifact_dir/lineage-17.1-m86-lock.xml"
   printf 'boot_header_cmdline=empty\n'
   printf 'dtb_packaging=raw separate partition\n'
   printf 'ramdisk_compression=gzip\n'
+  if [[ "$target" == bacon ]]; then
+    printf 'system_image_source=target-files IMAGES/system.img\n'
+  fi
 } > "$artifact_dir/BUILD-METADATA"
 
 printf 'Build completed at %s\n' "$(date --iso-8601=seconds)"
