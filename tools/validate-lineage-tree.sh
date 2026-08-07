@@ -35,6 +35,7 @@ sensors_init_rc="$device_root/rootdir/etc/init.m86.sensors.rc"
 ueventd_rc="$device_root/rootdir/etc/ueventd.m86.rc"
 recovery_fstab="$device_root/rootdir/etc/recovery.fstab"
 releasetools="$device_root/releasetools/releasetools.py"
+device_file_contexts="$device_root/sepolicy/file_contexts"
 kernel_config="$project_root/kernel/meizu/m86/arch/arm64/configs/cm_pro5_defconfig"
 kernel_fs_kconfig="$project_root/kernel/meizu/m86/fs/Kconfig"
 kernel_fs_makefile="$project_root/kernel/meizu/m86/fs/Makefile"
@@ -99,6 +100,7 @@ for required_file in \
   "$ueventd_rc" \
   "$recovery_fstab" \
   "$releasetools" \
+  "$device_file_contexts" \
   "$kernel_config" \
   "$kernel_fs_kconfig" \
   "$kernel_fs_makefile" \
@@ -289,6 +291,17 @@ require_fixed '--ramdisk_offset 0x02000000' "$board_config"
 require_fixed '--second_offset 0x00f00000' "$board_config"
 require_fixed '--tags_offset 0x00000100' "$board_config"
 require_fixed 'BOARD_PACK_RADIOIMAGES += dtb' "$board_config"
+require_fixed 'BOARD_ROOT_EXTRA_FOLDERS += custom mnv' "$board_config"
+require_fixed 'BOARD_SEPOLICY_DIRS := device/meizu/m86/sepolicy' \
+  "$board_config"
+require_fixed '/custom    u:object_r:rootfs:s0' "$device_file_contexts"
+require_fixed '/mnv       u:object_r:rootfs:s0' "$device_file_contexts"
+require_fixed 'mkdir /custom 0555 root root' "$init_rc"
+require_fixed 'mkdir /mnv 0555 root root' "$init_rc"
+require_fixed '/by-name/custom    /custom' \
+  "$device_root/rootdir/etc/fstab.m86"
+require_fixed '/by-name/mnv       /mnv' \
+  "$device_root/rootdir/etc/fstab.m86"
 require_fixed 'TARGET_RELEASETOOLS_EXTENSIONS := $(M86_PATH)/releasetools' \
   "$board_config"
 require_fixed 'INSTALLED_RADIOIMAGE_TARGET += $(M86_INSTALLED_DTB)' \
@@ -820,7 +833,6 @@ for inherited_variable in \
   ENABLE_VENDOR_RIL_SERVICE \
   TARGET_EXFAT_DRIVER \
   TARGET_FS_CONFIG_GEN \
-  BOARD_SEPOLICY_DIRS \
   BOARD_SEPOLICY_VERS \
   SELINUX_IGNORE_NEVERALLOWS \
   BOARD_SECCOMP_POLICY \

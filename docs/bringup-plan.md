@@ -23,5 +23,12 @@ compiled Android hardware selector. The boot-image v0 header remains empty.
 `androidboot.selinux=permissive` is a named bring-up gate, not an acceptance
 condition: it must be removed and the kernel rebuilt reproducibly before S1.
 
+The root image contains empty `/custom` and `/mnv` directories because the
+stock partition layout mounts Meizu auxiliary partitions there. Device-local
+`file_contexts` labels only those two mountpoints as `rootfs`, which is needed
+for deterministic `system.img` construction. It does not authorize or prove
+runtime access to either partition; mount contents and denials remain device
+tests, and the complete policy must still reach enforcing for S1.
+
 Every stage has a build-only gate before a device-flashing gate. Device backup
 and flashing remain paused until explicitly resumed.

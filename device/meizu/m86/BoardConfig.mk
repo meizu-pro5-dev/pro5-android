@@ -60,7 +60,9 @@ TARGET_EXFAT_DRIVER :=
 TARGET_FS_CONFIG_GEN :=
 BOARD_USE_CUSTOM_RECOVERY_FONT :=
 
-BOARD_SEPOLICY_DIRS :=
+# Keep Galaxy model policy out of the m86 build, but label the two Meizu
+# auxiliary-partition mountpoints that are materialized in the root image.
+BOARD_SEPOLICY_DIRS := device/meizu/m86/sepolicy
 BOARD_SEPOLICY_VERS :=
 SELINUX_IGNORE_NEVERALLOWS :=
 BOARD_SECCOMP_POLICY :=
