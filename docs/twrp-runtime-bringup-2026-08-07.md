@@ -195,7 +195,7 @@ gzip format, legacy init/ueventd/SELinux startup chain and component-load
 sizes. The remaining failure boundary is new executable/runtime or rootfs
 content.
 
-The next diagnostic narrows that boundary further. Recovery SHA-256
+The minimal-runtime diagnostic narrowed that boundary further. Recovery SHA-256
 `c391de4d77392a6c8f2f2012d44746d0b46d18e4585faf953587222a36a3766d`
 is 29,335,552 bytes and uses:
 
@@ -212,17 +212,39 @@ The deterministic gzip ramdisk is 12,104,107 bytes, below the already-passed
 dependency and is byte-identical to the corrected new-userspace donor. The
 optional post-boot TWRP App APK and permission XML are absent.
 
-If this image reaches the UI, the recovery executable stack is viable and the
-failure lies in other complete-new-rootfs or Android 9 early-startup content.
-If it stalls, the next discriminator is a small Android 9 dynamic-linker probe
-that falls through to the known-working recovery, separating the linker/libc
-ABI from the new recovery executable itself.
+On the handset it progressed from the Meizu logo to a black screen, vibrated,
+then automatically rebooted into Flyme. The black transition is consistent
+with reaching TWRP 3.7 `gui_init()`, whose device-specific blank/unblank runs
+immediately after graphics initialization, but there is no log proving the
+precise exit point. The 204,148-byte pstore file collected afterward contains
+the subsequent stock Flyme kernel boot, not a recovery console. Reset-reason
+storage was damaged with all counters zero, and the cache recovery log still
+had a 14:24 modification time predating the approximately 14:36 test. Evidence
+is retained at
+`artifacts/twrp-device-test-20260807-143759-minimal-new-recovery-runtime` in
+the parent Android workspace.
+
+The retained legacy init, ueventd, healthd and adbd are statically linked, so
+the recovery-wide Android 9 linker did not make a critical legacy service
+unloadable. Post-test archive review instead found a concrete isolation flaw:
+the old base contributed `/etc/twrp.fstab`, which TWRP 3.7 checks before
+`/etc/recovery.fstab`. The stale old file therefore shadowed the reviewed new
+fstab even though the corrected full donor contains no `/etc/twrp.fstab`.
+
+The next one-variable diagnostic has recovery SHA-256
+`7a648ed1a5bc86db96741931104bab8443a728bd1f2b90d8abac7182156f691b`.
+It is 29,331,456 bytes with a 12,103,270-byte gzip ramdisk and removes only
+the shadowing `etc/twrp.fstab`; all 488 surviving entries, the kernel and boot
+header geometry remain identical. A successful UI identifies the stale fstab as the
+cause. If the black-screen/reboot sequence repeats, retain this corrected
+fstab selection and add an ADB-only, nonpersistent `/tmp/recovery.log` capture
+wrapper next.
 
 ## Flashing boundary
 
 Keep the stock Flyme 8 DTB in place. After explicit approval, flash only the
-reviewed minimal-runtime `recovery.img` with SHA-256
-`c391de4d77392a6c8f2f2012d44746d0b46d18e4585faf953587222a36a3766d`
+reviewed fstab-shadow isolation `recovery.img` with SHA-256
+`7a648ed1a5bc86db96741931104bab8443a728bd1f2b90d8abac7182156f691b`
 to the `recovery` partition. Do not flash `dtb`, `bootimg`, `/dev/block/sdb`,
 `ldfw`, or any identity/parameter partition.
 

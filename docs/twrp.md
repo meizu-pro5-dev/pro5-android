@@ -196,6 +196,20 @@ runtime, the tools it names, resources and device configuration. Its
 control. The 69-entry recursive runtime closure has no missing dependency and
 matches the corrected new ramdisk byte for byte.
 
+On the handset it reached a black screen after the Meizu logo, vibrated, and
+then automatically rebooted into Flyme. No current recovery log or retained
+recovery console was available. Static inspection excludes a dynamic-linker
+failure of the legacy critical services because init, ueventd, healthd and
+adbd are statically linked. It also exposed an old-only `/etc/twrp.fstab`
+inside the hybrid; TWRP 3.7 prefers that path, so it shadowed the reviewed
+new `/etc/recovery.fstab`.
+
+The next one-variable diagnostic removes only that shadowing file. Its
+recovery SHA-256 is
+`7a648ed1a5bc86db96741931104bab8443a728bd1f2b90d8abac7182156f691b`;
+all 488 surviving ramdisk entries and the proven kernel are byte-identical,
+and the boot-header geometry is unchanged from the preceding image.
+
 ## Functional acceptance
 
 Static build acceptance requires:
