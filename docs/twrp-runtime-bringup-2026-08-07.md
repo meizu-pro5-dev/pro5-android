@@ -149,7 +149,7 @@ ramoops probe. The retained evidence directory is
 `artifacts/twrp-device-test-20260807-1332-screenblank-pstore` in the parent
 Android workspace.
 
-## Old-content load-envelope control
+## Current old-content load-envelope control
 
 The next diagnostic uses only the reconfirmed working recovery's kernel,
 header and gzip userspace. Zero bytes follow its valid gzip stream inside the
@@ -157,11 +157,13 @@ header-declared ramdisk. Linux 3.10's `unpack_to_rootfs` explicitly skips NUL
 bytes after a compressed archive, and the decompressed cpio remains
 byte-identical to the working ramdisk.
 
-The control is at least as demanding as the failed LZMA candidate on every
-bootloader load dimension: its kernel is 17,512,240 bytes versus 17,222,424,
-its ramdisk is exactly the same 10,058,368 bytes, and its complete image is
-27,578,368 bytes versus 27,287,552. Its recovery SHA-256 is
-`09fd948512af17275fed9e8167a66e8e66da15349960ba78d5a66c68960ca942`.
+The original control matched the earlier LZMA candidate but its declared
+ramdisk was 2,633 bytes smaller than the corrected source candidate. It is
+superseded by a control that is at least as demanding as the latest failure on
+every bootloader load dimension: its kernel is 17,512,240 bytes versus
+17,239,832, its ramdisk is exactly the same 10,061,001 bytes, and its complete
+image is 27,582,464 bytes versus 27,308,032. Its recovery SHA-256 is
+`f86fe878513b9df07bdfd7c32f8064564377067622b355a7a5c889f260dcedca`.
 
 - If it boots, image size and bootloader component-load size are excluded;
   isolate the maintained kernel next.

@@ -168,7 +168,7 @@ file after the warm reset was a 43-byte ECC notice with no console payload.
 The generated DTB remains a review artifact and must not be flashed.
 
 The next test is the all-old-content load-envelope control with SHA-256
-`09fd948512af17275fed9e8167a66e8e66da15349960ba78d5a66c68960ca942`.
+`f86fe878513b9df07bdfd7c32f8064564377067622b355a7a5c889f260dcedca`.
 If it boots, component size is excluded and the maintained kernel is isolated
 next. If it stalls, the bootloader/early-kernel load boundary is bracketed
 before changing TWRP userspace again.

@@ -50,12 +50,12 @@ it.
 
 The next isolation step is the retained all-old-content load-envelope control
 with SHA-256
-`09fd948512af17275fed9e8167a66e8e66da15349960ba78d5a66c68960ca942`
-and size 27,578,368 bytes. Its kernel, header and userspace all come from the
+`f86fe878513b9df07bdfd7c32f8064564377067622b355a7a5c889f260dcedca`
+and size 27,582,464 bytes. Its kernel, header and userspace all come from the
 reconfirmed working TWRP; only zero padding makes its declared ramdisk and
-complete image larger than the failed source candidates. Flash only this
-control to `recovery`, retain the stock DTB, and do not perform any write test
-inside recovery.
+complete image at least as large as the latest failed source candidate. Flash
+only this control to `recovery`, retain the stock DTB, and do not perform any
+write test inside recovery.
 
 After recovery starts, verify display, touch, ADB, partition discovery, and
 rollback access before testing any write operation. If it stalls at the logo,
