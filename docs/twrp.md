@@ -167,11 +167,24 @@ or a current `/cache/recovery/last_log`, so it is rejected. The only pstore
 file after the warm reset was a 43-byte ECC notice with no console payload.
 The generated DTB remains a review artifact and must not be flashed.
 
-The next test is the all-old-content load-envelope control with SHA-256
-`f86fe878513b9df07bdfd7c32f8064564377067622b355a7a5c889f260dcedca`.
-If it boots, component size is excluded and the maintained kernel is isolated
-next. If it stalls, the bootloader/early-kernel load boundary is bracketed
-before changing TWRP userspace again.
+The all-old-content current-envelope control with SHA-256
+`f86fe878513b9df07bdfd7c32f8064564377067622b355a7a5c889f260dcedca`
+subsequently reached recovery. The owner also confirmed that the earlier
+maintained-source-kernel / old-userspace image with SHA-256
+`7a126febd9e3d12b221fd870effb4a835b9604265cf33ad556da60f0dbfa54e1`
+had booted. Since the old-kernel / new-ramdisk image failed, the new ramdisk is
+a sufficient failure boundary.
+
+The first legacy-init hybrid with SHA-256
+`14c0056ca835cd1599b70e892071458c6693cbdfaa5071ef0efefcc169fd83bb`
+also stalled, but it combined the later pstore kernel with LZMA and is not a
+clean discriminator. It is rejected. The next test is instead the exact gzip
+load-envelope control with SHA-256
+`22a42a33516da36dcbc9ec3a1807716123430e2f5a256f25b5d5f16b2dee469d`.
+Only if it boots may the matching proven-source-kernel / new-userspace /
+legacy-init gzip image with SHA-256
+`0dad8b1710cd8eef39f6b3d632f71bc8cd5f3c857ed16055fbbf4b3224254ed3`
+be tested.
 
 ## Functional acceptance
 

@@ -48,14 +48,27 @@ pstore console payload was recovered, so the candidate is rejected. Keep the
 verified stock Flyme 8 DTB and do not flash the generated DTB packaged beside
 it.
 
-The next isolation step is the retained all-old-content load-envelope control
-with SHA-256
+The all-old-content current-envelope control with SHA-256
 `f86fe878513b9df07bdfd7c32f8064564377067622b355a7a5c889f260dcedca`
-and size 27,582,464 bytes. Its kernel, header and userspace all come from the
-reconfirmed working TWRP; only zero padding makes its declared ramdisk and
-complete image at least as large as the latest failed source candidate. Flash
-only this control to `recovery`, retain the stock DTB, and do not perform any
-write test inside recovery.
+reached recovery. The owner also confirmed that the maintained-source-kernel /
+old-userspace diagnostic booted. A later LZMA hybrid that restored the legacy
+startup chain, SHA-256
+`14c0056ca835cd1599b70e892071458c6693cbdfaa5071ef0efefcc169fd83bb`,
+stalled and is rejected; do not flash it again.
+
+The next authorized candidate must be the all-old-content gzip load-envelope
+control with SHA-256
+`22a42a33516da36dcbc9ec3a1807716123430e2f5a256f25b5d5f16b2dee469d`
+and size 32,571,392 bytes. Its declared ramdisk is 15,051,754 bytes, exactly
+matching the pending gzip userspace diagnostic, while its old kernel and total
+image are larger. Flash only this control to `recovery`, retain the stock DTB,
+and do not perform any write test inside recovery.
+
+Only after that control boots may the proven-source-kernel / new-userspace /
+legacy-init gzip diagnostic with SHA-256
+`0dad8b1710cd8eef39f6b3d632f71bc8cd5f3c857ed16055fbbf4b3224254ed3`
+be tested. Do not use the pending userspace image to replace the required
+control step.
 
 After recovery starts, verify display, touch, ADB, partition discovery, and
 rollback access before testing any write operation. If it stalls at the logo,

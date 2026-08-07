@@ -149,34 +149,54 @@ ramoops probe. The retained evidence directory is
 `artifacts/twrp-device-test-20260807-1332-screenblank-pstore` in the parent
 Android workspace.
 
-## Current old-content load-envelope control
+## Completed isolation results
 
-The next diagnostic uses only the reconfirmed working recovery's kernel,
-header and gzip userspace. Zero bytes follow its valid gzip stream inside the
-header-declared ramdisk. Linux 3.10's `unpack_to_rootfs` explicitly skips NUL
-bytes after a compressed archive, and the decompressed cpio remains
-byte-identical to the working ramdisk.
+The all-old-content current-envelope control with recovery SHA-256
+`f86fe878513b9df07bdfd7c32f8064564377067622b355a7a5c889f260dcedca`
+reached the recovery UI. Its kernel was larger than the corrected candidate,
+its declared ramdisk was exactly 10,061,001 bytes, and its complete image was
+larger. This excludes those component-load dimensions. The legacy recovery's
+USB path did not expose host ADB during the test, so the result is limited to
+the owner-observed UI and does not accept MTP or ADB.
 
-The original control matched the earlier LZMA candidate but its declared
-ramdisk was 2,633 bytes smaller than the corrected source candidate. It is
-superseded by a control that is at least as demanding as the latest failure on
-every bootloader load dimension: its kernel is 17,512,240 bytes versus
-17,239,832, its ramdisk is exactly the same 10,061,001 bytes, and its complete
-image is 27,582,464 bytes versus 27,308,032. Its recovery SHA-256 is
-`f86fe878513b9df07bdfd7c32f8064564377067622b355a7a5c889f260dcedca`.
+The owner also confirmed that the earlier maintained-source-kernel / complete
+old-userspace diagnostic with recovery SHA-256
+`7a126febd9e3d12b221fd870effb4a835b9604265cf33ad556da60f0dbfa54e1`
+had booted. Together with the failed old-kernel / new-ramdisk test, this makes
+the new ramdisk content a sufficient failure boundary; the maintained kernel
+used by that diagnostic is not the cause of that failure.
 
-- If it boots, image size and bootloader component-load size are excluded;
-  isolate the maintained kernel next.
-- If it stalls, bracket the image/component boundary before changing init or
-  userspace.
+A subsequent image retained the corrected TWRP 3.7 executable stack but
+restored the legacy init, ueventd, SELinux, healthd and toolbox startup chain.
+It used the later pstore kernel and LZMA and had recovery SHA-256
+`14c0056ca835cd1599b70e892071458c6693cbdfaa5071ef0efefcc169fd83bb`.
+It also stalled at the logo and is rejected. The following stock boot exposed
+only the same 43-byte pstore ECC notice; every reset-reason counter was zero.
+The retained evidence directory is
+`artifacts/twrp-device-test-20260807-1408-old-init-lzma-fail` in the parent
+Android workspace. Because that image changed the later kernel and compression
+path together, it does not cleanly reject the legacy startup-chain hypothesis.
 
-The corrected source candidate did stall without useful pstore evidence.
-This all-old-content control is therefore the next device test; its result
-cleanly accepts or rejects the bootloader load-envelope hypothesis.
+## Next clean gzip sequence
+
+The next sequence returns to the exact source kernel already confirmed to boot
+and to gzip. First test the all-old-content load-envelope control with SHA-256
+`22a42a33516da36dcbc9ec3a1807716123430e2f5a256f25b5d5f16b2dee469d`.
+Its kernel is 17,512,240 bytes, ramdisk is 15,051,754 bytes and complete image
+is 32,571,392 bytes. Every dimension is at least as demanding as the following
+new-userspace image.
+
+Only if that control boots, test the proven-source-kernel / new-userspace /
+legacy-init gzip image with SHA-256
+`0dad8b1710cd8eef39f6b3d632f71bc8cd5f3c857ed16055fbbf4b3224254ed3`.
+It is 32,280,576 bytes and keeps the exact new TWRP 3.7 recovery, Android 9
+adbd, linker, libraries, firmware and resources while retaining the proven
+legacy startup chain. A boot isolates the Android 9 early startup layer; a
+stall, after its control passes, isolates the new executable/rootfs content.
 
 ## Flashing boundary
 
-Keep the stock Flyme 8 DTB in place. Flash only the reviewed diagnostic file
+Keep the stock Flyme 8 DTB in place. Flash only the reviewed control file
 to the `recovery` partition. Do not flash `dtb`, `bootimg`, `/dev/block/sdb`,
 `ldfw`, or any identity/parameter partition.
 
