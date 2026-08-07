@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Copy selected entries between compressed newc recovery ramdisks."""
+"""Copy or delete selected entries in compressed newc recovery ramdisks."""
 
 from __future__ import annotations
 
@@ -250,6 +250,44 @@ def copied_archive(
     return NewcArchive(tuple(base_entries), base.tail), actions
 
 
+def deleted_archive(
+    base: NewcArchive, paths: list[str]
+) -> tuple[NewcArchive, list[tuple[str, str]]]:
+    delete_paths = set(paths)
+    if "TRAILER!!!" in delete_paths:
+        raise ValueError("refusing to delete the newc trailer")
+
+    entries_by_path = {entry.path: entry for entry in base.entries}
+    for path in paths:
+        entry = entries_by_path.get(path)
+        if entry is None:
+            raise ValueError(f"base newc path is absent: {path!r}")
+        # Legacy Android mkbootfs archives may encode zero links and reuse
+        # inode zero for every entry. Only a positive multi-link count carries
+        # hard-link semantics that deletion could corrupt.
+        if entry.links > 1:
+            raise ValueError(
+                f"refusing to delete multiply-linked newc path: {path!r}"
+            )
+        prefix = f"{path}/"
+        surviving_children = [
+            candidate
+            for candidate in entries_by_path
+            if candidate.startswith(prefix) and candidate not in delete_paths
+        ]
+        if surviving_children:
+            raise ValueError(
+                f"refusing to delete nonempty newc directory: {path!r}"
+            )
+
+    remaining = tuple(
+        entry for entry in base.entries if entry.path not in delete_paths
+    )
+    return NewcArchive(remaining, base.tail), [
+        (path, "removed") for path in paths
+    ]
+
+
 def compressed_ramdisk(payload: bytes, compression: str) -> bytes:
     if compression == "none":
         return payload
@@ -283,7 +321,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--copy",
         action="append",
-        required=True,
+        default=[],
+        type=safe_archive_path,
+        metavar="RAMDISK_PATH",
+    )
+    parser.add_argument(
+        "--delete",
+        action="append",
+        default=[],
         type=safe_archive_path,
         metavar="RAMDISK_PATH",
     )
@@ -313,6 +358,15 @@ def main() -> int:
         raise ValueError(f"refusing to overwrite output: {args.output}")
     if len(set(args.copy)) != len(args.copy):
         raise ValueError("copy list contains duplicate paths")
+    if len(set(args.delete)) != len(args.delete):
+        raise ValueError("delete list contains duplicate paths")
+    overlap = set(args.copy) & set(args.delete)
+    if overlap:
+        raise ValueError(
+            f"paths cannot be copied and deleted together: {sorted(overlap)!r}"
+        )
+    if not args.copy and not args.delete:
+        raise ValueError("at least one --copy or --delete action is required")
 
     base_ramdisk, base_source, base_container_sha256 = input_ramdisk(
         args.base_ramdisk, args.base_boot_image, args.expect_base_sha256
@@ -333,6 +387,9 @@ def main() -> int:
     rewritten_archive, actions = copied_archive(
         base_archive, donor_archive, args.copy
     )
+    rewritten_archive, delete_actions = deleted_archive(
+        rewritten_archive, args.delete
+    )
     rewritten_cpio = rewritten_archive.serialize()
     rewritten_ramdisk = compressed_ramdisk(rewritten_cpio, args.compression)
     args.output.write_bytes(rewritten_ramdisk)
@@ -351,6 +408,8 @@ def main() -> int:
     print(f"donor_cpio_sha256={sha256(donor_cpio)}")
     for path, action in actions:
         print(f"copy[{path}]={action}")
+    for path, action in delete_actions:
+        print(f"delete[{path}]={action}")
     print(f"output={args.output}")
     print(f"output_compression={args.compression}")
     print(f"output_ramdisk_size={len(rewritten_ramdisk)}")
