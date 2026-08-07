@@ -151,7 +151,7 @@ Only boot, recovery, DTB and system image are image-flash targets. The tree
 does not expose `/dev/block/sdb`, bootloader, `ldfw`, `param`, `proinfo`,
 `private`, or `rstinfo`.
 
-## Current corrected candidate
+## Rejected corrected candidate
 
 Commit `7e2a4136` restores the m86 early framebuffer blank/unblank and adds the
 complete persistent-console kernel path. Two clean builds produced the same
@@ -161,10 +161,17 @@ candidate:
 | --- | ---: | --- | ---: |
 | `recovery.img` | 27,308,032 | `8c20eaa5301a9c70ad363cd765d5ba4cf33be69a37fc3f6a88d9b8cca5b07ca9` | 6,242,304 |
 
-The generated DTB remains a review artifact and must not be flashed for this
-test. The candidate requires the verified stock Flyme 8 DTB and is not an
-accepted recovery until the handset boots it and begins the read-only
-functional matrix below.
+The candidate was tested with the verified stock Flyme 8 DTB. It remained at
+the Meizu logo and then returned automatically to Flyme without recovery ADB
+or a current `/cache/recovery/last_log`, so it is rejected. The only pstore
+file after the warm reset was a 43-byte ECC notice with no console payload.
+The generated DTB remains a review artifact and must not be flashed.
+
+The next test is the all-old-content load-envelope control with SHA-256
+`09fd948512af17275fed9e8167a66e8e66da15349960ba78d5a66c68960ca942`.
+If it boots, component size is excluded and the maintained kernel is isolated
+next. If it stalls, the bootloader/early-kernel load boundary is bracketed
+before changing TWRP userspace again.
 
 ## Functional acceptance
 

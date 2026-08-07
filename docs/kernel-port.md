@@ -427,6 +427,14 @@ The retained local evidence directory is
 Android workspace. Runtime pstore creation is still a handset gate; the build
 only proves the complete kernel path is present.
 
+The first handset test with this kernel stalled at the Meizu logo and returned
+to Flyme through a warm reset. The following Flyme boot exposed only a 43-byte
+ECC notice in `console-ramoops-0`, with no console payload. This neither proves
+nor disproves an early kernel start because the Exynos wrapper is a
+`late_initcall` and the reset can occur before registration. Earlier capture
+is deferred until the all-old-content load-envelope control determines
+whether the maintained kernel is actually the active failure boundary.
+
 ## Explicit non-decisions
 
 - The donor's forced permissive SELinux change is not a production solution.

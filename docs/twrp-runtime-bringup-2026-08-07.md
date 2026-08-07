@@ -104,8 +104,8 @@ stock bootloader leaves its Meizu logo in the scanout buffer. TWRP implements
 this setting as an initial framebuffer blank/unblank cycle before drawing its
 splash, so a running recovery could otherwise remain visually
 indistinguishable from a boot stall. The maintained tree now restores this
-device-specific setting. It is a strong correction, not proof of a boot,
-until the resulting image is tested on the handset.
+device-specific setting. The resulting handset test still stalled at the
+logo, so the omission was real but not the complete boot failure.
 
 Persistent diagnostics also required a kernel correction. The stock Flyme 8
 DTB points the top-level `samsung,exynos_ramoops` device at a generic
@@ -130,20 +130,24 @@ The retained local evidence directory is
 Android workspace.
 
 Two clean TWRP builds of the same source revision then produced
-byte-identical outputs. The corrected image is a new, untested device
-candidate rather than an accepted recovery:
+byte-identical outputs:
 
 | Artifact | Size | SHA-256 | Partition margin |
 | --- | ---: | --- | ---: |
-| `twrp-20260807-124903-recoveryimage/recovery.img` | 27,308,032 | `8c20eaa5301a9c70ad363cd765d5ba4cf33be69a37fc3f6a88d9b8cca5b07ca9` | 6,242,304 |
+| `twrp-20260807-125744-recoveryimage/recovery.img` | 27,308,032 | `8c20eaa5301a9c70ad363cd765d5ba4cf33be69a37fc3f6a88d9b8cca5b07ca9` | 6,242,304 |
 
-It must be tested with the verified stock Flyme 8 DTB. If it starts, collect
-display, touch, ADB, `/tmp/recovery.log`, `dmesg` and `/sys/fs/pstore`
-evidence before any writable mount. If it still stalls, restore and boot the
-known-working recovery before starting Flyme, then copy any new
-`console-ramoops*` file. A kernel panic, a userspace log, and an absent pstore
-record lead to different next steps and must not be collapsed into the same
-"Meizu logo" result.
+The candidate was tested with the verified stock Flyme 8 DTB. It stalled at
+the Meizu logo and later returned automatically to Flyme, without TWRP UI or
+recovery ADB, and is rejected. Flyme then exposed a 43-byte
+`console-ramoops-0` containing only `2 Corrected bytes, 0 unrecoverable
+blocks`; there was no console payload. `/cache/recovery/last_log` still had a
+12:35 modification time predating the 13:31-13:32 test. The persistent reset
+record contained the preceding `reboot fastboot` request, one `system wreset`,
+and no oops, panic or dedicated watchdog count. This is evidence of an early
+warm reset, but it cannot prove whether the recovery kernel reached its late
+ramoops probe. The retained evidence directory is
+`artifacts/twrp-device-test-20260807-1332-screenblank-pstore` in the parent
+Android workspace.
 
 ## Old-content load-envelope control
 
@@ -164,11 +168,9 @@ its ramdisk is exactly the same 10,058,368 bytes, and its complete image is
 - If it stalls, bracket the image/component boundary before changing init or
   userspace.
 
-This control remains retained but is no longer the first test after the exact
-display-handoff omission was found. If the corrected source candidate still
-stalls without useful pstore evidence, run this all-old-content control next;
-its result still cleanly accepts or rejects the bootloader load-envelope
-hypothesis.
+The corrected source candidate did stall without useful pstore evidence.
+This all-old-content control is therefore the next device test; its result
+cleanly accepts or rejects the bootloader load-envelope hypothesis.
 
 ## Flashing boundary
 

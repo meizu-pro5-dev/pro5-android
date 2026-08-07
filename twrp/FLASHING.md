@@ -37,39 +37,25 @@ It passed two byte-identical clean builds but stalled at the Meizu logo after
 the old recovery baseline was reconfirmed, so it is rejected. Do not flash it
 or its generated DTB again.
 
-The next device candidate restores the original booting m86 tree's initial
-framebuffer blank/unblank and enables persistent kernel-console capture for
+The corrected device candidate restored the original booting m86 tree's initial
+framebuffer blank/unblank and enabled persistent kernel-console capture for
 both the stock-DTB reserved-memory layout and generated-DTB ION layout. Its
 `recovery.img` is 27,308,032 bytes with SHA-256
 `8c20eaa5301a9c70ad363cd765d5ba4cf33be69a37fc3f6a88d9b8cca5b07ca9`.
-It passed two byte-identical clean builds, but it has not booted on the handset
-and is not accepted. Keep the verified stock Flyme 8 DTB; do not flash the
-generated DTB packaged beside it.
+It passed two byte-identical clean builds but stalled at the Meizu logo and
+returned automatically to Flyme. No recovery ADB, current recovery log or
+pstore console payload was recovered, so the candidate is rejected. Keep the
+verified stock Flyme 8 DTB and do not flash the generated DTB packaged beside
+it.
 
-If the candidate reaches TWRP, collect read-only evidence before any mount or
-write test:
-
-```sh
-adb shell getprop ro.twrp.version
-adb shell getprop ro.product.device
-adb shell dmesg > twrp-dmesg.txt
-adb pull /tmp/recovery.log
-adb shell ls -l /sys/fs/pstore
-```
-
-If it remains at the logo, check ADB before assuming the kernel stopped. Then
-return to fastboot, restore the known-working recovery, and boot that recovery
-before starting Flyme. Collect a retained console, if present, with:
-
-```sh
-adb shell 'cat /sys/fs/pstore/console-ramoops*' > twrp-pstore-console.txt
-```
-
-An absent record is also evidence, but does not prove that no kernel code ran.
-If the corrected candidate stalls without a useful pstore record, the retained
-old-content load-envelope control with SHA-256
+The next isolation step is the retained all-old-content load-envelope control
+with SHA-256
 `09fd948512af17275fed9e8167a66e8e66da15349960ba78d5a66c68960ca942`
-is the next isolation step.
+and size 27,578,368 bytes. Its kernel, header and userspace all come from the
+reconfirmed working TWRP; only zero padding makes its declared ramdisk and
+complete image larger than the failed source candidates. Flash only this
+control to `recovery`, retain the stock DTB, and do not perform any write test
+inside recovery.
 
 After recovery starts, verify display, touch, ADB, partition discovery, and
 rollback access before testing any write operation. If it stalls at the logo,
