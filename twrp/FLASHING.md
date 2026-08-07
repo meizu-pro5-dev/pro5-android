@@ -65,13 +65,19 @@ then failed. A minimal new-runtime image and its fstab-corrected successor also
 failed with the same black-screen/vibration/automatic-Flyme sequence. The last
 test recorded a normal software `reboot`, with no panic or watchdog reset.
 
-The next test-only image is the ADB log-capture recovery with SHA-256
+The first ADB log-capture recovery with SHA-256
 `a2d6c1fd75c33d51af047c2bd94fb344f27a6bd887048854efc79b56bf147375`
+and size 29,335,552 bytes was tested. It still returned automatically to Flyme
+with a second normal software `reboot`; removing the rc wildcard did not
+intercept old init's special handling of `sys.powerctl`.
+
+The next test-only image is ADB log-capture v2 with SHA-256
+`34bed1046ecef38b13ca8eda20f97f1a0610af0c4fb4a3e3769fc6aaa73d8d4a`
 and size 29,335,552 bytes. After explicit approval, flash only this image to
-`recovery` and retain the verified stock Flyme 8 DTB. It deliberately disables
-MTP and ignores an ordinary system reboot so that the known-working static adbd
-can expose `/tmp/recovery.log`. It is expected to remain at a black screen or
-otherwise stay in its recovery init environment after TWRP exits.
+`recovery` and retain the verified stock Flyme 8 DTB. It keeps the first
+diagnostic's ADB-only oneshot init and changes exactly the sole 12-byte
+`sys.powerctl` literal in the TWRP executable to inert `twrp.loghold`. Every
+other recovery ELF byte and ramdisk entry remains identical.
 
 Pull `/tmp/recovery.log`, dmesg and properties before leaving the diagnostic.
 Use `adb reboot bootloader` as the normal exit; that exact route remains

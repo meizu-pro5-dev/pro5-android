@@ -256,7 +256,7 @@ is 29,335,552 bytes with a 12,103,719-byte gzip ramdisk. Its test-only init:
 - sets `mtp.crash_check=1` before TWRP starts and exposes only the known-working
   static adbd through USB product `18d1:4ee7`;
 - makes recovery a `oneshot` service and removes the wildcard power-control
-  action, so an ordinary TWRP system reboot cannot destroy `/tmp/recovery.log`;
+  rc action, attempting to preserve `/tmp/recovery.log` after TWRP returns;
 - retains exact `reboot,bootloader` and `reboot,recovery` handlers as explicit
   escape paths.
 
@@ -266,11 +266,38 @@ TWRP executable, linker, dependency closure, resources and reviewed recovery
 fstab are byte-identical. This image is solely a volatile log-capture harness,
 not a recovery candidate.
 
+The handset still followed the same sequence and returned to Flyme. The next
+reset record increments the software-reboot counter to two and records command
+`reboot` at 15:03:57; all crash and watchdog counters remain zero. Cache logs
+remain at 14:24:07 and pstore again contains the following Flyme boot. The
+diagnostic therefore proves that deleting the rc wildcard does not intercept
+this old init's special power-property path.
+
+The pinned TWRP executable contains exactly one `sys.powerctl` string. Its
+source calls `property_set(ANDROID_RB_PROPERTY, "reboot,")` after `gui_start()`
+returns. The second ADB-only diagnostic makes only that property name inert:
+the 935,176-byte recovery ELF replaces `sys.powerctl` with the same-length
+`twrp.loghold` at byte offsets 774255 through 774266. Recovery ELF SHA-256
+changes from
+`baca28ef73ebba8367abf36018191d30a712425953ec1d4c90ef9d998b95086a`
+to
+`0b31d94944fe11b1bf2ead63753b0ad2bfd3358073755150b3a6c900b6179e51`;
+all other ELF bytes are identical.
+
+The resulting recovery image is 29,335,552 bytes with SHA-256
+`34bed1046ecef38b13ca8eda20f97f1a0610af0c4fb4a3e3769fc6aaa73d8d4a`.
+Its 12,103,722-byte gzip ramdisk has SHA-256
+`5e97bb668101cf85037ac276e25ed76d6d40a99cc08e73150183fa1b98ef4ca4`.
+Relative to the first ADB-only image, only `sbin/recovery` data changes; all
+489 cpio paths, order and metadata are identical. The existing oneshot init
+and ADB-only configuration remain present, so TWRP can return without asking
+init to reboot and `/tmp/recovery.log` can remain reachable.
+
 ## Flashing boundary
 
 Keep the stock Flyme 8 DTB in place. After explicit approval, flash only the
-ADB log-capture `recovery.img` with SHA-256
-`a2d6c1fd75c33d51af047c2bd94fb344f27a6bd887048854efc79b56bf147375`
+second ADB log-capture `recovery.img` with SHA-256
+`34bed1046ecef38b13ca8eda20f97f1a0610af0c4fb4a3e3769fc6aaa73d8d4a`
 to the `recovery` partition. Do not flash `dtb`, `bootimg`, `/dev/block/sdb`,
 `ldfw`, or any identity/parameter partition. The expected visible result may
 remain a black screen, but the handset should stay in the recovery init

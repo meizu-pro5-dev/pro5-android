@@ -223,11 +223,26 @@ The ADB-only log-capture diagnostic has recovery SHA-256
 `a2d6c1fd75c33d51af047c2bd94fb344f27a6bd887048854efc79b56bf147375`.
 It retains the corrected fstab image and changes only legacy `init.rc` data:
 MTP is skipped, the known-working static adbd is exposed as `18d1:4ee7`, an
-ordinary system reboot is ignored, and bootloader/recovery reboot requests
-remain enabled. The recovery service is `oneshot`, preserving the tmpfs log
-if TWRP exits. All other cpio data and metadata, the proven kernel and boot
-geometry are byte-identical. It is a temporary evidence collector, not a
-candidate for functional acceptance.
+ordinary system reboot rc action is removed, and bootloader/recovery reboot
+requests remain enabled. The recovery service is `oneshot`, intended to
+preserve the tmpfs log if TWRP exits. All other cpio data and metadata, the
+proven kernel and boot geometry are byte-identical. It is a temporary evidence
+collector, not a candidate for functional acceptance.
+
+That image also returned automatically to Flyme. The reset record increments
+the software-reboot counter and records command `reboot` at 15:03:57, with all
+crash and watchdog counters still zero. The pinned TWRP source writes
+`sys.powerctl=reboot,` after its GUI returns, and this result shows the old
+init's special power-property processing bypasses the removed rc wildcard.
+
+The second log-capture diagnostic has recovery SHA-256
+`34bed1046ecef38b13ca8eda20f97f1a0610af0c4fb4a3e3769fc6aaa73d8d4a`.
+It changes exactly 12 bytes in the 935,176-byte `sbin/recovery`: the sole
+same-length `sys.powerctl` literal becomes the inert `twrp.loghold`. Every
+other recovery ELF byte, all cpio metadata and data, the ADB-only oneshot init,
+proven kernel and boot geometry remain identical. This prevents TWRP's default
+GUI-return path from invoking init's power control while preserving the
+volatile log-capture environment.
 
 ## Functional acceptance
 
