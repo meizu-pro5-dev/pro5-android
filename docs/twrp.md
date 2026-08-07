@@ -109,6 +109,13 @@ The recovery image must satisfy all of these static checks:
 | embedded DT | size 0 |
 | recovery image limit | at most 33,550,336 bytes |
 | device tree | separate raw FDT containing `Meizu, M86` |
+| GUI languages | exactly `en` and `zh_CN` |
+
+The selective-language recovery patch retains the common English fonts and
+`DroidSansFallback.ttf`, which `zh_CN.xml` explicitly references. Other
+translation XML files and the Japanese-specific CJK font are excluded. The
+artifact inspector verifies both directory inventories exactly so a stale or
+incremental output cannot silently restore the full language set.
 
 The one-page recovery reserve is conservative until the paused GPT backup is
 resumed. A 32 MiB partition dump exists, but no artifact may consume the last

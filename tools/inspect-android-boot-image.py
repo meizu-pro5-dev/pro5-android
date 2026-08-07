@@ -75,6 +75,30 @@ def parse_hash_expectation(value: str) -> tuple[str, str]:
     return archive_path, expected_hash
 
 
+def parse_directory_file_expectation(value: str) -> tuple[str, tuple[str, ...]]:
+    try:
+        archive_path, file_list = value.rsplit("=", 1)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            "expected RAMDISK_DIR=FILE[,FILE...]"
+        ) from exc
+
+    archive_path = parse_archive_path(archive_path)
+    file_names = file_list.split(",")
+    if not file_names or any(
+        not file_name
+        or "/" in file_name
+        or file_name in (".", "..")
+        for file_name in file_names
+    ):
+        raise argparse.ArgumentTypeError(
+            "expected direct, safe file names after RAMDISK_DIR="
+        )
+    if len(set(file_names)) != len(file_names):
+        raise argparse.ArgumentTypeError("directory file list contains duplicates")
+    return archive_path, tuple(sorted(file_names))
+
+
 def parse_newc_archive(archive: bytes) -> dict[str, bytes]:
     entries: dict[str, bytes] = {}
     offset = 0
@@ -163,6 +187,14 @@ def build_parser() -> argparse.ArgumentParser:
         type=parse_hash_expectation,
         metavar="RAMDISK_PATH=SHA256",
         help="require a file and hash inside a gzip-compressed newc ramdisk",
+    )
+    parser.add_argument(
+        "--expect-ramdisk-directory-files",
+        action="append",
+        default=[],
+        type=parse_directory_file_expectation,
+        metavar="RAMDISK_DIR=FILE[,FILE...]",
+        help="require the exact direct-file inventory for a ramdisk directory",
     )
     parser.add_argument("--max-size", type=integer)
     return parser
@@ -309,7 +341,9 @@ def main() -> int:
         {archive_path: None for archive_path in args.expect_ramdisk_elf}
     )
     requested_ramdisk_files.update(dict(args.expect_ramdisk_file_sha256))
-    if requested_ramdisk_files:
+    requested_ramdisk_directories = dict(args.expect_ramdisk_directory_files)
+    inspected_ramdisk_directories: list[tuple[str, tuple[str, ...]]] = []
+    if requested_ramdisk_files or requested_ramdisk_directories:
         if ramdisk_compression != "gzip":
             failures.append(
                 "RAM disk file inspection requires a gzip-compressed ramdisk"
@@ -339,6 +373,27 @@ def main() -> int:
                             f"ramdisk file hash for {archive_path}: expected "
                             f"{expected_hash}, found {actual_hash}"
                         )
+                for archive_path, expected_files in (
+                    requested_ramdisk_directories.items()
+                ):
+                    prefix = f"{archive_path}/"
+                    actual_files = tuple(
+                        sorted(
+                            entry_name.removeprefix(prefix)
+                            for entry_name in ramdisk_entries
+                            if entry_name.startswith(prefix)
+                            and "/" not in entry_name.removeprefix(prefix)
+                        )
+                    )
+                    inspected_ramdisk_directories.append(
+                        (archive_path, actual_files)
+                    )
+                    if actual_files != expected_files:
+                        failures.append(
+                            f"ramdisk directory files for {archive_path}: "
+                            f"expected {','.join(expected_files)}, found "
+                            f"{','.join(actual_files)}"
+                        )
 
     print(f"path={args.image}")
     print(f"file_size={image_size}")
@@ -363,6 +418,11 @@ def main() -> int:
     for archive_path, file_size, actual_hash in inspected_ramdisk_files:
         print(f"ramdisk_file[{archive_path}].size={file_size}")
         print(f"ramdisk_file[{archive_path}].sha256={actual_hash}")
+    for archive_path, actual_files in inspected_ramdisk_directories:
+        print(
+            f"ramdisk_directory[{archive_path}].files="
+            f"{','.join(actual_files)}"
+        )
     print(f"calculated_payload_size={packed_size}")
     print(f"trailing_size={image_size - packed_size if packed_size else 0}")
 

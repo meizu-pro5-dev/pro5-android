@@ -428,6 +428,10 @@ python3 "$local_root/tools/inspect-android-boot-image.py" \
   --expect-ramdisk-file-sha256 "sbin/gunzip=$pigz_link_hash" \
   --expect-ramdisk-file-sha256 \
     "etc/firmware/st_fts.bin=$expected_touch_hash" \
+  --expect-ramdisk-directory-files \
+    "twres/languages=en.xml,zh_CN.xml" \
+  --expect-ramdisk-directory-files \
+    "twres/fonts=DroidSansFallback.ttf,DroidSansMono.ttf,RobotoCondensed-Regular.ttf" \
   --max-size 33550336 | tee "$artifact_dir/RECOVERY-HEADER.txt"
 
 python3 "$local_root/tools/inspect-dtb.py" \

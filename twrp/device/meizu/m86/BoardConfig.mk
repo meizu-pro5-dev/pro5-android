@@ -96,7 +96,11 @@ TW_USE_NEW_MINADBD := true
 TW_INCLUDE_NTFS_3G := true
 TW_EXCLUDE_PYTHON := true
 TW_EXCLUDE_TWRPAPP := true
-TW_EXTRA_LANGUAGES := true
+# Keep the recovery below the legacy bootloader's practical image boundary
+# without dropping Chinese support. The reviewed upstream patch copies only
+# these language resources and the one CJK fallback font zh_CN references.
+TW_EXTRA_LANGUAGES := false
+TW_LANGUAGE_ALLOWLIST := en zh_CN
 
 # The panel driver registers this stable class path with a 0..255 range.
 TW_BRIGHTNESS_PATH := "/sys/class/backlight/pwm-backlight.0/brightness"

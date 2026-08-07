@@ -17,11 +17,16 @@ explicit approval for the exact fastboot commands. Never write the recovery
 artifact to `bootimg`, `/dev/block/sdb`, `ldfw`, or any parameter/identity
 partition.
 
-The current isolation test combines the exact kernel and boot-header contract
-from the known-working recovery with the new TWRP ramdisk. It must be tested
-with the stock Flyme 8 DTB already present: flash only its reviewed
-`recovery.img`, never a DTB from the rejected source build. This diagnostic is
-not a final, fully source-built TWRP release.
+The first isolation image combined the exact kernel and boot-header contract
+from the known-working recovery with the complete new TWRP ramdisk. It also
+stalled at the logo and is rejected. Before another experimental image, first
+reconfirm that the unmodified known-working recovery still boots with the
+stock Flyme 8 DTB. Never flash a DTB from the rejected source build.
+
+Subsequent source builds package only English and Simplified Chinese resources
+to create a meaningful margin below the partition and bootloader boundary.
+Each new image still requires static review and explicit test approval; it is
+not accepted merely because it is smaller.
 
 After recovery starts, verify display, touch, ADB, partition discovery, and
 rollback access before testing any write operation. If it stalls at the logo,

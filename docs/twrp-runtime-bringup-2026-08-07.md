@@ -12,6 +12,11 @@ combinations that were tested:
 The handset owner then manually restored the Flyme 8.0.5.0A DTB. Flyme booted
 normally. There was no automatic DTB rollback.
 
+A third isolation image combined the exact known-working recovery kernel and
+header with the complete new TWRP 3.7.0_9 ramdisk. It also stalled at the
+Meizu logo with the verified stock DTB. No ADB or fastboot USB function
+enumerated while it was stalled.
+
 These observations reject the source-built recovery/DTB pair, but they do not
 identify a single crashing instruction because no early console or recovery
 ADB log was available. Static inspection also rules out the two most obvious
@@ -22,13 +27,16 @@ header theories:
 - the Flyme 8 boot header has a nonzero OS-version word, so a nonzero word is
   not by itself incompatible with the bootloader.
 
-The strongest remaining boundary is the maintained recovery kernel and its
-board/DTB contract. The new TWRP ramdisk still requires an independent runtime
-test.
+The maintained kernel/DTB path is therefore not the only failure boundary.
+Both failed new-ramdisk images were unusually large (33,325,056 and
+33,550,336 bytes), while the known-working TWRP is 23,654,400 bytes. The
+second failure left no recovery log in ramoops; the retained pstore record was
+the preceding Flyme kernel's orderly reboot into recovery. Image/ramdisk size
+and the new init/userspace remain the two live hypotheses.
 
 ## Isolation image
 
-The next test image is deliberately hybrid and test-only:
+The tested image was deliberately hybrid and test-only:
 
 - kernel: byte-identical to the known-working TWRP kernel;
 - header geometry and image-ID scheme: inherited from the known-working TWRP;
@@ -39,16 +47,25 @@ The next test image is deliberately hybrid and test-only:
 - maximum recovery image size: 33,550,336 bytes, leaving one 4 KiB page below
   the confirmed 33,554,432-byte recovery partition.
 
-This test has one decision boundary:
+This test had one decision boundary:
 
 - if it boots, the new TWRP userspace/ramdisk can start on known-good kernel
   hardware support, and work should move to the maintained kernel/DTB path;
 - if it stalls, investigate ramdisk/init compatibility or the much larger
   compressed/decompressed ramdisk before changing the DTB again.
 
-It cannot satisfy final acceptance because its kernel is a provenance-locked
-prebuilt from the known-working recovery rather than the maintained source
-build.
+The image failed at the logo. It remains rejected and cannot satisfy final
+acceptance because it also uses a provenance-locked prebuilt kernel rather
+than the maintained source build.
+
+## Size reduction
+
+The next source build keeps only the English (`en`) and Simplified Chinese
+(`zh_CN`) TWRP translations. It retains `DroidSansFallback.ttf`, which
+`zh_CN.xml` explicitly requires, and removes the other translation XML files
+and the Japanese CJK font. The ramdisk inspector gates the exact language and
+font inventories so an incremental build cannot silently restore all
+languages.
 
 ## Flashing boundary
 

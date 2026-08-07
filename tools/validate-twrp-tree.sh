@@ -22,6 +22,7 @@ twrp_apply_patches="$project_root/remote/apply-twrp-patches.sh"
 twrp_patch_series="$project_root/patches/twrp-series.tsv"
 twrp_ramdisk_order_patch="$project_root/patches/twrp-build-make/0001-sort-recovery-ramdisk-inventories.patch"
 twrp_pigz_symlink_patch="$project_root/patches/twrp-bootable-recovery/0001-make-pigz-own-gzip-recovery-symlinks.patch"
+twrp_language_patch="$project_root/patches/twrp-bootable-recovery/0002-allow-selective-recovery-languages.patch"
 twrp_file_contexts_patch="$project_root/patches/twrp-system-sepolicy/0001-omit-host-pcre2-bytecode.patch"
 boot_image_inspector="$project_root/tools/inspect-android-boot-image.py"
 boot_image_repacker="$project_root/tools/repack-android-boot-image.py"
@@ -46,6 +47,7 @@ for required_file in \
   "$twrp_patch_series" \
   "$twrp_ramdisk_order_patch" \
   "$twrp_pigz_symlink_patch" \
+  "$twrp_language_patch" \
   "$twrp_file_contexts_patch" \
   "$boot_image_inspector" \
   "$boot_image_repacker"; do
@@ -101,7 +103,8 @@ require_fixed 'TW_INCLUDE_CRYPTO := true' "$board_config"
 require_fixed 'RECOVERY_SDCARD_ON_DATA := true' "$board_config"
 require_fixed 'TW_USE_NEW_MINADBD := true' "$board_config"
 require_fixed 'TW_INCLUDE_NTFS_3G := true' "$board_config"
-require_fixed 'TW_EXTRA_LANGUAGES := true' "$board_config"
+require_fixed 'TW_EXTRA_LANGUAGES := false' "$board_config"
+require_fixed 'TW_LANGUAGE_ALLOWLIST := en zh_CN' "$board_config"
 require_fixed 'encryptable=/cache/metadata' "$recovery_fstab"
 require_fixed 'setprop sys.usb.ffs.aio_compat 1' "$recovery_init"
 require_fixed 'M86_TWRP_DEVICE_PATH := device/meizu/m86' "$device_makefile"
@@ -170,9 +173,13 @@ require_fixed 'LC_ALL=C sort > ramdisk-files.txt' "$twrp_ramdisk_order_patch"
 require_fixed 'LC_ALL=C sort | xargs sha256sum' "$twrp_ramdisk_order_patch"
 require_fixed 'ALL_TOOLS := $(filter-out gzip gunzip,$(ALL_TOOLS))' \
   "$twrp_pigz_symlink_patch"
+require_fixed 'TW_LANGUAGE_ALLOWLIST' "$twrp_language_patch"
+require_fixed 'DroidSansFallback.ttf' "$twrp_language_patch"
 require_fixed 'sefcontext_compile -r -o $@ $<' "$twrp_file_contexts_patch"
 require_fixed 'build/make' "$twrp_patch_series"
 require_fixed 'bootable/recovery' "$twrp_patch_series"
+require_fixed 'patches/twrp-bootable-recovery/0002-allow-selective-recovery-languages.patch' \
+  "$twrp_patch_series"
 require_fixed 'system/sepolicy' "$twrp_patch_series"
 require_fixed 'apply --reverse --check' "$twrp_apply_patches"
 require_fixed 'apply-twrp-patches.sh' \
@@ -191,6 +198,9 @@ require_fixed 'reproducibility=byte-identical recovery.img dtb kernel.config' \
   "$twrp_build_worker"
 require_fixed '--expect-ramdisk-elf sbin/adbd' "$twrp_build_worker"
 require_fixed '--expect-valid-image-id' "$twrp_build_worker"
+require_fixed 'twres/languages=en.xml,zh_CN.xml' "$twrp_build_worker"
+require_fixed 'twres/fonts=DroidSansFallback.ttf,DroidSansMono.ttf,RobotoCondensed-Regular.ttf' \
+  "$twrp_build_worker"
 require_fixed 'conditional-dtb' "$boot_image_inspector"
 require_fixed 'all-sections' "$boot_image_inspector"
 require_fixed 'conditional-dtb' "$boot_image_repacker"
