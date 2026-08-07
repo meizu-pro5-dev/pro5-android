@@ -29,6 +29,7 @@ twrp_language_patch="$project_root/patches/twrp-bootable-recovery/0002-allow-sel
 twrp_file_contexts_patch="$project_root/patches/twrp-system-sepolicy/0001-omit-host-pcre2-bytecode.patch"
 boot_image_inspector="$project_root/tools/inspect-android-boot-image.py"
 boot_image_repacker="$project_root/tools/repack-android-boot-image.py"
+ramdisk_rewriter="$project_root/tools/rewrite-newc-ramdisk.py"
 
 for required_file in \
   "$board_config" \
@@ -56,7 +57,8 @@ for required_file in \
   "$twrp_language_patch" \
   "$twrp_file_contexts_patch" \
   "$boot_image_inspector" \
-  "$boot_image_repacker"; do
+  "$boot_image_repacker" \
+  "$ramdisk_rewriter"; do
   if [[ ! -s "$required_file" ]]; then
     printf 'Missing required TWRP source: %s\n' "$required_file" >&2
     exit 1
@@ -225,6 +227,9 @@ require_fixed 'conditional-dtb' "$boot_image_inspector"
 require_fixed 'all-sections' "$boot_image_inspector"
 require_fixed 'conditional-dtb' "$boot_image_repacker"
 require_fixed 'all-sections' "$boot_image_repacker"
+require_fixed 'base newc archive does not round-trip byte-identically' \
+  "$ramdisk_rewriter"
+require_fixed 'dict_size": 8 * 1024 * 1024' "$ramdisk_rewriter"
 require_fixed '--expect-ramdisk-elf sbin/libfusesideload.so' \
   "$twrp_build_worker"
 require_fixed '--expect-ramdisk-elf sbin/libtwrpmtp-ffs.so' \
