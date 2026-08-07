@@ -36,9 +36,11 @@ header theories:
 The maintained kernel/DTB path is therefore not the only failure boundary.
 Both failed new-ramdisk images were unusually large (33,325,056 and
 33,550,336 bytes), while the known-working TWRP is 23,654,400 bytes. The
-second failure left no recovery log in ramoops; the retained pstore record was
-the preceding Flyme kernel's orderly reboot into recovery. Image/ramdisk size
-and the new init/userspace remain the two live hypotheses.
+maintained kernel configuration used by every failed source image had
+`CONFIG_PSTORE` disabled. It could not have written a new ramoops record; the
+retained pstore record was necessarily from the preceding Flyme kernel's
+orderly reboot into recovery. Image/ramdisk size, early display handoff and
+the new init/userspace remained live hypotheses at that point.
 
 ## Isolation image
 
@@ -94,6 +96,55 @@ the Meizu logo and is rejected. Its generated DTB still has SHA-256
 `0b537be248ed155a925d58c9a6b927ec1c4cdfaa0624ea714e848abddfba7d84`
 and must not be flashed; the test retains the verified Flyme 8 DTB.
 
+## Early-display and persistent-diagnostic correction
+
+The device source tree used by the known-working TWRP contains
+`TW_SCREEN_BLANK_ON_BOOT := true`; the new source tree had omitted it. The
+stock bootloader leaves its Meizu logo in the scanout buffer. TWRP implements
+this setting as an initial framebuffer blank/unblank cycle before drawing its
+splash, so a running recovery could otherwise remain visually
+indistinguishable from a boot stall. The maintained tree now restores this
+device-specific setting. It is a strong correction, not proof of a boot,
+until the resulting image is tested on the handset.
+
+Persistent diagnostics also required a kernel correction. The stock Flyme 8
+DTB points the top-level `samsung,exynos_ramoops` device at a generic
+reserved-memory node through `memory-region`; the generated community DTB
+uses the Exynos ION ramoops heap. The original driver resolved only the latter.
+The maintained kernel now enables `CONFIG_PSTORE`, `CONFIG_PSTORE_CONSOLE` and
+`CONFIG_PSTORE_RAM`, resolves the stock DTB phandle first, and retains the ION
+lookup as a fallback for the generated DTB. Kernel, Android and TWRP build
+workers all fail if either the configuration or linked ramoops objects are
+missing.
+
+The commit-state standalone build of `7e2a4136` passed those gates:
+
+| Artifact | Size | SHA-256 |
+| --- | ---: | --- |
+| `Image` | 17,256,216 | `aac717c04511f0b0374188e74c1672809aafbac2ebd9b47193a3f50fd06bcd94` |
+| generated DTB | 146,172 | `0b537be248ed155a925d58c9a6b927ec1c4cdfaa0624ea714e848abddfba7d84` |
+| generated config | 100,076 | `592fcde6b433a6f2af38cd30022f3b03159a184e198d15829a5735479e84b914` |
+
+The retained local evidence directory is
+`artifacts/pro5-a10-kernel-20260807-124633-pstore-ramoops` in the parent
+Android workspace.
+
+Two clean TWRP builds of the same source revision then produced
+byte-identical outputs. The corrected image is a new, untested device
+candidate rather than an accepted recovery:
+
+| Artifact | Size | SHA-256 | Partition margin |
+| --- | ---: | --- | ---: |
+| `twrp-20260807-124903-recoveryimage/recovery.img` | 27,308,032 | `8c20eaa5301a9c70ad363cd765d5ba4cf33be69a37fc3f6a88d9b8cca5b07ca9` | 6,242,304 |
+
+It must be tested with the verified stock Flyme 8 DTB. If it starts, collect
+display, touch, ADB, `/tmp/recovery.log`, `dmesg` and `/sys/fs/pstore`
+evidence before any writable mount. If it still stalls, restore and boot the
+known-working recovery before starting Flyme, then copy any new
+`console-ramoops*` file. A kernel panic, a userspace log, and an absent pstore
+record lead to different next steps and must not be collapsed into the same
+"Meizu logo" result.
+
 ## Old-content load-envelope control
 
 The next diagnostic uses only the reconfirmed working recovery's kernel,
@@ -112,6 +163,12 @@ its ramdisk is exactly the same 10,058,368 bytes, and its complete image is
   isolate the maintained kernel next.
 - If it stalls, bracket the image/component boundary before changing init or
   userspace.
+
+This control remains retained but is no longer the first test after the exact
+display-handoff omission was found. If the corrected source candidate still
+stalls without useful pstore evidence, run this all-old-content control next;
+its result still cleanly accepts or rejects the bootloader load-envelope
+hypothesis.
 
 ## Flashing boundary
 

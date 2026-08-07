@@ -110,6 +110,8 @@ The recovery image must satisfy all of these static checks:
 | recovery image limit | at most 33,550,336 bytes |
 | device tree | separate raw FDT containing `Meizu, M86` |
 | GUI languages | exactly `en` and `zh_CN` |
+| first display handoff | framebuffer blank/unblank before the TWRP splash |
+| persistent console | pstore/ramoops with stock-DTB and generated-DTB lookup paths |
 
 The selective-language recovery patch retains the common English fonts and
 `DroidSansFallback.ttf`, which `zh_CN.xml` explicitly references. Other
@@ -125,6 +127,19 @@ FDE, MTP, exFAT, NTFS, or the full Simplified Chinese fallback font. Artifact
 inspection decompresses the LZMA stream and applies the same exact file,
 hash, ELF, language, and font gates used for gzip.
 
+The original booting m86 recovery tree set `TW_SCREEN_BLANK_ON_BOOT`; the new
+tree initially omitted it. Because the stock bootloader leaves its logo in the
+scanout buffer, the maintained tree restores the initial blank/unblank cycle
+and statically gates the setting. This makes early UI visibility a controlled
+part of the device contract rather than an inference from a retained boot
+logo.
+
+The maintained kernel also enables pstore console capture. Its Exynos ramoops
+driver first resolves the stock Flyme DTB's generic reserved-memory phandle
+and then falls back to the Exynos ION heap used by the generated DTB. Every
+kernel-bearing build requires the pstore configuration and both linked driver
+objects. Runtime creation of a new console record remains a handset gate.
+
 The one-page recovery reserve is conservative until the paused GPT backup is
 resumed. A 32 MiB partition dump exists, but no artifact may consume the last
 page merely on that historical evidence.
@@ -135,6 +150,21 @@ USB OTG. EFS and MNV are mounted read-only and offered for backup, not wipe.
 Only boot, recovery, DTB and system image are image-flash targets. The tree
 does not expose `/dev/block/sdb`, bootloader, `ldfw`, `param`, `proinfo`,
 `private`, or `rstinfo`.
+
+## Current corrected candidate
+
+Commit `7e2a4136` restores the m86 early framebuffer blank/unblank and adds the
+complete persistent-console kernel path. Two clean builds produced the same
+candidate:
+
+| Artifact | Size | SHA-256 | Partition margin |
+| --- | ---: | --- | ---: |
+| `recovery.img` | 27,308,032 | `8c20eaa5301a9c70ad363cd765d5ba4cf33be69a37fc3f6a88d9b8cca5b07ca9` | 6,242,304 |
+
+The generated DTB remains a review artifact and must not be flashed for this
+test. The candidate requires the verified stock Flyme 8 DTB and is not an
+accepted recovery until the handset boots it and begins the read-only
+functional matrix below.
 
 ## Functional acceptance
 

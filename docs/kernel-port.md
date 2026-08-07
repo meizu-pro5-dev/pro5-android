@@ -387,6 +387,46 @@ lock, while each Android and TWRP build requires the generated config and both
 linked exFAT objects. This establishes source and build closure; disposable
 media tests remain mandatory before runtime support is accepted.
 
+## Recovery persistent-diagnostics gate
+
+The failed source-built recovery images could not leave new ramoops evidence:
+their maintained kernel configuration explicitly disabled `CONFIG_PSTORE`.
+The console record collected after one failure was therefore the preceding
+Flyme kernel's orderly reboot log, not evidence that the recovery kernel had
+started.
+
+Enabling pstore alone was insufficient for the stock board contract. The
+Flyme 8 DTB gives the top-level `samsung,exynos_ramoops` device a
+`memory-region` phandle to a generic `ramoops` reserved-memory node, whereas
+the community/generated DTB exposes the region through the Exynos ION heap.
+The original platform driver queried only ION. The reserved-memory lookup API
+is backported to this 3.10 OF core, and the Exynos driver now resolves the
+phandle first while preserving ION as a validated fallback.
+
+The defconfig and every kernel-bearing build require:
+
+```text
+CONFIG_PSTORE=y
+CONFIG_PSTORE_CONSOLE=y
+CONFIG_PSTORE_RAM=y
+```
+
+They also require nonempty `fs/pstore/ramoops.o` and
+`drivers/platform/exynos/exynos_ramoops.o` and retain their hashes with each
+artifact. A standalone build of commit `7e2a4136` compiled and linked both
+paths successfully:
+
+| Artifact | Size | SHA-256 |
+| --- | ---: | --- |
+| `Image` | 17,256,216 | `aac717c04511f0b0374188e74c1672809aafbac2ebd9b47193a3f50fd06bcd94` |
+| config-aware DTB | 146,172 | `0b537be248ed155a925d58c9a6b927ec1c4cdfaa0624ea714e848abddfba7d84` |
+| generated config | 100,076 | `592fcde6b433a6f2af38cd30022f3b03159a184e198d15829a5735479e84b914` |
+
+The retained local evidence directory is
+`artifacts/pro5-a10-kernel-20260807-124633-pstore-ramoops` in the parent
+Android workspace. Runtime pstore creation is still a handset gate; the build
+only proves the complete kernel path is present.
+
 ## Explicit non-decisions
 
 - The donor's forced permissive SELinux change is not a production solution.
