@@ -30,6 +30,7 @@ twrp_file_contexts_patch="$project_root/patches/twrp-system-sepolicy/0001-omit-h
 boot_image_inspector="$project_root/tools/inspect-android-boot-image.py"
 boot_image_repacker="$project_root/tools/repack-android-boot-image.py"
 ramdisk_rewriter="$project_root/tools/rewrite-newc-ramdisk.py"
+reboot_property_patcher="$project_root/tools/patch-twrp-reboot-property.py"
 
 for required_file in \
   "$board_config" \
@@ -58,7 +59,8 @@ for required_file in \
   "$twrp_file_contexts_patch" \
   "$boot_image_inspector" \
   "$boot_image_repacker" \
-  "$ramdisk_rewriter"; do
+  "$ramdisk_rewriter" \
+  "$reboot_property_patcher"; do
   if [[ ! -s "$required_file" ]]; then
     printf 'Missing required TWRP source: %s\n' "$required_file" >&2
     exit 1
@@ -233,6 +235,12 @@ require_fixed 'dict_size": 8 * 1024 * 1024' "$ramdisk_rewriter"
 require_fixed '--replace-data' "$ramdisk_rewriter"
 require_fixed 'replacement target is not a regular newc file' \
   "$ramdisk_rewriter"
+require_fixed 'OLD_PROPERTY = b"sys.powerctl\0"' \
+  "$reboot_property_patcher"
+require_fixed 'NEW_PROPERTY = b"twrp.loghold\0"' \
+  "$reboot_property_patcher"
+require_fixed 'expected exactly one sys.powerctl ELF literal' \
+  "$reboot_property_patcher"
 require_fixed '--expect-ramdisk-elf sbin/libfusesideload.so' \
   "$twrp_build_worker"
 require_fixed '--expect-ramdisk-elf sbin/libtwrpmtp-ffs.so' \
