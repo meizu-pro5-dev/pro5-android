@@ -17,6 +17,12 @@ header with the complete new TWRP 3.7.0_9 ramdisk. It also stalled at the
 Meizu logo with the verified stock DTB. No ADB or fastboot USB function
 enumerated while it was stalled.
 
+The handset owner subsequently reconfirmed the unmodified known-working TWRP:
+it boots with the same stock Flyme 8 DTB and flashing procedure. The
+27,287,552-byte English/zh_CN LZMA source build was then tested and again
+stalled at the Meizu logo. This removes the recovery key sequence, current DTB
+and basic flashing path as explanations for the new-image failures.
+
 These observations reject the source-built recovery/DTB pair, but they do not
 identify a single crashing instruction because no early console or recovery
 ADB log was available. Static inspection also rules out the two most obvious
@@ -83,11 +89,29 @@ Both reduction stages passed their static and two-clean-build gates:
 | `twrp-20260807-114507-recoveryimage` | gzip | 32,538,624 | `163c0bae13424d78cbbc8661cc5fd9907762a415a2cb86e805f88f173b0dafef` | 1,011,712 |
 | `twrp-20260807-115957-recoveryimage` | LZMA-Alone | 27,287,552 | `a360a6f1a269c9c730f8f288f4783cf9d2054a742718292abed03f2e3823e5aa` | 6,262,784 |
 
-The LZMA image is the only new candidate for the next device test. It remains
-runtime-unaccepted until it boots and passes the read-only checks below. Its
-generated DTB still has SHA-256
+The LZMA image was tested after the old recovery baseline booted; it stalled at
+the Meizu logo and is rejected. Its generated DTB still has SHA-256
 `0b537be248ed155a925d58c9a6b927ec1c4cdfaa0624ea714e848abddfba7d84`
 and must not be flashed; the test retains the verified Flyme 8 DTB.
+
+## Old-content load-envelope control
+
+The next diagnostic uses only the reconfirmed working recovery's kernel,
+header and gzip userspace. Zero bytes follow its valid gzip stream inside the
+header-declared ramdisk. Linux 3.10's `unpack_to_rootfs` explicitly skips NUL
+bytes after a compressed archive, and the decompressed cpio remains
+byte-identical to the working ramdisk.
+
+The control is at least as demanding as the failed LZMA candidate on every
+bootloader load dimension: its kernel is 17,512,240 bytes versus 17,222,424,
+its ramdisk is exactly the same 10,058,368 bytes, and its complete image is
+27,578,368 bytes versus 27,287,552. Its recovery SHA-256 is
+`09fd948512af17275fed9e8167a66e8e66da15349960ba78d5a66c68960ca942`.
+
+- If it boots, image size and bootloader component-load size are excluded;
+  isolate the maintained kernel next.
+- If it stalls, bracket the image/component boundary before changing init or
+  userspace.
 
 ## Flashing boundary
 

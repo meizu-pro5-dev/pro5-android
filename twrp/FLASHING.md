@@ -33,8 +33,16 @@ not accepted merely because it is smaller.
 
 The current LZMA candidate is 27,287,552 bytes with recovery SHA-256
 `a360a6f1a269c9c730f8f288f4783cf9d2054a742718292abed03f2e3823e5aa`.
-It passed two byte-identical clean builds but has not yet passed a device boot.
-Keep the stock Flyme 8 DTB for this test and do not flash the generated DTB.
+It passed two byte-identical clean builds but stalled at the Meizu logo after
+the old recovery baseline was reconfirmed, so it is rejected. Do not flash it
+or its generated DTB again.
+
+The next approved diagnostic is the old-content load-envelope control with
+SHA-256
+`09fd948512af17275fed9e8167a66e8e66da15349960ba78d5a66c68960ca942`.
+Its kernel is larger than the rejected build, its declared ramdisk size is
+identical, and its total image is larger. Keep the stock Flyme 8 DTB and flash
+only this diagnostic to `recovery`.
 
 After recovery starts, verify display, touch, ADB, partition discovery, and
 rollback access before testing any write operation. If it stalls at the logo,
