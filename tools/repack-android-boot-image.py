@@ -138,7 +138,13 @@ def replacement(path: Path | None, original: bytes) -> bytes:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument("base", type=Path)
-    parser.add_argument("--kernel", type=Path)
+    kernel_source = parser.add_mutually_exclusive_group()
+    kernel_source.add_argument("--kernel", type=Path)
+    kernel_source.add_argument(
+        "--kernel-from-image",
+        type=Path,
+        help="use the kernel component from another classic boot image",
+    )
     parser.add_argument("--ramdisk", type=Path)
     parser.add_argument("--second", type=Path)
     parser.add_argument("--dt", type=Path)
@@ -157,7 +163,10 @@ def main() -> int:
         raise ValueError("output must not overwrite the base image")
 
     base = BootImage.read(args.base)
-    kernel = replacement(args.kernel, base.kernel)
+    if args.kernel_from_image is None:
+        kernel = replacement(args.kernel, base.kernel)
+    else:
+        kernel = BootImage.read(args.kernel_from_image).kernel
     ramdisk = replacement(args.ramdisk, base.ramdisk)
     second = replacement(args.second, base.second)
     dt = replacement(args.dt, base.dt)
