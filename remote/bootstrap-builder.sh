@@ -59,6 +59,7 @@ apt-get install -y \
   squashfs-tools \
   tmux \
   unzip \
+  xz-utils \
   xsltproc \
   zip \
   zlib1g-dev

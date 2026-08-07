@@ -110,6 +110,10 @@ if [[ ! -x "$python2_dir/python2.7" ]]; then
   printf 'TWRP 9.0 requires its synchronized Python 2.7 prebuilt.\n' >&2
   exit 1
 fi
+if ! command -v lzma >/dev/null 2>&1; then
+  printf 'TWRP recovery compression requires the host lzma tool.\n' >&2
+  exit 1
+fi
 for python2_zlib_input in \
   "$python2_source/Include/Python.h" \
   "$python2_source/Modules/zlibmodule.c" \
@@ -249,6 +253,9 @@ build_twrp_pass() {
     CONFIG_DM_CRYPT=y \
     CONFIG_FMP=y \
     CONFIG_UFS_FMP_DM_CRYPT=y \
+    CONFIG_RD_GZIP=y \
+    CONFIG_RD_LZMA=y \
+    CONFIG_DECOMPRESS_LZMA=y \
     CONFIG_INPUT_EVDEV=y \
     CONFIG_TOUCHSCREEN_FTS=y \
     CONFIG_USB_DWC3_DUAL_ROLE=y \
@@ -407,7 +414,7 @@ python3 "$local_root/tools/inspect-android-boot-image.py" \
   --expect-second-size 0 \
   --expect-dt-size 0 \
   --expect-empty-cmdline \
-  --expect-ramdisk-compression gzip \
+  --expect-ramdisk-compression lzma \
   --expect-ramdisk-elf sbin/recovery \
   --expect-ramdisk-elf sbin/adbd \
   --expect-ramdisk-elf sbin/libminadbd.so \
@@ -469,10 +476,11 @@ twrp_version="$(
   printf 'source_checkout_validation=HEAD tree equals index and clean worktree\n'
   printf 'recovery_partition_limit=33550336\n'
   printf 'dtb_packaging=raw separate partition\n'
-  printf 'ramdisk_compression=gzip only\n'
+  printf 'ramdisk_compression=lzma-alone recovery; gzip decoder retained\n'
   printf 'ramdisk_inventory_order=LC_ALL=C sorted\n'
   printf 'file_contexts_regex_payload=omitted host PCRE2 bytecode\n'
   printf 'gzip_symlink_owner=pigz\n'
+  printf 'lzma_runtime=%s\n' "$(lzma --version | head -n 1)"
   printf 'python_runtime=%s\n' "$(python2.7 --version 2>&1)"
   printf 'python_zlib_runtime=%s\n' \
     "$(python2.7 -c 'import zlib; print(zlib.ZLIB_VERSION)')"

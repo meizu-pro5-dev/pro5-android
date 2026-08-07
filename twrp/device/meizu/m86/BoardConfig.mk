@@ -101,6 +101,11 @@ TW_EXCLUDE_TWRPAPP := true
 # these language resources and the one CJK fallback font zh_CN references.
 TW_EXTRA_LANGUAGES := false
 TW_LANGUAGE_ALLOWLIST := en zh_CN
+# Compress only the standalone recovery ramdisk as LZMA-Alone. The maintained
+# kernel retains gzip support for normal boot and enables its native LZMA
+# initramfs decoder for recovery, reducing the bootloader input substantially
+# without deleting recovery tools or Chinese glyph coverage.
+LZMA_RAMDISK_TARGETS := recovery
 
 # The panel driver registers this stable class path with a 0..255 range.
 TW_BRIGHTNESS_PATH := "/sys/class/backlight/pwm-backlight.0/brightness"

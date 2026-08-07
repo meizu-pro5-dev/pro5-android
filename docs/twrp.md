@@ -102,7 +102,7 @@ The recovery image must satisfy all of these static checks:
 | --- | --- |
 | boot header | classic Android v0, empty name and command line |
 | kernel | uncompressed ARM64 `Image`, address `0x40080000` |
-| ramdisk | gzip, address `0x42000000` |
+| ramdisk | LZMA-Alone, address `0x42000000` |
 | second stage | size 0, address `0x40f00000` |
 | tags | `0x40000100` |
 | page size | 4096 bytes |
@@ -116,6 +116,14 @@ The selective-language recovery patch retains the common English fonts and
 translation XML files and the Japanese-specific CJK font are excluded. The
 artifact inspector verifies both directory inventories exactly so a stale or
 incremental output cannot silently restore the full language set.
+
+The recovery ramdisk uses the Android 9 build system's native
+`LZMA_RAMDISK_TARGETS=recovery` path. `cm_pro5_defconfig` enables both gzip and
+LZMA initramfs decoding: normal Android boot remains gzip-compatible, while
+the standalone recovery image is substantially smaller without removing ADB,
+FDE, MTP, exFAT, NTFS, or the full Simplified Chinese fallback font. Artifact
+inspection decompresses the LZMA stream and applies the same exact file,
+hash, ELF, language, and font gates used for gzip.
 
 The one-page recovery reserve is conservative until the paused GPT backup is
 resumed. A 32 MiB partition dump exists, but no artifact may consume the last

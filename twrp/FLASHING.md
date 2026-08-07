@@ -25,6 +25,9 @@ stock Flyme 8 DTB. Never flash a DTB from the rejected source build.
 
 Subsequent source builds package only English and Simplified Chinese resources
 to create a meaningful margin below the partition and bootloader boundary.
+They use a kernel-supported LZMA-Alone recovery ramdisk while retaining the
+kernel's gzip decoder for normal Android boot; no recovery feature or Chinese
+font coverage is removed for compression.
 Each new image still requires static review and explicit test approval; it is
 not accepted merely because it is smaller.
 

@@ -67,6 +67,15 @@ and the Japanese CJK font. The ramdisk inspector gates the exact language and
 font inventories so an incremental build cannot silently restore all
 languages.
 
+The following size-isolation build also uses the Android 9 build system's
+native LZMA-Alone recovery-ramdisk path. The maintained kernel enables
+`CONFIG_RD_LZMA` and `CONFIG_DECOMPRESS_LZMA` while retaining
+`CONFIG_RD_GZIP`, so this changes only how the standalone recovery ramdisk is
+stored. It does not remove recovery features or affect the normal gzip Android
+boot path. Both clean build passes must produce the same LZMA recovery image,
+DTB, and kernel configuration, and the artifact inspector decompresses the
+stream before enforcing the full ramdisk inventory.
+
 ## Flashing boundary
 
 Keep the stock Flyme 8 DTB in place. Flash only the reviewed diagnostic file

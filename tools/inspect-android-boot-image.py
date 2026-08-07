@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import gzip
 import hashlib
+import lzma
 import struct
 import sys
 from pathlib import Path
@@ -170,7 +171,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         type=parse_archive_path,
         metavar="RAMDISK_PATH",
-        help="require an ELF file inside a gzip-compressed newc ramdisk",
+        help="require an ELF file inside a supported compressed newc ramdisk",
     )
     parser.add_argument(
         "--expect-ramdisk-file",
@@ -178,7 +179,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         type=parse_archive_path,
         metavar="RAMDISK_PATH",
-        help="require a file inside a gzip-compressed newc ramdisk",
+        help="require a file inside a supported compressed newc ramdisk",
     )
     parser.add_argument(
         "--expect-ramdisk-file-sha256",
@@ -186,7 +187,9 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         type=parse_hash_expectation,
         metavar="RAMDISK_PATH=SHA256",
-        help="require a file and hash inside a gzip-compressed newc ramdisk",
+        help=(
+            "require a file and hash inside a supported compressed newc ramdisk"
+        ),
     )
     parser.add_argument(
         "--expect-ramdisk-directory-files",
@@ -344,15 +347,21 @@ def main() -> int:
     requested_ramdisk_directories = dict(args.expect_ramdisk_directory_files)
     inspected_ramdisk_directories: list[tuple[str, tuple[str, ...]]] = []
     if requested_ramdisk_files or requested_ramdisk_directories:
-        if ramdisk_compression != "gzip":
+        if ramdisk_compression not in ("gzip", "lzma", "xz"):
             failures.append(
-                "RAM disk file inspection requires a gzip-compressed ramdisk"
+                "RAM disk file inspection requires gzip, LZMA, or XZ"
             )
         else:
             try:
-                ramdisk_entries = parse_newc_archive(gzip.decompress(ramdisk_payload))
-            except (OSError, ValueError) as error:
-                failures.append(f"unable to parse gzip/newc ramdisk: {error}")
+                if ramdisk_compression == "gzip":
+                    ramdisk_archive = gzip.decompress(ramdisk_payload)
+                else:
+                    ramdisk_archive = lzma.decompress(ramdisk_payload)
+                ramdisk_entries = parse_newc_archive(ramdisk_archive)
+            except (OSError, lzma.LZMAError, ValueError) as error:
+                failures.append(
+                    f"unable to parse {ramdisk_compression}/newc ramdisk: {error}"
+                )
             else:
                 for archive_path, expected_hash in requested_ramdisk_files.items():
                     content = ramdisk_entries.get(archive_path)

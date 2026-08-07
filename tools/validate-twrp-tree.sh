@@ -105,6 +105,7 @@ require_fixed 'TW_USE_NEW_MINADBD := true' "$board_config"
 require_fixed 'TW_INCLUDE_NTFS_3G := true' "$board_config"
 require_fixed 'TW_EXTRA_LANGUAGES := false' "$board_config"
 require_fixed 'TW_LANGUAGE_ALLOWLIST := en zh_CN' "$board_config"
+require_fixed 'LZMA_RAMDISK_TARGETS := recovery' "$board_config"
 require_fixed 'encryptable=/cache/metadata' "$recovery_fstab"
 require_fixed 'setprop sys.usb.ffs.aio_compat 1' "$recovery_init"
 require_fixed 'M86_TWRP_DEVICE_PATH := device/meizu/m86' "$device_makefile"
@@ -115,7 +116,8 @@ if rg -q '\$\(LOCAL_PATH\)/(recovery|rootdir)' "$device_makefile"; then
   exit 1
 fi
 require_fixed 'CONFIG_RD_GZIP=y' "$kernel_config"
-require_fixed '# CONFIG_RD_LZMA is not set' "$kernel_config"
+require_fixed 'CONFIG_RD_LZMA=y' "$kernel_config"
+require_fixed 'CONFIG_DECOMPRESS_LZMA=y' "$kernel_config"
 require_fixed 'CONFIG_DM_CRYPT=y' "$kernel_config"
 require_fixed 'CONFIG_FMP=y' "$kernel_config"
 require_fixed 'CONFIG_UFS_FMP_DM_CRYPT=y' "$kernel_config"
@@ -164,6 +166,7 @@ require_fixed 'zlib.decompress(zlib.compress("m86")) == "m86"' \
   "$twrp_build_worker"
 require_fixed 'python_zlib_source_revision=' "$twrp_build_worker"
 require_fixed 'lib32z1-dev' "$project_root/remote/bootstrap-builder.sh"
+require_fixed 'xz-utils' "$project_root/remote/bootstrap-builder.sh"
 require_fixed 'source_checkout_validation=HEAD tree equals index and clean worktree' \
   "$twrp_build_worker"
 require_fixed 'ramdisk_inventory_order=LC_ALL=C sorted' "$twrp_build_worker"
@@ -198,6 +201,8 @@ require_fixed 'reproducibility=byte-identical recovery.img dtb kernel.config' \
   "$twrp_build_worker"
 require_fixed '--expect-ramdisk-elf sbin/adbd' "$twrp_build_worker"
 require_fixed '--expect-valid-image-id' "$twrp_build_worker"
+require_fixed '--expect-ramdisk-compression lzma' "$twrp_build_worker"
+require_fixed 'lzma.decompress' "$boot_image_inspector"
 require_fixed 'twres/languages=en.xml,zh_CN.xml' "$twrp_build_worker"
 require_fixed 'twres/fonts=DroidSansFallback.ttf,DroidSansMono.ttf,RobotoCondensed-Regular.ttf' \
   "$twrp_build_worker"
@@ -264,11 +269,6 @@ fi
 if rg -q 'mount[[:space:]]+functionfs|on property:sys\.usb\.config=' \
     "$recovery_init"; then
   printf 'Device rc must not duplicate TWRP upstream USB state handling.\n' >&2
-  exit 1
-fi
-
-if rg -q '^[[:space:]]*LZMA_RAMDISK_TARGETS[[:space:]]*:=' "$board_config"; then
-  printf 'The m86 kernel cannot unpack an LZMA recovery ramdisk.\n' >&2
   exit 1
 fi
 
