@@ -178,13 +178,23 @@ a sufficient failure boundary.
 The first legacy-init hybrid with SHA-256
 `14c0056ca835cd1599b70e892071458c6693cbdfaa5071ef0efefcc169fd83bb`
 also stalled, but it combined the later pstore kernel with LZMA and is not a
-clean discriminator. It is rejected. The next test is instead the exact gzip
-load-envelope control with SHA-256
-`22a42a33516da36dcbc9ec3a1807716123430e2f5a256f25b5d5f16b2dee469d`.
-Only if it boots may the matching proven-source-kernel / new-userspace /
-legacy-init gzip image with SHA-256
+clean discriminator. It is rejected. The exact gzip load-envelope control
+with SHA-256
+`22a42a33516da36dcbc9ec3a1807716123430e2f5a256f25b5d5f16b2dee469d`
+then reached the recovery UI, while the matching proven-source-kernel /
+new-userspace / legacy-init gzip image with SHA-256
 `0dad8b1710cd8eef39f6b3d632f71bc8cd5f3c857ed16055fbbf4b3224254ed3`
-be tested.
+stalled at the logo. This excludes the image-load envelope and legacy startup
+chain and isolates new executable/runtime or rootfs content.
+
+The next minimal-runtime diagnostic has SHA-256
+`c391de4d77392a6c8f2f2012d44746d0b46d18e4585faf953587222a36a3766d`.
+It retains the proven source kernel and byte-identical old init, ueventd,
+SELinux, healthd, toolbox and adbd, replacing only the TWRP 3.7 recovery
+runtime, the tools it names, resources and device configuration. Its
+12,104,107-byte gzip ramdisk is smaller than the passed 15,051,754-byte
+control. The 69-entry recursive runtime closure has no missing dependency and
+matches the corrected new ramdisk byte for byte.
 
 ## Functional acceptance
 

@@ -177,26 +177,52 @@ The retained evidence directory is
 Android workspace. Because that image changed the later kernel and compression
 path together, it does not cleanly reject the legacy startup-chain hypothesis.
 
-## Next clean gzip sequence
+## Completed clean gzip sequence and next isolation
 
-The next sequence returns to the exact source kernel already confirmed to boot
-and to gzip. First test the all-old-content load-envelope control with SHA-256
-`22a42a33516da36dcbc9ec3a1807716123430e2f5a256f25b5d5f16b2dee469d`.
-Its kernel is 17,512,240 bytes, ramdisk is 15,051,754 bytes and complete image
-is 32,571,392 bytes. Every dimension is at least as demanding as the following
-new-userspace image.
+The exact all-old-content gzip load-envelope control with SHA-256
+`22a42a33516da36dcbc9ec3a1807716123430e2f5a256f25b5d5f16b2dee469d`
+reached the recovery UI. Its kernel is 17,512,240 bytes, declared ramdisk is
+15,051,754 bytes and complete image is 32,571,392 bytes. This proves that the
+bootloader and early kernel can load every component dimension required by
+the matching new-userspace test.
 
-Only if that control boots, test the proven-source-kernel / new-userspace /
-legacy-init gzip image with SHA-256
-`0dad8b1710cd8eef39f6b3d632f71bc8cd5f3c857ed16055fbbf4b3224254ed3`.
-It is 32,280,576 bytes and keeps the exact new TWRP 3.7 recovery, Android 9
-adbd, linker, libraries, firmware and resources while retaining the proven
-legacy startup chain. A boot isolates the Android 9 early startup layer; a
-stall, after its control passes, isolates the new executable/rootfs content.
+The proven-source-kernel / complete-new-userspace / legacy-init gzip image
+with SHA-256
+`0dad8b1710cd8eef39f6b3d632f71bc8cd5f3c857ed16055fbbf4b3224254ed3`
+then stalled at the Meizu logo. Because its matching, larger load-envelope
+control passed, this result excludes the boot header, proven source kernel,
+gzip format, legacy init/ueventd/SELinux startup chain and component-load
+sizes. The remaining failure boundary is new executable/runtime or rootfs
+content.
+
+The next diagnostic narrows that boundary further. Recovery SHA-256
+`c391de4d77392a6c8f2f2012d44746d0b46d18e4585faf953587222a36a3766d`
+is 29,335,552 bytes and uses:
+
+- the exact source kernel already confirmed to boot;
+- the known-working recovery header, gzip format, init, rc, ueventd, SELinux,
+  healthd, toolbox and adbd;
+- the exact new TWRP 3.7 `recovery`, Android 9 linker and linker config;
+- the new recovery's complete recursive ELF dependency closure, the `/sbin`
+  tools it names, its resources, fstab and matching configuration files.
+
+The deterministic gzip ramdisk is 12,104,107 bytes, below the already-passed
+15,051,754-byte load envelope. Its runtime closure contains 69 entries and
+496 dependency edges, totals 19,397,725 unique payload bytes, has no missing
+dependency and is byte-identical to the corrected new-userspace donor. The
+optional post-boot TWRP App APK and permission XML are absent.
+
+If this image reaches the UI, the recovery executable stack is viable and the
+failure lies in other complete-new-rootfs or Android 9 early-startup content.
+If it stalls, the next discriminator is a small Android 9 dynamic-linker probe
+that falls through to the known-working recovery, separating the linker/libc
+ABI from the new recovery executable itself.
 
 ## Flashing boundary
 
-Keep the stock Flyme 8 DTB in place. Flash only the reviewed control file
+Keep the stock Flyme 8 DTB in place. After explicit approval, flash only the
+reviewed minimal-runtime `recovery.img` with SHA-256
+`c391de4d77392a6c8f2f2012d44746d0b46d18e4585faf953587222a36a3766d`
 to the `recovery` partition. Do not flash `dtb`, `bootimg`, `/dev/block/sdb`,
 `ldfw`, or any identity/parameter partition.
 
