@@ -70,6 +70,7 @@ def decompressed_ramdisk(payload: bytes) -> tuple[bytes, str]:
 @dataclass(frozen=True)
 class NewcEntry:
     magic: bytes
+    hex_upper: bool
     inode: int
     mode: int
     uid: int
@@ -104,7 +105,10 @@ class NewcEntry:
             len(self.name) + 1,
             checksum,
         )
-        return self.magic + b"".join(f"{field:08x}".encode() for field in fields)
+        field_format = "08X" if self.hex_upper else "08x"
+        return self.magic + b"".join(
+            format(field, field_format).encode() for field in fields
+        )
 
 
 @dataclass(frozen=True)
@@ -159,6 +163,7 @@ class NewcArchive:
 
             entry = NewcEntry(
                 magic=magic,
+                hex_upper=any(byte in b"ABCDEF" for byte in header[6:]),
                 inode=fields[0],
                 mode=fields[1],
                 uid=fields[2],
