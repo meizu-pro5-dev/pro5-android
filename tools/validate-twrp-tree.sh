@@ -23,6 +23,8 @@ twrp_patch_series="$project_root/patches/twrp-series.tsv"
 twrp_ramdisk_order_patch="$project_root/patches/twrp-build-make/0001-sort-recovery-ramdisk-inventories.patch"
 twrp_pigz_symlink_patch="$project_root/patches/twrp-bootable-recovery/0001-make-pigz-own-gzip-recovery-symlinks.patch"
 twrp_file_contexts_patch="$project_root/patches/twrp-system-sepolicy/0001-omit-host-pcre2-bytecode.patch"
+boot_image_inspector="$project_root/tools/inspect-android-boot-image.py"
+boot_image_repacker="$project_root/tools/repack-android-boot-image.py"
 
 for required_file in \
   "$board_config" \
@@ -44,7 +46,9 @@ for required_file in \
   "$twrp_patch_series" \
   "$twrp_ramdisk_order_patch" \
   "$twrp_pigz_symlink_patch" \
-  "$twrp_file_contexts_patch"; do
+  "$twrp_file_contexts_patch" \
+  "$boot_image_inspector" \
+  "$boot_image_repacker"; do
   if [[ ! -s "$required_file" ]]; then
     printf 'Missing required TWRP source: %s\n' "$required_file" >&2
     exit 1
@@ -186,6 +190,11 @@ require_fixed 'REPRODUCIBILITY.txt' "$twrp_build_worker"
 require_fixed 'reproducibility=byte-identical recovery.img dtb kernel.config' \
   "$twrp_build_worker"
 require_fixed '--expect-ramdisk-elf sbin/adbd' "$twrp_build_worker"
+require_fixed '--expect-valid-image-id' "$twrp_build_worker"
+require_fixed 'conditional-dtb' "$boot_image_inspector"
+require_fixed 'all-sections' "$boot_image_inspector"
+require_fixed 'conditional-dtb' "$boot_image_repacker"
+require_fixed 'all-sections' "$boot_image_repacker"
 require_fixed '--expect-ramdisk-elf sbin/libfusesideload.so' \
   "$twrp_build_worker"
 require_fixed '--expect-ramdisk-elf sbin/libtwrpmtp-ffs.so' \

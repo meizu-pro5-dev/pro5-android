@@ -398,6 +398,7 @@ recovery_init_hash="$(
 pigz_link_hash="$(printf pigz | sha256sum | awk '{ print $1 }')"
 python3 "$local_root/tools/inspect-android-boot-image.py" \
   "$artifact_dir/recovery.img" \
+  --expect-valid-image-id \
   --expect-page-size 4096 \
   --expect-kernel-addr 0x40080000 \
   --expect-ramdisk-addr 0x42000000 \

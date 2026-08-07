@@ -27,6 +27,23 @@ def align(value: int, page_size: int) -> int:
     return (value + page_size - 1) // page_size * page_size
 
 
+def boot_image_id(
+    kernel: bytes,
+    ramdisk: bytes,
+    second: bytes,
+    dt: bytes,
+    include_empty_dt: bool,
+) -> bytes:
+    digest = hashlib.sha1()
+    for payload in (kernel, ramdisk, second):
+        digest.update(payload)
+        digest.update(struct.pack("<I", len(payload)))
+    if dt or include_empty_dt:
+        digest.update(dt)
+        digest.update(struct.pack("<I", len(dt)))
+    return digest.digest().ljust(32, b"\0")
+
+
 def decode_c_string(value: bytes) -> str:
     return value.split(b"\0", 1)[0].decode("utf-8", "replace")
 
@@ -117,6 +134,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--expect-tags-addr", type=integer)
     parser.add_argument("--expect-second-size", type=integer)
     parser.add_argument("--expect-dt-size", type=integer)
+    parser.add_argument("--expect-valid-image-id", action="store_true")
     parser.add_argument("--expect-empty-cmdline", action="store_true")
     parser.add_argument(
         "--expect-ramdisk-compression",
@@ -184,11 +202,15 @@ def main() -> int:
     ) = unpacked[1:11]
     name = decode_c_string(unpacked[11])
     cmdline = decode_c_string(unpacked[12]) + decode_c_string(unpacked[14])
+    image_id = unpacked[13]
 
     failures: list[str] = []
     ramdisk_magic = b""
     ramdisk_compression = "unknown"
     ramdisk_payload = b""
+    conditional_dtb_image_id = b""
+    all_sections_image_id = b""
+    image_id_scheme = "unavailable"
     if page_size < 512 or page_size & (page_size - 1):
         failures.append(f"invalid page size: {page_size}")
         packed_size = 0
@@ -203,9 +225,45 @@ def main() -> int:
         ramdisk_offset = align(HEADER_SIZE, page_size) + align(
             kernel_size, page_size
         )
+        kernel_offset = align(HEADER_SIZE, page_size)
+        second_offset = ramdisk_offset + align(ramdisk_size, page_size)
+        dt_offset = second_offset + align(second_size, page_size)
         with args.image.open("rb") as image_file:
+            image_file.seek(kernel_offset)
+            kernel_payload = image_file.read(kernel_size)
             image_file.seek(ramdisk_offset)
             ramdisk_payload = image_file.read(ramdisk_size)
+            image_file.seek(second_offset)
+            second_payload = image_file.read(second_size)
+            image_file.seek(dt_offset)
+            dt_payload = image_file.read(dt_size)
+        conditional_dtb_image_id = boot_image_id(
+            kernel_payload,
+            ramdisk_payload,
+            second_payload,
+            dt_payload,
+            include_empty_dt=False,
+        )
+        all_sections_image_id = boot_image_id(
+            kernel_payload,
+            ramdisk_payload,
+            second_payload,
+            dt_payload,
+            include_empty_dt=True,
+        )
+        if image_id == conditional_dtb_image_id:
+            image_id_scheme = "conditional-dtb"
+        elif image_id == all_sections_image_id:
+            image_id_scheme = "all-sections"
+        else:
+            image_id_scheme = "unrecognized"
+        if args.expect_valid_image_id and image_id_scheme == "unrecognized":
+            failures.append(
+                "unrecognized image ID: header="
+                f"{image_id.hex()} conditional-dtb="
+                f"{conditional_dtb_image_id.hex()} all-sections="
+                f"{all_sections_image_id.hex()}"
+            )
         ramdisk_magic = ramdisk_payload[:8]
         if ramdisk_magic.startswith(b"\x1f\x8b"):
             ramdisk_compression = "gzip"
@@ -296,6 +354,10 @@ def main() -> int:
     print(f"os_version_or_unused={os_version_or_unused:#010x}")
     print(f"name={name!r}")
     print(f"cmdline={cmdline!r}")
+    print(f"image_id={image_id.hex()}")
+    print(f"image_id_scheme={image_id_scheme}")
+    print(f"calculated_image_id_conditional_dtb={conditional_dtb_image_id.hex()}")
+    print(f"calculated_image_id_all_sections={all_sections_image_id.hex()}")
     print(f"ramdisk_magic={ramdisk_magic.hex()}")
     print(f"ramdisk_compression={ramdisk_compression}")
     for archive_path, file_size, actual_hash in inspected_ramdisk_files:
