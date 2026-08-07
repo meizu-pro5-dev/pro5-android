@@ -12,6 +12,9 @@ recovery_init="$device_root/recovery/root/init.recovery.m86.rc"
 kernel_config="$project_root/kernel/meizu/m86/arch/arm64/configs/cm_pro5_defconfig"
 kernel_fs_kconfig="$project_root/kernel/meizu/m86/fs/Kconfig"
 kernel_fs_makefile="$project_root/kernel/meizu/m86/fs/Makefile"
+kernel_ramoops_driver="$project_root/kernel/meizu/m86/drivers/platform/exynos/exynos_ramoops.c"
+kernel_reserved_mem="$project_root/kernel/meizu/m86/drivers/of/of_reserved_mem.c"
+kernel_reserved_mem_header="$project_root/kernel/meizu/m86/include/linux/of_reserved_mem.h"
 kernel_exfat_provenance="$project_root/kernel/meizu/m86/fs/exfat/PROVENANCE.md"
 kernel_exfat_lock="$project_root/locks/kernel-exfat-exynos7420.sha256"
 stock_lock="$project_root/locks/stock-flyme-8.0.5.0A.sha256"
@@ -37,6 +40,9 @@ for required_file in \
   "$kernel_config" \
   "$kernel_fs_kconfig" \
   "$kernel_fs_makefile" \
+  "$kernel_ramoops_driver" \
+  "$kernel_reserved_mem" \
+  "$kernel_reserved_mem_header" \
   "$kernel_exfat_provenance" \
   "$kernel_exfat_lock" \
   "$stock_lock" \
@@ -106,6 +112,7 @@ require_fixed 'TW_INCLUDE_NTFS_3G := true' "$board_config"
 require_fixed 'TW_EXTRA_LANGUAGES := false' "$board_config"
 require_fixed 'TW_LANGUAGE_ALLOWLIST := en zh_CN' "$board_config"
 require_fixed 'LZMA_RAMDISK_TARGETS := recovery' "$board_config"
+require_fixed 'TW_SCREEN_BLANK_ON_BOOT := true' "$board_config"
 require_fixed 'encryptable=/cache/metadata' "$recovery_fstab"
 require_fixed 'setprop sys.usb.ffs.aio_compat 1' "$recovery_init"
 require_fixed 'M86_TWRP_DEVICE_PATH := device/meizu/m86' "$device_makefile"
@@ -118,6 +125,14 @@ fi
 require_fixed 'CONFIG_RD_GZIP=y' "$kernel_config"
 require_fixed 'CONFIG_RD_LZMA=y' "$kernel_config"
 require_fixed 'CONFIG_DECOMPRESS_LZMA=y' "$kernel_config"
+require_fixed 'CONFIG_PSTORE=y' "$kernel_config"
+require_fixed 'CONFIG_PSTORE_CONSOLE=y' "$kernel_config"
+require_fixed 'CONFIG_PSTORE_RAM=y' "$kernel_config"
+require_fixed 'of_reserved_mem_lookup(struct device_node *np)' \
+  "$kernel_reserved_mem"
+require_fixed 'of_parse_phandle(dev->of_node, "memory-region", 0)' \
+  "$kernel_ramoops_driver"
+require_fixed 'if (ret || !base || !size)' "$kernel_ramoops_driver"
 require_fixed 'CONFIG_DM_CRYPT=y' "$kernel_config"
 require_fixed 'CONFIG_FMP=y' "$kernel_config"
 require_fixed 'CONFIG_UFS_FMP_DM_CRYPT=y' "$kernel_config"
@@ -228,6 +243,8 @@ require_fixed 'CONFIG_EXFAT_VIRTUAL_XATTR_SELINUX_LABEL=' \
   "$twrp_build_worker"
 require_fixed 'fs/exfat/exfat_core.o' "$twrp_build_worker"
 require_fixed 'fs/exfat/exfat_fs.o' "$twrp_build_worker"
+require_fixed 'fs/pstore/ramoops.o' "$twrp_build_worker"
+require_fixed 'drivers/platform/exynos/exynos_ramoops.o' "$twrp_build_worker"
 require_fixed 'project_checkout_complete()' "$twrp_sync_worker"
 require_fixed 'git -C "$project" ls-tree -r --name-only HEAD' \
   "$twrp_sync_worker"

@@ -213,6 +213,16 @@ for required_exfat_setting in \
     exit 1
   fi
 done
+for required_diagnostic_setting in \
+  CONFIG_PSTORE=y \
+  CONFIG_PSTORE_CONSOLE=y \
+  CONFIG_PSTORE_RAM=y; do
+  if ! grep -F -x -q "$required_diagnostic_setting" "$kernel_out/.config"; then
+    printf 'The generated m86 kernel config omitted %s.\n' \
+      "$required_diagnostic_setting" >&2
+    exit 1
+  fi
+done
 if grep -E -q \
     'CONFIG_(FAT_VIRTUAL_XATTR|FAT_VIRTUAL_XATTR_SELINUX_LABEL|FAT_SUPPORT_STLOG|EXFAT_SUPPORT_STLOG)' \
     "$kernel_out/.config"; then
@@ -228,9 +238,22 @@ for required_exfat_object in \
     exit 1
   fi
 done
+for required_diagnostic_object in \
+  fs/pstore/ramoops.o \
+  drivers/platform/exynos/exynos_ramoops.o; do
+  if [[ ! -s "$kernel_out/$required_diagnostic_object" ]]; then
+    printf 'The Android build omitted kernel object %s.\n' \
+      "$required_diagnostic_object" >&2
+    exit 1
+  fi
+done
 sha256sum \
   "$kernel_out/fs/exfat/exfat_core.o" \
   "$kernel_out/fs/exfat/exfat_fs.o" > "$artifact_dir/EXFAT-KERNEL.txt"
+sha256sum \
+  "$kernel_out/fs/pstore/ramoops.o" \
+  "$kernel_out/drivers/platform/exynos/exynos_ramoops.o" \
+  > "$artifact_dir/PSTORE-KERNEL.txt"
 cp -a "$kernel_dtb" "$artifact_dir/dtb.img"
 
 copy_required() {

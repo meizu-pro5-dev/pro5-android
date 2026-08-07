@@ -189,6 +189,8 @@ require_fixed 'partial_artifact_dir="${local_artifact_dir}.partial"' \
   "$fetch_artifacts"
 require_fixed 'jobs="${PRO5_KERNEL_BUILD_JOBS:-8}"' \
   "$project_root/remote/start-kernel-build.sh"
+require_fixed 'local_commit="${local_commit}-dirty"' \
+  "$project_root/remote/start-kernel-build.sh"
 require_fixed 'jobs="${1:-8}"' "$kernel_build_worker"
 require_fixed 'audit-camera-abi.sh' "$build_worker"
 require_fixed 'audit-fingerprint-output.sh' "$build_worker"
@@ -212,6 +214,9 @@ require_fixed 'CONFIG_EXFAT_VIRTUAL_XATTR=y' "$build_worker"
 require_fixed 'CONFIG_EXFAT_VIRTUAL_XATTR_SELINUX_LABEL=' "$build_worker"
 require_fixed 'fs/exfat/exfat_core.o' "$kernel_build_worker"
 require_fixed 'fs/exfat/exfat_fs.o' "$kernel_build_worker"
+require_fixed 'fs/pstore/ramoops.o' "$kernel_build_worker"
+require_fixed 'drivers/platform/exynos/exynos_ramoops.o' \
+  "$kernel_build_worker"
 require_fixed 'CONFIG_EXFAT_VIRTUAL_XATTR=y' "$kernel_build_worker"
 require_fixed 'CONFIG_EXFAT_VIRTUAL_XATTR_SELINUX_LABEL=' \
   "$kernel_build_worker"
@@ -642,6 +647,9 @@ require_fixed 'CONFIG_CMDLINE="androidboot.hardware=m86 androidboot.selinux=perm
   "$kernel_config"
 require_fixed 'CONFIG_CMDLINE_EXTEND=y' "$kernel_config"
 require_fixed 'CONFIG_RD_GZIP=y' "$kernel_config"
+require_fixed 'CONFIG_PSTORE=y' "$kernel_config"
+require_fixed 'CONFIG_PSTORE_CONSOLE=y' "$kernel_config"
+require_fixed 'CONFIG_PSTORE_RAM=y' "$kernel_config"
 require_fixed 'CONFIG_BCMDHD=y' "$kernel_config"
 require_fixed 'CONFIG_BCMDHD_PCIE=y' "$kernel_config"
 require_fixed 'CONFIG_BCMDHD_FW_PATH="/system/vendor/firmware/fw_bcmdhd.bin"' \

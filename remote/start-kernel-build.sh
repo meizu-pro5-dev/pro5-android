@@ -14,6 +14,9 @@ if [[ ! "$jobs" =~ ^[1-9][0-9]*$ ]] || ((jobs > 64)); then
 fi
 
 local_commit="$(git -C "$project_root" rev-parse HEAD)"
+if [[ -n "$(git -C "$project_root" status --porcelain --untracked-files=normal)" ]]; then
+  local_commit="${local_commit}-dirty"
+fi
 "$script_dir/install-local-trees.sh"
 
 "${pro5_ssh[@]}" bash -s -- \

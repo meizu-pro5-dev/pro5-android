@@ -19,6 +19,7 @@
 #include <linux/of_platform.h>
 #include <linux/mm.h>
 #include <linux/sizes.h>
+#include <linux/string.h>
 #include <linux/of_reserved_mem.h>
 
 #define MAX_RESERVED_REGIONS	16
@@ -285,3 +286,28 @@ void of_reserved_mem_device_release(struct device *dev)
 
 	rmem->ops->device_release(rmem, dev);
 }
+
+/**
+ * of_reserved_mem_lookup() - acquire reserved memory from a device-tree node
+ * @np: node of the desired reserved-memory region
+ *
+ * The PRO 5 stock DTB gives its ramoops region the generic "ramoops"
+ * compatible and points to it with memory-region.  It is therefore not an
+ * Exynos ION heap, but the allocated base and size are still retained here.
+ */
+struct reserved_mem *of_reserved_mem_lookup(struct device_node *np)
+{
+	const char *name;
+	unsigned int i;
+
+	if (!np || !np->full_name)
+		return NULL;
+
+	name = kbasename(np->full_name);
+	for (i = 0; i < reserved_mem_count; i++)
+		if (!strcmp(reserved_mem[i].name, name))
+			return &reserved_mem[i];
+
+	return NULL;
+}
+EXPORT_SYMBOL_GPL(of_reserved_mem_lookup);

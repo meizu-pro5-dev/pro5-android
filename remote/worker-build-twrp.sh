@@ -256,6 +256,9 @@ build_twrp_pass() {
     CONFIG_RD_GZIP=y \
     CONFIG_RD_LZMA=y \
     CONFIG_DECOMPRESS_LZMA=y \
+    CONFIG_PSTORE=y \
+    CONFIG_PSTORE_CONSOLE=y \
+    CONFIG_PSTORE_RAM=y \
     CONFIG_INPUT_EVDEV=y \
     CONFIG_TOUCHSCREEN_FTS=y \
     CONFIG_USB_DWC3_DUAL_ROLE=y \
@@ -286,6 +289,15 @@ build_twrp_pass() {
     if [[ ! -s "$kernel_out/$required_exfat_object" ]]; then
       printf 'TWRP pass %s omitted kernel object %s.\n' \
         "$pass_name" "$required_exfat_object" >&2
+      return 1
+    fi
+  done
+  for required_diagnostic_object in \
+    fs/pstore/ramoops.o \
+    drivers/platform/exynos/exynos_ramoops.o; do
+    if [[ ! -s "$kernel_out/$required_diagnostic_object" ]]; then
+      printf 'TWRP pass %s omitted kernel object %s.\n' \
+        "$pass_name" "$required_diagnostic_object" >&2
       return 1
     fi
   done
@@ -367,6 +379,12 @@ cp -a "$kernel_exfat_lock" "$artifact_dir/kernel-exfat-exynos7420.sha256"
   cd "$kernel_out"
   sha256sum fs/exfat/exfat_core.o fs/exfat/exfat_fs.o
 ) > "$artifact_dir/EXFAT-KERNEL.txt"
+(
+  cd "$kernel_out"
+  sha256sum \
+    fs/pstore/ramoops.o \
+    drivers/platform/exynos/exynos_ramoops.o
+) > "$artifact_dir/PSTORE-KERNEL.txt"
 cp -a "$twrp_patch_series" "$artifact_dir/twrp-series.tsv"
 while IFS=$'\t' read -r repository patch_path; do
   [[ -z "$repository" || "$repository" == \#* ]] && continue

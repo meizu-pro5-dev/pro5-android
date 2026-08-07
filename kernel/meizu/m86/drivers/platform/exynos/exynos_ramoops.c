@@ -25,8 +25,30 @@
 #include <linux/compiler.h>
 #include <linux/pstore_ram.h>
 #include <linux/of.h>
+#include <linux/of_reserved_mem.h>
 
 #include <linux/exynos_ion.h>
+
+static int ramoops_reserved_memory(struct device *dev,
+				   struct ramoops_platform_data *pdata)
+{
+	struct device_node *memory_node;
+	struct reserved_mem *reserved_memory;
+
+	memory_node = of_parse_phandle(dev->of_node, "memory-region", 0);
+	if (!memory_node)
+		return -ENODEV;
+
+	reserved_memory = of_reserved_mem_lookup(memory_node);
+	of_node_put(memory_node);
+	if (!reserved_memory || !reserved_memory->base ||
+			!reserved_memory->size)
+		return -EINVAL;
+
+	pdata->mem_address = reserved_memory->base;
+	pdata->mem_size = reserved_memory->size;
+	return 0;
+}
 
 #ifdef CONFIG_OF
 static int ramoops_dt_platform_data(struct device *dev, struct ramoops_platform_data *pdata)
@@ -91,12 +113,17 @@ static int exynos_ramoops_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	if (ion_exynos_contig_heap_info(ION_EXYNOS_ID_RAMOOPS, &base, &size)) {
-		pr_err("Failed to get contig head info\n");
-		goto err;
+	ret = ramoops_reserved_memory(&pdev->dev, ramoops_data);
+	if (ret) {
+		ret = ion_exynos_contig_heap_info(ION_EXYNOS_ID_RAMOOPS,
+						  &base, &size);
+		if (ret || !base || !size) {
+			pr_err("Failed to resolve ramoops reserved memory\n");
+			goto err;
+		}
+		ramoops_data->mem_address = base;
+		ramoops_data->mem_size = size;
 	}
-	ramoops_data->mem_address = base;
-	ramoops_data->mem_size = size;
 
 	ret = ramoops_dt_platform_data(&pdev->dev, ramoops_data);
 	if (ret) {

@@ -74,6 +74,10 @@ TARGET_SCREEN_HEIGHT := 1920
 TARGET_SCREEN_WIDTH := 1080
 TARGET_RECOVERY_PIXEL_FORMAT := "RGBA_8888"
 BOARD_HAS_NO_SELECT_BUTTON := true
+# The stock bootloader leaves its logo in the scanout buffer. The original
+# booting m86 recovery required one framebuffer blank/unblank cycle before the
+# recovery splash could replace it.
+TW_SCREEN_BLANK_ON_BOOT := true
 
 # TWRP 3.7.0_9 feature set. m86 has legacy full-disk-encryption metadata in
 # /cache/metadata, data/media internal storage, removable microSD, and OTG.

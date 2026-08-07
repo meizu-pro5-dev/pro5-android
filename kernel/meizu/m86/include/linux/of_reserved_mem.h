@@ -2,6 +2,7 @@
 #define __OF_RESERVED_MEM_H
 
 struct device;
+struct device_node;
 struct of_phandle_args;
 struct reserved_mem_ops;
 
@@ -28,6 +29,7 @@ typedef int (*reservedmem_of_init_fn)(struct reserved_mem *rmem);
 #ifdef CONFIG_OF_RESERVED_MEM
 void of_reserved_mem_device_init(struct device *dev);
 void of_reserved_mem_device_release(struct device *dev);
+struct reserved_mem *of_reserved_mem_lookup(struct device_node *np);
 
 void fdt_init_reserved_mem(void);
 void fdt_reserved_mem_save_node(unsigned long node, const char *uname,
@@ -43,6 +45,8 @@ void fdt_reserved_mem_save_node(unsigned long node, const char *uname,
 #else
 static inline void of_reserved_mem_device_init(struct device *dev) { }
 static inline void of_reserved_mem_device_release(struct device *pdev) { }
+static inline struct reserved_mem *
+of_reserved_mem_lookup(struct device_node *np) { return NULL; }
 
 static inline void fdt_init_reserved_mem(void) { }
 static inline void fdt_reserved_mem_save_node(unsigned long node,
