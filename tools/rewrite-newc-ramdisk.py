@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Copy or delete selected entries in compressed newc recovery ramdisks."""
+"""Copy, replace, or delete entries in compressed newc recovery ramdisks."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import dataclasses
 import gzip
 import hashlib
 import lzma
+import stat
 import struct
 from dataclasses import dataclass
 from pathlib import Path
@@ -205,6 +206,15 @@ def safe_archive_path(value: str) -> str:
     return path
 
 
+def replacement_argument(value: str) -> tuple[str, Path]:
+    archive_path, separator, source_path = value.partition("=")
+    if not separator or not source_path:
+        raise argparse.ArgumentTypeError(
+            "replacement must use RAMDISK_PATH=HOST_FILE"
+        )
+    return safe_archive_path(archive_path), Path(source_path)
+
+
 def copied_archive(
     base: NewcArchive, donor: NewcArchive, paths: list[str]
 ) -> tuple[NewcArchive, list[tuple[str, str]]]:
@@ -288,6 +298,34 @@ def deleted_archive(
     ]
 
 
+def data_replaced_archive(
+    base: NewcArchive, replacements: list[tuple[str, Path]]
+) -> tuple[NewcArchive, list[tuple[str, Path, int, str]]]:
+    base_entries = list(base.entries)
+    base_index = {entry.path: index for index, entry in enumerate(base_entries)}
+    actions: list[tuple[str, Path, int, str]] = []
+
+    for path, source in replacements:
+        target_index = base_index.get(path)
+        if target_index is None:
+            raise ValueError(f"base newc path is absent: {path!r}")
+        target_entry = base_entries[target_index]
+        if path == "TRAILER!!!" or not stat.S_ISREG(target_entry.mode):
+            raise ValueError(
+                f"replacement target is not a regular newc file: {path!r}"
+            )
+        if not source.is_file():
+            raise ValueError(f"replacement source is not a file: {source}")
+
+        payload = source.read_bytes()
+        base_entries[target_index] = dataclasses.replace(
+            target_entry, data=payload
+        )
+        actions.append((path, source, len(payload), sha256(payload)))
+
+    return NewcArchive(tuple(base_entries), base.tail), actions
+
+
 def compressed_ramdisk(payload: bytes, compression: str) -> bytes:
     if compression == "none":
         return payload
@@ -313,7 +351,7 @@ def build_parser() -> argparse.ArgumentParser:
     base_source = parser.add_mutually_exclusive_group(required=True)
     base_source.add_argument("--base-ramdisk", type=Path)
     base_source.add_argument("--base-boot-image", type=Path)
-    donor_source = parser.add_mutually_exclusive_group(required=True)
+    donor_source = parser.add_mutually_exclusive_group()
     donor_source.add_argument("--donor-ramdisk", type=Path)
     donor_source.add_argument("--donor-boot-image", type=Path)
     parser.add_argument("--expect-base-sha256")
@@ -331,6 +369,14 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         type=safe_archive_path,
         metavar="RAMDISK_PATH",
+    )
+    parser.add_argument(
+        "--replace-data",
+        action="append",
+        default=[],
+        type=replacement_argument,
+        metavar="RAMDISK_PATH=HOST_FILE",
+        help="replace only file data while preserving the base cpio metadata",
     )
     parser.add_argument(
         "--compression", choices=("gzip", "lzma", "none"), required=True
@@ -360,32 +406,70 @@ def main() -> int:
         raise ValueError("copy list contains duplicate paths")
     if len(set(args.delete)) != len(args.delete):
         raise ValueError("delete list contains duplicate paths")
-    overlap = set(args.copy) & set(args.delete)
+    replace_paths = [path for path, _source in args.replace_data]
+    if len(set(replace_paths)) != len(replace_paths):
+        raise ValueError("replace-data list contains duplicate paths")
+    overlap = (
+        (set(args.copy) & set(args.delete))
+        | (set(args.copy) & set(replace_paths))
+        | (set(args.delete) & set(replace_paths))
+    )
     if overlap:
         raise ValueError(
-            f"paths cannot be copied and deleted together: {sorted(overlap)!r}"
+            "paths cannot have multiple mutation actions: "
+            f"{sorted(overlap)!r}"
         )
-    if not args.copy and not args.delete:
-        raise ValueError("at least one --copy or --delete action is required")
+    if not args.copy and not args.delete and not args.replace_data:
+        raise ValueError(
+            "at least one --copy, --delete, or --replace-data action is required"
+        )
+    if args.copy and args.donor_ramdisk is None and args.donor_boot_image is None:
+        raise ValueError("--copy requires a donor ramdisk or boot image")
+    if (
+        args.expect_donor_sha256 is not None
+        and args.donor_ramdisk is None
+        and args.donor_boot_image is None
+    ):
+        raise ValueError("--expect-donor-sha256 requires a donor source")
 
     base_ramdisk, base_source, base_container_sha256 = input_ramdisk(
         args.base_ramdisk, args.base_boot_image, args.expect_base_sha256
     )
-    donor_ramdisk, donor_source, donor_container_sha256 = input_ramdisk(
-        args.donor_ramdisk, args.donor_boot_image, args.expect_donor_sha256
-    )
     base_cpio, base_compression = decompressed_ramdisk(base_ramdisk)
-    donor_cpio, donor_compression = decompressed_ramdisk(donor_ramdisk)
     base_archive = NewcArchive.parse(base_cpio)
-    donor_archive = NewcArchive.parse(donor_cpio)
 
     if base_archive.serialize() != base_cpio:
         raise ValueError("base newc archive does not round-trip byte-identically")
-    if donor_archive.serialize() != donor_cpio:
-        raise ValueError("donor newc archive does not round-trip byte-identically")
 
-    rewritten_archive, actions = copied_archive(
-        base_archive, donor_archive, args.copy
+    donor_details: tuple[bytes, Path, str, bytes, str, NewcArchive] | None = None
+    if args.donor_ramdisk is not None or args.donor_boot_image is not None:
+        donor_ramdisk, donor_path, donor_container_sha256 = input_ramdisk(
+            args.donor_ramdisk, args.donor_boot_image, args.expect_donor_sha256
+        )
+        donor_cpio, donor_compression = decompressed_ramdisk(donor_ramdisk)
+        donor_archive = NewcArchive.parse(donor_cpio)
+        if donor_archive.serialize() != donor_cpio:
+            raise ValueError(
+                "donor newc archive does not round-trip byte-identically"
+            )
+        donor_details = (
+            donor_ramdisk,
+            donor_path,
+            donor_container_sha256,
+            donor_cpio,
+            donor_compression,
+            donor_archive,
+        )
+
+    copy_actions: list[tuple[str, str]] = []
+    rewritten_archive = base_archive
+    if args.copy:
+        assert donor_details is not None
+        rewritten_archive, copy_actions = copied_archive(
+            rewritten_archive, donor_details[5], args.copy
+        )
+    rewritten_archive, replace_actions = data_replaced_archive(
+        rewritten_archive, args.replace_data
     )
     rewritten_archive, delete_actions = deleted_archive(
         rewritten_archive, args.delete
@@ -401,13 +485,26 @@ def main() -> int:
     print(f"base_ramdisk_sha256={sha256(base_ramdisk)}")
     print(f"base_cpio_size={len(base_cpio)}")
     print(f"base_cpio_sha256={sha256(base_cpio)}")
-    print(f"donor_source={donor_source}")
-    print(f"donor_container_sha256={donor_container_sha256}")
-    print(f"donor_ramdisk_compression={donor_compression}")
-    print(f"donor_cpio_size={len(donor_cpio)}")
-    print(f"donor_cpio_sha256={sha256(donor_cpio)}")
-    for path, action in actions:
+    if donor_details is not None:
+        (
+            donor_ramdisk,
+            donor_path,
+            donor_container_sha256,
+            donor_cpio,
+            donor_compression,
+            _,
+        ) = donor_details
+        print(f"donor_source={donor_path}")
+        print(f"donor_container_sha256={donor_container_sha256}")
+        print(f"donor_ramdisk_compression={donor_compression}")
+        print(f"donor_cpio_size={len(donor_cpio)}")
+        print(f"donor_cpio_sha256={sha256(donor_cpio)}")
+    for path, action in copy_actions:
         print(f"copy[{path}]={action}")
+    for path, source, size, digest in replace_actions:
+        print(f"replace_data[{path}].source={source}")
+        print(f"replace_data[{path}].size={size}")
+        print(f"replace_data[{path}].sha256={digest}")
     for path, action in delete_actions:
         print(f"delete[{path}]={action}")
     print(f"output={args.output}")

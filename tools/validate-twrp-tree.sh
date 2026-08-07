@@ -230,6 +230,9 @@ require_fixed 'all-sections' "$boot_image_repacker"
 require_fixed 'base newc archive does not round-trip byte-identically' \
   "$ramdisk_rewriter"
 require_fixed 'dict_size": 8 * 1024 * 1024' "$ramdisk_rewriter"
+require_fixed '--replace-data' "$ramdisk_rewriter"
+require_fixed 'replacement target is not a regular newc file' \
+  "$ramdisk_rewriter"
 require_fixed '--expect-ramdisk-elf sbin/libfusesideload.so' \
   "$twrp_build_worker"
 require_fixed '--expect-ramdisk-elf sbin/libtwrpmtp-ffs.so' \
