@@ -31,6 +31,11 @@ font coverage is removed for compression.
 Each new image still requires static review and explicit test approval; it is
 not accepted merely because it is smaller.
 
+The current LZMA candidate is 27,287,552 bytes with recovery SHA-256
+`a360a6f1a269c9c730f8f288f4783cf9d2054a742718292abed03f2e3823e5aa`.
+It passed two byte-identical clean builds but has not yet passed a device boot.
+Keep the stock Flyme 8 DTB for this test and do not flash the generated DTB.
+
 After recovery starts, verify display, touch, ADB, partition discovery, and
 rollback access before testing any write operation. If it stalls at the logo,
 return to fastboot and restore the known-working recovery; do not change DTB.

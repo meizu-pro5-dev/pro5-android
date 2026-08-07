@@ -76,6 +76,19 @@ boot path. Both clean build passes must produce the same LZMA recovery image,
 DTB, and kernel configuration, and the artifact inspector decompresses the
 stream before enforcing the full ramdisk inventory.
 
+Both reduction stages passed their static and two-clean-build gates:
+
+| Artifact | Compression | Size | Recovery SHA-256 | Partition margin |
+| --- | --- | ---: | --- | ---: |
+| `twrp-20260807-114507-recoveryimage` | gzip | 32,538,624 | `163c0bae13424d78cbbc8661cc5fd9907762a415a2cb86e805f88f173b0dafef` | 1,011,712 |
+| `twrp-20260807-115957-recoveryimage` | LZMA-Alone | 27,287,552 | `a360a6f1a269c9c730f8f288f4783cf9d2054a742718292abed03f2e3823e5aa` | 6,262,784 |
+
+The LZMA image is the only new candidate for the next device test. It remains
+runtime-unaccepted until it boots and passes the read-only checks below. Its
+generated DTB still has SHA-256
+`0b537be248ed155a925d58c9a6b927ec1c4cdfaa0624ea714e848abddfba7d84`
+and must not be flashed; the test retains the verified Flyme 8 DTB.
+
 ## Flashing boundary
 
 Keep the stock Flyme 8 DTB in place. Flash only the reviewed diagnostic file
