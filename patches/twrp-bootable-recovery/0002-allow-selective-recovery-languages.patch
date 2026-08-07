@@ -1,7 +1,7 @@
 diff --git a/gui/Android.mk b/gui/Android.mk
 --- a/gui/Android.mk
 +++ b/gui/Android.mk
-@@ -152,7 +152,29 @@ endef
+@@ -152,7 +152,30 @@ endef
  
  TWRP_RES := $(LOCAL_PATH)/theme/common/fonts
  TWRP_RES += $(LOCAL_PATH)/theme/common/languages
@@ -15,6 +15,7 @@ diff --git a/gui/Android.mk b/gui/Android.mk
 +        $(filter %/$(language).xml,$(TWRP_LANGUAGE_FILES)))
 +    TWRP_SELECTED_LANGUAGE_NAMES := \
 +        $(basename $(notdir $(TWRP_SELECTED_LANGUAGE_FILES)))
++    TWRP_SELECTED_LANGUAGE_FONTS :=
 +    ifneq ($(sort $(TW_LANGUAGE_ALLOWLIST)),$(sort $(TWRP_SELECTED_LANGUAGE_NAMES)))
 +        $(error TW_LANGUAGE_ALLOWLIST names an unavailable language: \
 +            $(filter-out $(TWRP_SELECTED_LANGUAGE_NAMES), \
@@ -32,7 +33,7 @@ diff --git a/gui/Android.mk b/gui/Android.mk
      TWRP_RES += $(LOCAL_PATH)/theme/extra-languages/fonts
      TWRP_RES += $(LOCAL_PATH)/theme/extra-languages/languages
  endif
-@@ -206,6 +228,15 @@ $(TWRP_RES_GEN):
+@@ -206,6 +229,15 @@ $(TWRP_RES_GEN):
  	mkdir -p $(TARGET_RECOVERY_ROOT_OUT)$(TWRES_PATH)
  	cp -fr $(TWRP_RES) $(TARGET_RECOVERY_ROOT_OUT)$(TWRES_PATH)
  	cp -fr $(TWRP_THEME_LOC)/* $(TARGET_RECOVERY_ROOT_OUT)$(TWRES_PATH)
