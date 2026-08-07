@@ -114,3 +114,6 @@ Environment variables can override the non-secret connection defaults:
 
 The phone backup phase is intentionally paused. No flashing or destructive
 device operation is performed by these scripts.
+
+The current build-only result, artifact hashes, and unresolved handset gates
+are recorded in `docs/static-acceptance-2026-08-07.md`.
