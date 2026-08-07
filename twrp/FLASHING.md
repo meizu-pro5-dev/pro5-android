@@ -56,20 +56,25 @@ startup chain, SHA-256
 `14c0056ca835cd1599b70e892071458c6693cbdfaa5071ef0efefcc169fd83bb`,
 stalled and is rejected; do not flash it again.
 
-The next authorized candidate must be the all-old-content gzip load-envelope
-control with SHA-256
+The all-old-content gzip load-envelope control with SHA-256
 `22a42a33516da36dcbc9ec3a1807716123430e2f5a256f25b5d5f16b2dee469d`
-and size 32,571,392 bytes. Its declared ramdisk is 15,051,754 bytes, exactly
-matching the pending gzip userspace diagnostic, while its old kernel and total
-image are larger. Flash only this control to `recovery`, retain the stock DTB,
-and do not perform any write test inside recovery.
-
-Only after that control boots may the proven-source-kernel / new-userspace /
-legacy-init gzip diagnostic with SHA-256
+and size 32,571,392 bytes reached the recovery UI. The matching
+proven-source-kernel / new-userspace / legacy-init gzip diagnostic with SHA-256
 `0dad8b1710cd8eef39f6b3d632f71bc8cd5f3c857ed16055fbbf4b3224254ed3`
-be tested. Do not use the pending userspace image to replace the required
-control step.
+then failed. A minimal new-runtime image and its fstab-corrected successor also
+failed with the same black-screen/vibration/automatic-Flyme sequence. The last
+test recorded a normal software `reboot`, with no panic or watchdog reset.
 
-After recovery starts, verify display, touch, ADB, partition discovery, and
-rollback access before testing any write operation. If it stalls at the logo,
-return to fastboot and restore the known-working recovery; do not change DTB.
+The next test-only image is the ADB log-capture recovery with SHA-256
+`a2d6c1fd75c33d51af047c2bd94fb344f27a6bd887048854efc79b56bf147375`
+and size 29,335,552 bytes. After explicit approval, flash only this image to
+`recovery` and retain the verified stock Flyme 8 DTB. It deliberately disables
+MTP and ignores an ordinary system reboot so that the known-working static adbd
+can expose `/tmp/recovery.log`. It is expected to remain at a black screen or
+otherwise stay in its recovery init environment after TWRP exits.
+
+Pull `/tmp/recovery.log`, dmesg and properties before leaving the diagnostic.
+Use `adb reboot bootloader` as the normal exit; that exact route remains
+enabled. If ADB never enumerates, use the physical long-press/bootloader route
+and restore the known-working recovery. Do not perform mount, wipe, install or
+other write tests, and do not change the DTB.

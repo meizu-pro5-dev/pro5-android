@@ -208,7 +208,26 @@ The next one-variable diagnostic removes only that shadowing file. Its
 recovery SHA-256 is
 `7a648ed1a5bc86db96741931104bab8443a728bd1f2b90d8abac7182156f691b`;
 all 488 surviving ramdisk entries and the proven kernel are byte-identical,
-and the boot-header geometry is unchanged from the preceding image.
+and the boot-header geometry is unchanged from the preceding image. The
+handset nevertheless repeated the same Meizu-logo, black-screen, vibration
+and automatic Flyme boot sequence.
+
+The post-test reset record identifies a normal software reboot at 14:47:56
+with command `reboot`; every panic, oops, watchdog and hardware-reset counter
+is zero. Cache recovery logs predate the test and pstore contains the following
+Flyme boot. This excludes both the stale fstab and a kernel crash. It strongly
+indicates that TWRP returned from its GUI path and requested the default system
+reboot, although the in-memory recovery log is required to identify why.
+
+The ADB-only log-capture diagnostic has recovery SHA-256
+`a2d6c1fd75c33d51af047c2bd94fb344f27a6bd887048854efc79b56bf147375`.
+It retains the corrected fstab image and changes only legacy `init.rc` data:
+MTP is skipped, the known-working static adbd is exposed as `18d1:4ee7`, an
+ordinary system reboot is ignored, and bootloader/recovery reboot requests
+remain enabled. The recovery service is `oneshot`, preserving the tmpfs log
+if TWRP exits. All other cpio data and metadata, the proven kernel and boot
+geometry are byte-identical. It is a temporary evidence collector, not a
+candidate for functional acceptance.
 
 ## Functional acceptance
 

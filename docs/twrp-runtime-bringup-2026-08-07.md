@@ -235,28 +235,58 @@ The next one-variable diagnostic has recovery SHA-256
 `7a648ed1a5bc86db96741931104bab8443a728bd1f2b90d8abac7182156f691b`.
 It is 29,331,456 bytes with a 12,103,270-byte gzip ramdisk and removes only
 the shadowing `etc/twrp.fstab`; all 488 surviving entries, the kernel and boot
-header geometry remain identical. A successful UI identifies the stale fstab as the
-cause. If the black-screen/reboot sequence repeats, retain this corrected
-fstab selection and add an ADB-only, nonpersistent `/tmp/recovery.log` capture
-wrapper next.
+header geometry remain identical.
+
+The handset repeated the same Meizu-logo, black-screen, vibration and automatic
+Flyme boot sequence. The immediately collected `/proc/reset_reason` is decisive:
+it records `software reboot`, `Restart cmd : reboot`, at 14:47:56, with every
+panic, oops, watchdog and hardware-reset counter at zero. Both cache recovery
+logs still had their pre-test 14:24:07 modification time, while the 419,400-byte
+pstore record begins with the subsequent Flyme boot. Deleting the stale fstab
+therefore did not change the failure and excludes fstab selection as its cause.
+The normal reboot strongly indicates that TWRP returned from its GUI path and
+requested its default system reboot; the exact reason for that return still
+requires its tmpfs log.
+
+The next diagnostic keeps that corrected fstab image and changes only the data
+payload of the legacy `init.rc`. Recovery SHA-256
+`a2d6c1fd75c33d51af047c2bd94fb344f27a6bd887048854efc79b56bf147375`
+is 29,335,552 bytes with a 12,103,719-byte gzip ramdisk. Its test-only init:
+
+- sets `mtp.crash_check=1` before TWRP starts and exposes only the known-working
+  static adbd through USB product `18d1:4ee7`;
+- makes recovery a `oneshot` service and removes the wildcard power-control
+  action, so an ordinary TWRP system reboot cannot destroy `/tmp/recovery.log`;
+- retains exact `reboot,bootloader` and `reboot,recovery` handlers as explicit
+  escape paths.
+
+Independent cpio comparison shows 489 entries including the trailer, identical
+path order and metadata, and only `init.rc` data changed. The proven kernel,
+TWRP executable, linker, dependency closure, resources and reviewed recovery
+fstab are byte-identical. This image is solely a volatile log-capture harness,
+not a recovery candidate.
 
 ## Flashing boundary
 
 Keep the stock Flyme 8 DTB in place. After explicit approval, flash only the
-reviewed fstab-shadow isolation `recovery.img` with SHA-256
-`7a648ed1a5bc86db96741931104bab8443a728bd1f2b90d8abac7182156f691b`
+ADB log-capture `recovery.img` with SHA-256
+`a2d6c1fd75c33d51af047c2bd94fb344f27a6bd887048854efc79b56bf147375`
 to the `recovery` partition. Do not flash `dtb`, `bootimg`, `/dev/block/sdb`,
-`ldfw`, or any identity/parameter partition.
+`ldfw`, or any identity/parameter partition. The expected visible result may
+remain a black screen, but the handset should stay in the recovery init
+environment instead of returning to Flyme.
 
 After a successful start, collect read-only evidence before any mount or
 write test:
 
 ```sh
-adb shell getprop ro.twrp.version
-adb shell getprop ro.product.device
-adb shell dmesg > twrp-dmesg.txt
+adb wait-for-device
 adb pull /tmp/recovery.log
+adb shell dmesg > twrp-dmesg.txt
+adb shell getprop > twrp-properties.txt
 ```
 
-If the image stalls, return to fastboot and restore the known-working recovery
-image. Leave the stock DTB untouched in either outcome.
+After the files are retained, use `adb reboot bootloader`; the diagnostic keeps
+that exact power-control route enabled. Restore the known-working recovery if
+needed. If ADB never enumerates, use the physical long-press/bootloader recovery
+route. Leave the stock DTB untouched in every outcome.
