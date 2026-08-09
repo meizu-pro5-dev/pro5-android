@@ -347,7 +347,7 @@ require_fixed 'M86_VULKAN_HAL64 := $(TARGET_OUT_VENDOR)/lib64/hw/vulkan.exynos5.
 require_fixed 'ALL_DEFAULT_INSTALLED_MODULES += $(M86_VULKAN_HAL_SYMLINKS)' \
   "$android_makefile"
 require_fixed 'ln -sf ../egl/libGLES_mali.so $@' "$android_makefile"
-require_fixed 'Preserving the bootloader-proven Flyme DTB' "$releasetools"
+require_fixed 'Installing the Flyme-based AP fingerprint DTB' "$releasetools"
 require_fixed 'BOARD_VENDOR := meizu' "$board_config"
 require_fixed 'VENDOR_SECURITY_PATCH := 2019-08-01' "$board_config"
 require_fixed 'BOARD_BATTERY_DEVICE_NAME := bq2753x-0' \
@@ -597,14 +597,13 @@ for wifi_package in hostapd wpa_supplicant wpa_supplicant.conf; do
     exit 1
   fi
 done
-require_absent 'mount functionfs adb /dev/usb-ffs/adb uid=2000,gid=2000' \
+require_fixed 'mount functionfs adb /dev/usb-ffs/adb uid=2000,gid=2000' \
   "$usb_rc"
-require_absent 'write /sys/class/android_usb/android0/f_ffs/aliases adb' \
+require_fixed 'write /sys/class/android_usb/android0/f_ffs/aliases adb' \
   "$usb_rc"
 require_fixed 'write /sys/class/android_usb/android0/idProduct 2008' "$usb_rc"
 require_fixed 'write /sys/class/android_usb/android0/idProduct 0C02' "$usb_rc"
 require_fixed 'write /sys/class/android_usb/android0/functions adb' "$usb_rc"
-require_fixed 'wait /dev/android_adb 5' "$usb_rc"
 require_fixed 'write /sys/class/android_usb/android0/idProduct 200B' "$usb_rc"
 require_fixed 'write /sys/class/android_usb/android0/idProduct 200C' "$usb_rc"
 require_fixed 'write /sys/class/android_usb/android0/idProduct 6863' "$usb_rc"
@@ -755,7 +754,7 @@ require_fixed 'cd "$product_out/system"' "$build_worker"
 require_fixed 'PROPRIETARY-OUTPUT.txt' "$build_worker"
 require_fixed 'ota-required-cache=0' "$ota_audit_tool"
 require_fixed 'transfer_operations=' "$ota_audit_tool"
-require_fixed 'block_targets=bootimg,system' "$ota_audit_tool"
+require_fixed 'block_targets=bootimg,dtb,system' "$ota_audit_tool"
 require_fixed 'OTA-AUDIT.txt' "$build_worker"
 require_fixed 'vendor/lib/libbt-vendor.so' "$blob_list"
 require_fixed 'vendor/lib/egl/libGLES_mali.so' "$blob_list"
@@ -891,7 +890,7 @@ require_sha256 \
   eab2ec1b4b2c2855e0fc38f27a59e84522570020192925f63b11fd7ab7f75e5d \
   "$gps_xml"
 require_sha256 \
-  fea8e1b112cfeb6af53075e61952bbc68bf485704fc2d98ed3c728a44122e5a4 \
+  b59aac5c985e7756dda4a8b71eddd515ccb722edfe0c39c6f249617b3a8125ac \
   "$nfc_config"
 
 # A local source-only checkout does not contain the Android schemas. On the
