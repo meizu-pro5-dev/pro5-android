@@ -17,9 +17,17 @@ status_file="${2:-$run_root/twrp-build-latest.status}"
 log_file="${3:-$run_root/twrp-build-latest.log}"
 build_stamp="${4:-$(date +%Y%m%d-%H%M%S)}"
 local_revision="${5:-unknown}"
+kernel_profile="${6:-maintained}"
 
 if [[ ! "$jobs" =~ ^[1-9][0-9]*$ ]] || ((jobs > 64)); then
   printf 'Invalid TWRP build job count: %s\n' "$jobs" >&2
+  exit 2
+fi
+if [[ "$kernel_profile" != "maintained" && \
+    "$kernel_profile" != "pre-pstore-note5-pan" && \
+    "$kernel_profile" != "pre-pstore-usb-vbus" && \
+    "$kernel_profile" != "pre-pstore-usb-vbus-no-lpd" ]]; then
+  printf 'Invalid TWRP kernel profile: %s\n' "$kernel_profile" >&2
   exit 2
 fi
 
@@ -184,6 +192,7 @@ printf 'TWRP build started at %s\n' "$(date --iso-8601=seconds)"
 printf 'Source: %s\nJobs: %s\nStable output for both passes: %s\n' \
   "$source_root" "$jobs" "$build_out"
 printf 'Local revision: %s\n' "$local_revision"
+printf 'Kernel profile: %s\n' "$kernel_profile"
 printf 'Python: %s\n' "$(python2.7 --version 2>&1)"
 printf 'Python zlib: %s\n' \
   "$(python2.7 -c 'import zlib; print(zlib.ZLIB_VERSION)')"
@@ -191,6 +200,67 @@ printf 'Python zlib: %s\n' \
 kernel_root="$source_root/kernel/meizu/m86"
 aarch64_prefix="$source_root/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin/aarch64-linux-android-"
 arm_prefix="$source_root/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9/bin/arm-linux-androideabi-"
+if [[ "$kernel_profile" == "pre-pstore-note5-pan" || \
+    "$kernel_profile" == "pre-pstore-usb-vbus" || \
+    "$kernel_profile" == "pre-pstore-usb-vbus-no-lpd" ]]; then
+  pre_pstore_defconfig_sha256=11683809ee51d42d6a3c7a9e0e9ff6e2bfd9fd12b4f2b58b19cc31d562b057ae
+  if [[ "$kernel_profile" == "pre-pstore-usb-vbus-no-lpd" ]]; then
+    pre_pstore_defconfig_sha256=3ed5fa4bc2303541df9b26de1dfd96737562b604c967d8615d66e27f5677d996
+  fi
+  for locked_source in \
+    "$pre_pstore_defconfig_sha256 arch/arm64/configs/cm_pro5_defconfig" \
+    'ff6b08939a17c25cd26a3e9fee919a2a52acc75a916fd7b3a1b86f4b75dd9b95 drivers/of/of_reserved_mem.c' \
+    'bfcf91cc6a8f2c2bc1c9e8fb8f0bed74566a801e5b5b1728f9c997af6a725fe5 drivers/platform/exynos/exynos_ramoops.c' \
+    '6174ccaf5ac2d8dfb8711a7dcf057dd53ca90478006ee8b88a3ace1c0d6d0349 include/linux/of_reserved_mem.h'; do
+    expected_source_sha256="${locked_source%% *}"
+    relative_source="${locked_source#* }"
+    actual_source_sha256="$(
+      sha256sum "$kernel_root/$relative_source" | awk '{ print $1 }'
+    )"
+    if [[ "$actual_source_sha256" != "$expected_source_sha256" ]]; then
+      printf 'Pre-pstore source mismatch: %s\n' "$relative_source" >&2
+      exit 1
+    fi
+  done
+  if [[ "$kernel_profile" == "pre-pstore-note5-pan" ]]; then
+    if ! grep -F -q 'Keep PAN as a lightweight command-mode refresh.' \
+        "$kernel_root/drivers/video/exynos/decon/decon-int_drv.c" || \
+        sed -n '/int decon_pan_display(/,/^}/p' \
+          "$kernel_root/drivers/video/exynos/decon/decon-int_drv.c" | \
+          grep -Eq '^[[:space:]]*decon_set_par\(info\);'; then
+      printf 'The pre-pstore profile omits the isolated Note5 PAN change.\n' >&2
+      exit 1
+    fi
+  else
+    for locked_usb_source in \
+      '455f1e7f71eafb4f4516c789a28fa3c90f3880a3a484c54d3a8dfd19f44112d0 drivers/video/exynos/decon/decon-int_drv.c' \
+      'e0058fc84b4043aef966932507a190c655ef51b2f7c6e0d2c610dda64f1961ce drivers/usb/gadget/android.c'; do
+      expected_usb_sha256="${locked_usb_source%% *}"
+      relative_usb_source="${locked_usb_source#* }"
+      actual_usb_sha256="$(
+        sha256sum "$kernel_root/$relative_usb_source" | awk '{ print $1 }'
+      )"
+      if [[ "$actual_usb_sha256" != "$expected_usb_sha256" ]]; then
+        printf 'USB diagnostic source mismatch: %s\n' \
+          "$relative_usb_source" >&2
+        exit 1
+      fi
+    done
+    if ! grep -F -q \
+        'android_usb: forcing DWC3 gadget VBUS session' \
+        "$kernel_root/drivers/usb/gadget/android.c"; then
+      printf 'The USB diagnostic profile omits the forced DWC3 session.\n' >&2
+      exit 1
+    fi
+  fi
+  if [[ "$kernel_profile" == "pre-pstore-usb-vbus-no-lpd" ]]; then
+    if ! grep -F -x -q '# CONFIG_DECON_LPD_DISPLAY is not set' \
+        "$kernel_root/arch/arm64/configs/cm_pro5_defconfig"; then
+      printf 'The no-LPD profile still enables DECON low-power display.\n' >&2
+      exit 1
+    fi
+  fi
+fi
 for required_toolchain in "${aarch64_prefix}gcc" "${arm_prefix}gcc"; do
   if [[ ! -x "$required_toolchain" ]]; then
     printf 'Required kernel toolchain is missing: %s\n' \
@@ -256,9 +326,6 @@ build_twrp_pass() {
     CONFIG_RD_GZIP=y \
     CONFIG_RD_LZMA=y \
     CONFIG_DECOMPRESS_LZMA=y \
-    CONFIG_PSTORE=y \
-    CONFIG_PSTORE_CONSOLE=y \
-    CONFIG_PSTORE_RAM=y \
     CONFIG_INPUT_EVDEV=y \
     CONFIG_TOUCHSCREEN_FTS=y \
     CONFIG_USB_DWC3_DUAL_ROLE=y \
@@ -276,6 +343,38 @@ build_twrp_pass() {
       return 1
     fi
   done
+  if [[ "$kernel_profile" == "maintained" ]]; then
+    for required_diagnostic_setting in \
+      CONFIG_PSTORE=y \
+      CONFIG_PSTORE_CONSOLE=y \
+      CONFIG_PSTORE_RAM=y; do
+      if ! grep -F -x -q "$required_diagnostic_setting" \
+          "$kernel_out/.config"; then
+        printf 'TWRP pass %s kernel config omitted %s.\n' \
+          "$pass_name" "$required_diagnostic_setting" >&2
+        return 1
+      fi
+    done
+  elif ! grep -F -x -q '# CONFIG_PSTORE is not set' \
+      "$kernel_out/.config"; then
+    printf 'TWRP pass %s pre-pstore kernel unexpectedly enables pstore.\n' \
+      "$pass_name" >&2
+    return 1
+  fi
+  if [[ "$kernel_profile" == "pre-pstore-usb-vbus-no-lpd" ]]; then
+    if ! grep -F -x -q '# CONFIG_DECON_LPD_DISPLAY is not set' \
+        "$kernel_out/.config"; then
+      printf 'TWRP pass %s kernel unexpectedly enables DECON LPD.\n' \
+        "$pass_name" >&2
+      return 1
+    fi
+  elif [[ "$kernel_profile" == "pre-pstore-usb-vbus" ]] && \
+      ! grep -F -x -q 'CONFIG_DECON_LPD_DISPLAY=y' \
+        "$kernel_out/.config"; then
+    printf 'TWRP pass %s USB baseline unexpectedly disables DECON LPD.\n' \
+      "$pass_name" >&2
+    return 1
+  fi
   if grep -E -q \
       'CONFIG_(FAT_VIRTUAL_XATTR|FAT_VIRTUAL_XATTR_SELINUX_LABEL|FAT_SUPPORT_STLOG|EXFAT_SUPPORT_STLOG)' \
       "$kernel_out/.config"; then
@@ -292,15 +391,17 @@ build_twrp_pass() {
       return 1
     fi
   done
-  for required_diagnostic_object in \
-    fs/pstore/ramoops.o \
-    drivers/platform/exynos/exynos_ramoops.o; do
-    if [[ ! -s "$kernel_out/$required_diagnostic_object" ]]; then
-      printf 'TWRP pass %s omitted kernel object %s.\n' \
-        "$pass_name" "$required_diagnostic_object" >&2
-      return 1
-    fi
-  done
+  if [[ "$kernel_profile" == "maintained" ]]; then
+    for required_diagnostic_object in \
+      fs/pstore/ramoops.o \
+      drivers/platform/exynos/exynos_ramoops.o; do
+      if [[ ! -s "$kernel_out/$required_diagnostic_object" ]]; then
+        printf 'TWRP pass %s omitted kernel object %s.\n' \
+          "$pass_name" "$required_diagnostic_object" >&2
+        return 1
+      fi
+    done
+  fi
 
   # recoveryimage correctly contains no DT section. Build the matching raw
   # partition image from the same configured kernel output for each pass.
@@ -380,11 +481,38 @@ cp -a "$kernel_exfat_lock" "$artifact_dir/kernel-exfat-exynos7420.sha256"
   sha256sum fs/exfat/exfat_core.o fs/exfat/exfat_fs.o
 ) > "$artifact_dir/EXFAT-KERNEL.txt"
 (
-  cd "$kernel_out"
-  sha256sum \
-    fs/pstore/ramoops.o \
-    drivers/platform/exynos/exynos_ramoops.o
+  if [[ "$kernel_profile" == "maintained" ]]; then
+    cd "$kernel_out"
+    sha256sum \
+      fs/pstore/ramoops.o \
+      drivers/platform/exynos/exynos_ramoops.o
+  else
+    printf 'kernel_profile=%s\n' "$kernel_profile"
+    printf 'pstore_config=disabled to match proven v11 kernel baseline\n'
+    sha256sum \
+      "$kernel_root/arch/arm64/configs/cm_pro5_defconfig" \
+      "$kernel_root/drivers/of/of_reserved_mem.c" \
+      "$kernel_root/drivers/platform/exynos/exynos_ramoops.c" \
+      "$kernel_root/include/linux/of_reserved_mem.h"
+    if [[ "$kernel_profile" == "pre-pstore-usb-vbus" || \
+        "$kernel_profile" == "pre-pstore-usb-vbus-no-lpd" ]]; then
+      sha256sum \
+        "$kernel_root/drivers/video/exynos/decon/decon-int_drv.c" \
+        "$kernel_root/drivers/usb/gadget/android.c"
+    fi
+  fi
 ) > "$artifact_dir/PSTORE-KERNEL.txt"
+if [[ "$kernel_profile" == "pre-pstore-usb-vbus" || \
+    "$kernel_profile" == "pre-pstore-usb-vbus-no-lpd" ]]; then
+  install -D -m 0644 \
+    "$local_root/patches/twrp-kernel-m86/0001-usb-force-gadget-vbus-on-enable.patch" \
+    "$artifact_dir/patches/twrp-kernel-m86/0001-usb-force-gadget-vbus-on-enable.patch"
+fi
+if [[ "$kernel_profile" == "pre-pstore-usb-vbus-no-lpd" ]]; then
+  install -D -m 0644 \
+    "$local_root/patches/twrp-kernel-m86/0002-display-disable-decon-lpd.patch" \
+    "$artifact_dir/patches/twrp-kernel-m86/0002-display-disable-decon-lpd.patch"
+fi
 cp -a "$twrp_patch_series" "$artifact_dir/twrp-series.tsv"
 while IFS=$'\t' read -r repository patch_path; do
   [[ -z "$repository" || "$repository" == \#* ]] && continue
@@ -477,6 +605,7 @@ twrp_version="$(
   printf 'built_at=%s\n' "$(date --iso-8601=seconds)"
   printf 'target=omni_m86-eng recoveryimage\n'
   printf 'local_revision=%s\n' "$local_revision"
+  printf 'kernel_profile=%s\n' "$kernel_profile"
   printf 'twrp_version=%s\n' "$twrp_version"
   printf 'source_root=%s\n' "$source_root"
   printf 'out_root_pass1=%s\n' "$build_out"
@@ -491,7 +620,15 @@ twrp_version="$(
   printf 'stock_base=Flyme 8.0.5.0A / Android 7 / API 24\n'
   printf 'proprietary_recovery_blobs=etc/firmware/st_fts.bin\n'
   printf 'st_fts_sha256=%s\n' "$expected_touch_hash"
-  printf 'source_checkout_validation=HEAD tree equals index and clean worktree\n'
+  if [[ "$kernel_profile" == "maintained" ]]; then
+    printf 'source_checkout_validation=HEAD tree equals index and clean worktree\n'
+  elif [[ "$kernel_profile" == "pre-pstore-usb-vbus" ]]; then
+    printf 'source_checkout_validation=SHA-locked v11 kernel baseline plus only the android_usb forced-VBUS patch\n'
+  elif [[ "$kernel_profile" == "pre-pstore-usb-vbus-no-lpd" ]]; then
+    printf 'source_checkout_validation=SHA-locked v11 kernel baseline plus android_usb forced-VBUS and DECON LPD-disable patches\n'
+  else
+    printf 'source_checkout_validation=maintained tree with four SHA-locked pre-pstore files and Note5 PAN change\n'
+  fi
   printf 'recovery_partition_limit=33550336\n'
   printf 'dtb_packaging=raw separate partition\n'
   printf 'ramdisk_compression=lzma-alone recovery; gzip decoder retained\n'

@@ -1,0 +1,146 @@
+# Test-only PRO 5 TWRP v9 init.
+#
+# This starts from the handset-proven v7 init flow but deliberately does not
+# import init.recovery.m86.rc: that file writes the MTP product ID during boot.
+# SELinux permissive mode is retained here, while USB is configured once via
+# the native android_usb/f_adb path after properties have been loaded.
+
+on early-init
+    setenforce permissive
+
+    # Apply strict SELinux checking of PROT_EXEC on mmap/mprotect calls.
+    write /sys/fs/selinux/checkreqprot 0
+
+    # Set the security context for the init process.
+    setcon u:r:init:s0
+
+    start ueventd
+    start healthd
+
+service set_permissive /sbin/toolbox setenforce 0
+    oneshot
+    seclabel u:r:recovery:s0
+
+on init
+    export PATH /sbin:/system/bin
+    export LD_LIBRARY_PATH .:/sbin
+    export ANDROID_ROOT /system
+    export ANDROID_DATA /data
+    export EXTERNAL_STORAGE /sdcard
+
+    mkdir /boot
+    mkdir /recovery
+    mkdir /system
+    mkdir /data
+    mkdir /cache
+    mkdir /custom
+    mkdir /efs
+    mkdir /sideload
+    mkdir /storage
+    mkdir /storage/sdcard1
+    mount tmpfs tmpfs /tmp
+
+    chown root shell /tmp
+    chmod 0775 /tmp
+
+    write /proc/sys/kernel/panic_on_oops 1
+
+on fs
+    mount pstore pstore /sys/fs/pstore
+
+    # Keep MTP disabled for this diagnostic. The v7 log already proves that
+    # the legacy kernel exposes android_usb; old adbd will therefore use
+    # /dev/android_adb without a FunctionFS mount or /dev/usb-ffs directory.
+    setprop mtp.crash_check 1
+
+    write /sys/module/decon/parameters/decon_log_level 7
+
+    # Begin from a known disabled gadget. The ADB action is intentionally
+    # deferred until boot, after load_all_props has completed.
+    setprop sys.usb.config none
+
+on boot
+    ifup lo
+    hostname localhost
+    domainname localdomain
+
+    # PRO 5 recovery has an empty ro.serialno. Configure one deterministic
+    # ADB-only identity after properties load instead of expanding it early.
+    setprop sys.usb.config adb
+
+    class_start default
+
+# Load properties, pre-Android 6.0.
+on load_all_props_action
+    load_all_props
+
+on firmware_mounts_complete
+    rm /dev/.booting
+
+# Mount filesystems and start core system services.
+on late-init
+    trigger early-fs
+    trigger fs
+    trigger post-fs
+    trigger post-fs-data
+
+    trigger load_all_props_action
+    trigger firmware_mounts_complete
+
+    trigger early-boot
+    trigger boot
+
+# Test-only: ignore TWRP's ordinary system-reboot request so tmpfs and cache
+# logs remain available. Explicit bootloader/recovery requests are escapes.
+on property:sys.powerctl=reboot,bootloader
+    powerctl ${sys.powerctl}
+
+on property:sys.powerctl=reboot,recovery
+    powerctl ${sys.powerctl}
+
+on property:sys.usb.config=none
+    stop adbd
+    write /sys/class/android_usb/android0/enable 0
+    write /sys/class/android_usb/android0/bDeviceClass 0
+    write /sys/class/android_usb/android0/bDeviceSubClass 0
+    write /sys/class/android_usb/android0/bDeviceProtocol 0
+    setprop sys.usb.state none
+
+# Flyme's persistent default is mtp,adb. This diagnostic intentionally maps
+# any such request back to ADB-only so TWRP cannot reintroduce the MTP failure.
+on property:sys.usb.config=mtp,adb
+    setprop sys.usb.config adb
+
+on property:sys.usb.config=adb
+    stop adbd
+    write /sys/class/android_usb/android0/enable 0
+    write /sys/class/android_usb/android0/idVendor 18D1
+    write /sys/class/android_usb/android0/idProduct 4EE7
+    write /sys/class/android_usb/android0/iManufacturer MEIZU
+    write /sys/class/android_usb/android0/iProduct PRO5_TWRP
+    write /sys/class/android_usb/android0/iSerial PRO5TWRPV9
+    write /sys/class/android_usb/android0/bDeviceClass 0
+    write /sys/class/android_usb/android0/bDeviceSubClass 0
+    write /sys/class/android_usb/android0/bDeviceProtocol 0
+    write /sys/class/android_usb/android0/functions adb
+    write /sys/class/android_usb/android0/enable 1
+    start adbd
+    setprop sys.usb.state adb
+
+service ueventd /sbin/ueventd
+    critical
+#    seclabel u:r:ueventd:s0
+
+service healthd /sbin/healthd -r
+    critical
+#    seclabel u:r:healthd:s0
+
+# Retain the v4 synchronous cache log wrapper and its existing cpio metadata.
+service recovery /sbin/sh /sbin/permissive.sh
+    oneshot
+    seclabel u:r:recovery:s0
+
+service adbd /sbin/adbd
+    disabled
+    socket adbd stream 660 system system
+#    seclabel u:r:adbd:s0

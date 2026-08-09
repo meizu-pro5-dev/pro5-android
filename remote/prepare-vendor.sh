@@ -61,12 +61,38 @@ for generated in Android.mk BoardConfigVendor.mk m86-vendor.mk; do
 done
 
 vendor_makefile="$vendor_tree/m86-vendor.mk"
+excluded_copy_paths=(
+  lib/hw/gralloc.exynos5.so
+  lib64/hw/gralloc.exynos5.so
+  lib/hw/hwcomposer.exynos5.so
+  lib64/hw/hwcomposer.exynos5.so
+  lib/libdisplay.so
+  lib64/libdisplay.so
+  lib/libhdmi.so
+  lib64/libhdmi.so
+  lib/libion.so
+  lib64/libion.so
+)
+
+# Retain and hash the replaced Flyme graphics, HDMI, and libion blobs as extraction
+# evidence, but never install them. Android 10 source modules own these
+# destinations. The Flyme HWC1/libdisplay pair uses the Android 7 layer ABI and
+# crashes SurfaceFlinger in ExynosDisplay::doPreProcessing when driven through
+# Android 10's HWC2On1 adapter. Flyme libhdmi also has a DT_NEEDED entry for
+# that incompatible libdisplay, so it must be replaced with the source output
+# for the source-built HWC to load at all.
+for relative_path in "${excluded_copy_paths[@]}"; do
+  sed -i "\\|vendor/meizu/m86/proprietary/$relative_path:|d" \
+    "$vendor_makefile"
+done
+
 copy_rule_count="$(
   grep -c '^    vendor/meizu/m86/proprietary/' "$vendor_makefile"
 )"
-if [[ "$copy_rule_count" != "$expected_count" ]]; then
+expected_copy_count="$((expected_count - ${#excluded_copy_paths[@]}))"
+if [[ "$copy_rule_count" != "$expected_copy_count" ]]; then
   printf 'Expected %s generated copy rules, found %s.\n' \
-    "$expected_count" "$copy_rule_count" >&2
+    "$expected_copy_count" "$copy_rule_count" >&2
   exit 1
 fi
 
@@ -74,6 +100,16 @@ fi
 # and all other stock-system paths below TARGET_COPY_OUT_SYSTEM. Check every
 # generated rule so firmware can never silently become vendor/vendor/*.
 while IFS= read -r relative_path; do
+  excluded_copy=false
+  for excluded_path in "${excluded_copy_paths[@]}"; do
+    if [[ "$relative_path" == "$excluded_path" ]]; then
+      excluded_copy=true
+      break
+    fi
+  done
+  if [[ "$excluded_copy" == true ]]; then
+    continue
+  fi
   if [[ "$relative_path" == vendor/* ]]; then
     output_path="\$(TARGET_COPY_OUT_VENDOR)/${relative_path#vendor/}"
   else

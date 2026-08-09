@@ -1,0 +1,18 @@
+diff --git a/minuitwrp/graphics_fbdev.cpp b/minuitwrp/graphics_fbdev.cpp
+--- a/minuitwrp/graphics_fbdev.cpp
++++ b/minuitwrp/graphics_fbdev.cpp
+@@ -276,6 +276,14 @@ static GRSurface* fbdev_init(minui_backend* backend) {
+ #endif
+     fb_fd = fd;
++#ifdef RECOVERY_GRAPHICS_FORCE_SINGLE_BUFFER
++    // Match the original working PRO 5 TWRP: its single-buffer backend kept
++    // the fb_var_screeninfo returned by the kernel and issued no init-time
++    // FBIOPUT_VSCREENINFO.  The first paced PAN latches the existing page and
++    // geometry without reprogramming the mode first.
++    printf("legacy single-buffer keeps kernel framebuffer geometry\n");
++#else
+     set_displayed_framebuffer(0);
++#endif
+ 
+     printf("framebuffer: %d (%d x %d)\n", fb_fd, gr_draw->width, gr_draw->height);
+ 

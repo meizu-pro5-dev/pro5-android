@@ -48,6 +48,11 @@ for required_entry in \
   require_entry "$required_entry"
 done
 
+if ! unzip -p "$ota_package" dtb.img | cmp -s - "$raw_dtb"; then
+  printf 'OTA DTB differs from the reviewed Flyme-based hybrid.\n' >&2
+  exit 1
+fi
+
 if grep -E \
     '^(bootloader|sboot|ldfw|bootlogo|dtb_backup|param|proinfo|private|rstinfo)([./]|$)' \
     <<<"$entry_list" >/dev/null; then
@@ -59,11 +64,6 @@ if ! unzip -p "$ota_package" boot.img | cmp -s - "$boot_image"; then
   printf 'OTA boot image differs from the validated product boot image.\n' >&2
   exit 1
 fi
-if ! unzip -p "$ota_package" dtb.img | cmp -s - "$raw_dtb"; then
-  printf 'OTA DTB differs from the validated raw m86 DTB.\n' >&2
-  exit 1
-fi
-
 metadata="$(unzip -p "$ota_package" META-INF/com/android/metadata)"
 for required_metadata in \
   ota-required-cache=0 \
@@ -104,7 +104,7 @@ fi
 if ! grep -F -q \
     'package_extract_file("dtb.img", "/dev/block/platform/15570000.ufs/by-name/dtb");' \
     <<<"$updater_script"; then
-  printf 'OTA updater does not contain the reviewed DTB write.\n' >&2
+  printf 'OTA updater does not contain the reviewed hybrid-DTB write.\n' >&2
   exit 1
 fi
 
@@ -168,7 +168,7 @@ printf 'ota_sha256=%s\n' \
   "$(sha256sum "$ota_package" | awk '{ print $1 }')"
 printf 'boot_sha256=%s\n' \
   "$(sha256sum "$boot_image" | awk '{ print $1 }')"
-printf 'dtb_sha256=%s\n' \
+printf 'hybrid_dtb_sha256=%s\n' \
   "$(sha256sum "$raw_dtb" | awk '{ print $1 }')"
 printf 'ota_required_cache=0\n'
 printf 'block_targets=bootimg,dtb,system\n'

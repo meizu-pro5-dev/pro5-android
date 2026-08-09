@@ -1,0 +1,81 @@
+From 7f1f465736b9804b76d1118a88a05ea4c011dd1f Mon Sep 17 00:00:00 2001
+From: Codex <codex@openai.com>
+Date: Sat, 8 Aug 2026 16:20:00 +0800
+Subject: [PATCH] gralloc: harden the fbdev copy post path
+
+The fbdev fallback ignored both gralloc lock results and copied through
+uninitialized stack pointers. On m86 this crashes SurfaceFlinger in memcpy on
+every start. init_fb already owns a persistent framebuffer mapping, so use
+that mapping directly and validate the source lock and copy bounds.
+
+Use a three-entry address array for the source because this mapper exposes
+additional plane addresses through vaddr[1] and vaddr[2]. Passing a single
+stack pointer lets a multi-plane buffer overwrite adjacent locals.
+---
+ gralloc/framebuffer.cpp | 50 +++++++++++++++++++++++++++++++++-----------------
+ 1 file changed, 33 insertions(+), 17 deletions(-)
+
+diff --git a/gralloc/framebuffer.cpp b/gralloc/framebuffer.cpp
+index 2aa01d2..2993e2f 100644
+--- a/gralloc/framebuffer.cpp
++++ b/gralloc/framebuffer.cpp
+@@ -87,24 +87,40 @@ static int fb_post(struct framebuffer_device_t* dev, buffer_handle_t buffer)
+     }
+ #else
+     // If we can't do the page_flip, just copy the buffer to the front
+     // FIXME: use copybit HAL instead of memcpy
+-    void* fb_vaddr;
+-    void* buffer_vaddr;
+-
+-    m->base.lock(&m->base, m->framebuffer,
+-            GRALLOC_USAGE_SW_WRITE_RARELY,
+-            0, 0, m->info.xres, m->info.yres,
+-            &fb_vaddr);
+-
+-    m->base.lock(&m->base, buffer,
+-            GRALLOC_USAGE_SW_READ_RARELY,
+-            0, 0, m->info.xres, m->info.yres,
+-            &buffer_vaddr);
+-
+-    memcpy(fb_vaddr, buffer_vaddr, m->finfo.line_length * m->info.yres);
+-
+-    m->base.unlock(&m->base, buffer);
+-    m->base.unlock(&m->base, m->framebuffer);
++    private_handle_t const* hnd =
++            reinterpret_cast<private_handle_t const*>(buffer);
++    const size_t copy_size = static_cast<size_t>(m->finfo.line_length) *
++            static_cast<size_t>(m->info.yres);
++
++    if (!m->framebuffer || !m->framebuffer->base) {
++        ALOGE("fb_post: framebuffer is not mapped");
++        return -EINVAL;
++    }
++    if (hnd->size < 0 || copy_size > static_cast<size_t>(hnd->size) ||
++            copy_size > static_cast<size_t>(m->framebuffer->size)) {
++        ALOGE("fb_post: invalid copy size %zu (source %d, framebuffer %d)",
++                copy_size, hnd->size, m->framebuffer->size);
++        return -EINVAL;
++    }
++
++    // The Exynos mapper returns up to three plane addresses through vaddr.
++    void* buffer_vaddr[3] = {};
++    int err = m->base.lock(&m->base, buffer,
++            GRALLOC_USAGE_SW_READ_RARELY, 0, 0,
++            m->info.xres, m->info.yres, buffer_vaddr);
++    if (err || !buffer_vaddr[0]) {
++        ALOGE("fb_post: failed to lock source buffer: %d", err);
++        return err ? err : -EINVAL;
++    }
++
++    memcpy(reinterpret_cast<void*>(m->framebuffer->base), buffer_vaddr[0],
++            copy_size);
++
++    err = m->base.unlock(&m->base, buffer);
++    if (err)
++        ALOGE("fb_post: failed to unlock source buffer: %d", err);
++    return err;
+ #endif
+     return 0;
+ }
+-- 
+2.39.5

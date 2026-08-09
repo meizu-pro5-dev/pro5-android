@@ -11,9 +11,18 @@ on init
 
 on fs
     # Keep TWRP's upstream FunctionFS mount and USB property state machine.
-    # Only override the identifiers proven by the old working m86 recovery.
+    # Flyme on this handset currently enumerates its working ADB-only gadget as
+    # 18d1:4ee7. Do not advertise the MTP+ADB PID while only ADB is selected.
     write /sys/class/android_usb/android0/idVendor 18D1
-    write /sys/class/android_usb/android0/idProduct 4EE2
+    write /sys/class/android_usb/android0/idProduct 4EE7
     write /sys/class/android_usb/android0/iManufacturer MEIZU
     write /sys/class/android_usb/android0/iProduct "PRO 5 TWRP"
     write /sys/class/android_usb/android0/iSerial ${ro.serialno}
+
+on post-fs
+    # The upstream fs action has now mounted /dev/usb-ffs/adb and selected the
+    # f_ffs alias. Force one ordered ADB-only transition before recovery starts;
+    # TWRP may later switch to 18d1:4ee2 when it enables MTP.
+    setprop service.adb.root 1
+    setprop sys.usb.config none
+    setprop sys.usb.config adb

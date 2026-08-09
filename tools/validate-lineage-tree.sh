@@ -17,6 +17,8 @@ audio_effects="$device_root/audio/audio_effects.xml"
 audio_mixer="$device_root/audio/mixer_paths.xml"
 gps_conf="$device_root/gps/gps.conf"
 gps_xml="$device_root/gps/gps.xml"
+gps_bp="$device_root/gps/Android.bp"
+gps_shim="$device_root/gps/GpsCompat.cpp"
 nfc_config="$device_root/nfc/libnfc-nxp.conf"
 sensors_service_rc="$device_root/sensors/android.hardware.sensors@1.0-service.rc"
 camera_bp="$device_root/camera/Android.bp"
@@ -44,11 +46,18 @@ kernel_exfat_lock="$project_root/locks/kernel-exfat-exynos7420.sha256"
 kernel_fcntl="$project_root/kernel/meizu/m86/include/uapi/asm-generic/fcntl.h"
 kernel_uapi_kbuild="$project_root/kernel/meizu/m86/include/uapi/linux/Kbuild"
 kernel_mfc_uapi="$project_root/kernel/meizu/m86/include/uapi/linux/videodev2_exynos_media.h"
+kernel_decon_header="$project_root/kernel/meizu/m86/drivers/video/exynos/decon/decon.h"
 platform_patch="$project_root/patches/device-samsung-universal7420-common/0001-target-add-meizu-m86.patch"
 bluetooth_patch="$project_root/patches/device-samsung-universal7420-common/0002-bluetooth-add-m86-address-fallback.patch"
 full_ota_patch="$project_root/patches/build-make/0001-releasetools-allow-full-ota-without-cache-size.patch"
 glib_patch="$project_root/patches/external-glib/0001-build-libglib-for-m86-vendor.patch"
 glib_stub_patch="$project_root/patches/external-glib/0003-clang-port-legacy-android-stubs.patch"
+audio_metadata_patch="$project_root/patches/hardware-interfaces/0001-audio-ignore-invalid-legacy-metadata-callback.patch"
+audio_headphone_framework_patch="$project_root/patches/frameworks-av/0001-audioflinger-restore-meizu-headphone-volume.patch"
+audio_hifi_output_patch="$project_root/patches/frameworks-av/0002-audioflinger-route-meizu-hifi-state-to-output.patch"
+audio_hifi_service_patch="$project_root/patches/frameworks-base/0003-audio-restore-meizu-hifi-routing.patch"
+settings_hifi_patch="$project_root/patches/packages-apps-settings/0001-system-add-meizu-hifi-sound.patch"
+audio_headphone_hal_patch="$project_root/patches/hardware-interfaces/0004-audio-call-meizu-headphone-volume-hook.patch"
 libfprint_patch="$project_root/patches/legacy-m86-libfprint/0001-port-m86-fpc-to-android10.patch"
 patch_series="$project_root/patches/series.tsv"
 platform_manifest="$project_root/manifests/pro5.xml"
@@ -84,6 +93,8 @@ for required_file in \
   "$audio_mixer" \
   "$gps_conf" \
   "$gps_xml" \
+  "$gps_bp" \
+  "$gps_shim" \
   "$nfc_config" \
   "$sensors_service_rc" \
   "$camera_bp" \
@@ -111,11 +122,18 @@ for required_file in \
   "$kernel_fcntl" \
   "$kernel_uapi_kbuild" \
   "$kernel_mfc_uapi" \
+  "$kernel_decon_header" \
   "$platform_patch" \
   "$bluetooth_patch" \
   "$full_ota_patch" \
   "$glib_patch" \
   "$glib_stub_patch" \
+  "$audio_metadata_patch" \
+  "$audio_headphone_framework_patch" \
+  "$audio_hifi_output_patch" \
+  "$audio_hifi_service_patch" \
+  "$settings_hifi_patch" \
+  "$audio_headphone_hal_patch" \
   "$libfprint_patch" \
   "$patch_series" \
   "$platform_manifest" \
@@ -214,9 +232,6 @@ require_fixed 'CONFIG_EXFAT_VIRTUAL_XATTR=y' "$build_worker"
 require_fixed 'CONFIG_EXFAT_VIRTUAL_XATTR_SELINUX_LABEL=' "$build_worker"
 require_fixed 'fs/exfat/exfat_core.o' "$kernel_build_worker"
 require_fixed 'fs/exfat/exfat_fs.o' "$kernel_build_worker"
-require_fixed 'fs/pstore/ramoops.o' "$kernel_build_worker"
-require_fixed 'drivers/platform/exynos/exynos_ramoops.o' \
-  "$kernel_build_worker"
 require_fixed 'CONFIG_EXFAT_VIRTUAL_XATTR=y' "$kernel_build_worker"
 require_fixed 'CONFIG_EXFAT_VIRTUAL_XATTR_SELINUX_LABEL=' \
   "$kernel_build_worker"
@@ -294,6 +309,10 @@ require_fixed '#define O_TMPFILE_MASK (' "$kernel_fcntl"
 require_fixed 'header-y += m2m1shot.h' "$kernel_uapi_kbuild"
 require_fixed 'V4L2_CID_MPEG_MFC_GET_DRIVER_INFO' "$kernel_mfc_uapi"
 require_fixed 'V4L2_CID_MPEG_MFC_CONFIG_QP_ENABLE' "$kernel_mfc_uapi"
+require_fixed 'struct decon_win_rect		transparent_area;' \
+  "$kernel_decon_header"
+require_fixed 'struct decon_win_rect		opaque_area;' \
+  "$kernel_decon_header"
 require_fixed 'BOARD_KERNEL_PAGESIZE := 4096' "$board_config"
 require_fixed '--kernel_offset 0x00080000' "$board_config"
 require_fixed '--ramdisk_offset 0x02000000' "$board_config"
@@ -311,6 +330,12 @@ require_fixed '/by-name/custom    /custom' \
   "$device_root/rootdir/etc/fstab.m86"
 require_fixed '/by-name/mnv       /mnv' \
   "$device_root/rootdir/etc/fstab.m86"
+require_fixed '/by-name/cache     /cache' \
+  "$device_root/rootdir/etc/fstab.m86"
+require_fixed 'encryptable=/cache/metadata' \
+  "$device_root/rootdir/etc/fstab.m86"
+require_absent '/mnt/vendor/cache' \
+  "$device_root/rootdir/etc/fstab.m86"
 require_fixed 'TARGET_RELEASETOOLS_EXTENSIONS := $(M86_PATH)/releasetools' \
   "$board_config"
 require_fixed 'INSTALLED_RADIOIMAGE_TARGET += $(M86_INSTALLED_DTB)' \
@@ -322,11 +347,10 @@ require_fixed 'M86_VULKAN_HAL64 := $(TARGET_OUT_VENDOR)/lib64/hw/vulkan.exynos5.
 require_fixed 'ALL_DEFAULT_INSTALLED_MODULES += $(M86_VULKAN_HAL_SYMLINKS)' \
   "$android_makefile"
 require_fixed 'ln -sf ../egl/libGLES_mali.so $@' "$android_makefile"
-require_fixed 'DTB_TARGET_FILES_ENTRY = "RADIO/dtb.img"' "$releasetools"
-require_fixed 'info.script.WriteRawImage("/dtb", DTB_OTA_ENTRY)' "$releasetools"
+require_fixed 'Preserving the bootloader-proven Flyme DTB' "$releasetools"
 require_fixed 'BOARD_VENDOR := meizu' "$board_config"
 require_fixed 'VENDOR_SECURITY_PATCH := 2019-08-01' "$board_config"
-require_fixed 'BOARD_CHARGING_MODE_BOOTING_LPM := /sys/class/power_supply/battery/batt_lp_charging' \
+require_fixed 'BOARD_BATTERY_DEVICE_NAME := bq2753x-0' \
   "$board_config"
 require_fixed 'TARGET_SLSI_VARIANT := bsp' "$board_config"
 require_fixed 'AUDIOSERVER_MULTILIB := 32' "$board_config"
@@ -337,16 +361,30 @@ require_fixed 'WIFI_DRIVER_FW_PATH_PARAM := /sys/module/bcmdhd/parameters/firmwa
 require_fixed 'BOARD_BLUETOOTH_BDROID_BUILDCFG_INCLUDE_DIR := $(M86_PATH)/bluetooth' \
   "$board_config"
 require_fixed 'BOARD_HAVE_BLUETOOTH := true' "$board_config"
+require_fixed 'BOARD_CACHEIMAGE_PARTITION_SIZE := 536870912' "$board_config"
+require_fixed 'BOARD_CACHEIMAGE_FILE_SYSTEM_TYPE := ext4' "$board_config"
+require_absent 'BOARD_CACHEIMAGE_PARTITION_SIZE := 209715200' "$board_config"
+require_absent 'PRODUCT_BUILD_CACHE_IMAGE := false' \
+  "$device_root/lineage_m86.mk"
 require_fixed '/system/lib/libexynoscamera.so|/system/lib/libm86camera_shim.so' \
   "$board_config"
+require_fixed '/system/bin/gpsd|/system/lib64/libm86gps_shim.so' "$board_config"
 require_fixed 'libncurses5 \' "$project_root/remote/bootstrap-builder.sh"
 require_fixed 'libtinfo5 \' "$project_root/remote/bootstrap-builder.sh"
 require_fixed 'RenderScript Clang is missing host libraries:' "$build_worker"
+require_fixed 'Removed stale generated /cache symlink before incremental build.' \
+  "$build_worker"
+require_fixed 'ion_is_legacy" { found=1 }' "$build_worker"
+require_fixed 'source_built_libion_count=2' "$build_worker"
 require_fixed 'm86 camera ABI closure passed.' "$camera_audit_tool"
 require_fixed 'sys.usb.ffs.aio_compat=1' "$system_prop"
 require_fixed 'TARGET_SYSTEM_PROP := device/meizu/m86/system.prop' \
   "$device_makefile"
-require_fixed 'persist.sys.usb.config=mtp' "$device_makefile"
+require_fixed 'ro.adb.nonblocking_ffs=false' "$device_makefile"
+require_fixed 'persist.sys.usb.config=none' "$device_makefile"
+require_absent 'persist.sys.usb.config=adb' "$device_makefile"
+require_absent 'ro.adb.secure=0' "$device_makefile"
+require_absent 'WITH_ADB_INSECURE := true' "$device_root/lineage_m86.mk"
 require_fixed 'android.hardware.bluetooth_le.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.bluetooth_le.xml' \
   "$device_makefile"
 require_fixed 'android.hardware.fingerprint.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.fingerprint.xml' \
@@ -381,11 +419,20 @@ require_fixed 'android.hardware.graphics.allocator@2.0-service' "$device_makefil
 require_fixed 'android.hardware.graphics.composer@2.1-impl' "$device_makefile"
 require_fixed 'android.hardware.graphics.mapper@2.0-impl' "$device_makefile"
 require_fixed 'android.hardware.memtrack@1.0-impl' "$device_makefile"
+require_fixed 'libcec' "$device_makefile"
+require_fixed 'hwcomposer.exynos5' "$device_makefile"
+require_fixed 'libexynosdisplay' "$device_makefile"
+require_fixed 'libhdmi' "$device_makefile"
 require_fixed 'libhwc2on1adapter' "$device_makefile"
+require_fixed 'on property:sys.usb.config=adb && property:sys.usb.configfs=0' \
+  "$device_root/rootdir/etc/init.m86.usb.rc"
 require_fixed 'android.hardware.audio@5.0-impl' "$device_makefile"
 require_fixed 'android.hardware.audio.effect@5.0-impl' "$device_makefile"
 require_fixed 'audio.r_submix.default' "$device_makefile"
 require_fixed 'audio.usb.default' "$device_makefile"
+require_fixed 'android.hardware.keymaster@4.0-service' "$device_makefile"
+require_fixed 'configs/seccomp/mediacodec.policy:$(TARGET_COPY_OUT_VENDOR)/etc/seccomp_policy/mediacodec.policy' \
+  "$device_makefile"
 require_fixed '$(LOCAL_PATH)/audio/audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_policy_configuration.xml' \
   "$device_makefile"
 require_fixed '$(LOCAL_PATH)/audio/mixer_paths.xml:$(TARGET_COPY_OUT_SYSTEM)/etc/mixer_paths.xml' \
@@ -400,6 +447,8 @@ require_fixed '"-Wl,--no-as-needed"' "$camera_bp"
 require_fixed 'extern "C" pid_t androidGetTid()' "$camera_shim"
 require_fixed 'extern "C" void set_value()' "$camera_shim"
 require_fixed '_ZN7android5FenceD1Ev' "$camera_shim"
+require_fixed '_ZNK7android10GLConsumer16getCurrentBufferEv' "$camera_shim"
+require_fixed '_ZN7android13GraphicBuffer4lockEjPPv' "$camera_shim"
 require_fixed 'EFFECT_POINT_BLUE[] = "point-blue"' "$camera_shim"
 require_fixed 'PIXEL_FORMAT_YUV420SP_NV21[] = "nv21"' "$camera_shim"
 require_fixed 'android.hardware.wifi@1.0-service.legacy' "$device_makefile"
@@ -416,6 +465,9 @@ require_fixed 'persist.radio.multisim.config=dsds' "$system_prop"
 require_fixed 'exynos.modempath=/system/vendor/firmware/modem.bin' "$system_prop"
 require_fixed 'android.hardware.gnss@1.0-impl.zero' "$device_makefile"
 require_fixed 'android.hardware.gnss@1.0-service' "$device_makefile"
+require_fixed 'libm86gps_shim' "$device_makefile"
+require_fixed 'name: "libm86gps_shim"' "$gps_bp"
+require_fixed 'SSLv3_client_method' "$gps_shim"
 require_fixed '$(LOCAL_PATH)/gps/gps.conf:$(TARGET_COPY_OUT_SYSTEM)/etc/gps.conf' \
   "$device_makefile"
 require_fixed '$(LOCAL_PATH)/gps/gps.xml:$(TARGET_COPY_OUT_SYSTEM)/etc/gps.xml' \
@@ -430,6 +482,8 @@ for nfc_package in \
 done
 require_fixed '$(LOCAL_PATH)/nfc/libnfc-nxp.conf:$(TARGET_COPY_OUT_VENDOR)/etc/libnfc-nxp.conf' \
   "$device_makefile"
+require_fixed 'hardware/nxp/nfc/halimpl/libnfc-nci.conf:$(TARGET_COPY_OUT_VENDOR)/etc/libnfc-nci.conf' \
+  "$device_makefile"
 require_fixed 'ro.nfc.platform=nxppn547' "$system_prop"
 require_fixed 'ro.nfc.port=I2C' "$system_prop"
 require_fixed 'NXP_NFC_DEV_NODE="/dev/pn544"' "$nfc_config"
@@ -441,6 +495,7 @@ require_fixed 'NXP_P61_JCOP_DEFAULT_INTERFACE=0x01' "$nfc_config"
 require_fixed 'android.hardware.sensors@1.0-impl' "$device_makefile"
 require_fixed 'android.hardware.sensors@1.0-service' "$device_makefile"
 require_fixed 'group system wakelock input' "$sensors_service_rc"
+require_fixed 'android.hardware.usb@1.0-service.basic' "$device_makefile"
 require_fixed 'android.hardware.vibrator@1.0-impl' "$device_makefile"
 require_fixed 'android.hardware.vibrator@1.0-service' "$device_makefile"
 require_fixed 'vibrator.default' "$device_makefile"
@@ -452,7 +507,7 @@ require_fixed '#define M86_LED_MODE_CURRENT 0x100' "$lights_source"
 require_fixed '#define M86_LED_MODE_BREATH 0x200' "$lights_source"
 require_fixed '#define M86_LED_MODE_TIMED_BLINK 0x400' "$lights_source"
 require_fixed '/sys/class/leds/m86_led/brightness' "$lights_source"
-require_fixed '/sys/devices/13930000.decon_fb/backlight/pwm-backlight.0/brightness' \
+require_fixed '/sys/class/backlight/pwm-backlight.0/brightness' \
   "$lights_source"
 require_fixed 'android.hardware.power@1.0-impl' "$device_makefile"
 require_fixed 'android.hardware.power@1.0-service' "$device_makefile"
@@ -500,6 +555,32 @@ require_fixed 'G_GNUC_NORETURN static gpointer' "$glib_stub_patch"
 require_fixed '#ifndef ANDROID_STUB' "$glib_stub_patch"
 require_fixed 'patches/external-glib/0003-clang-port-legacy-android-stubs.patch' \
   "$patch_series"
+require_fixed 'hardware/interfaces' "$patch_series"
+require_fixed 'patches/hardware-interfaces/0001-audio-ignore-invalid-legacy-metadata-callback.patch' \
+  "$patch_series"
+require_fixed 'reinterpret_cast<uintptr_t>(callback)' \
+  "$audio_metadata_patch"
+require_fixed 'patches/frameworks-av/0001-audioflinger-restore-meizu-headphone-volume.patch' \
+  "$patch_series"
+require_fixed 'patches/hardware-interfaces/0004-audio-call-meizu-headphone-volume-hook.patch' \
+  "$patch_series"
+require_fixed 'vendor.meizu.set_headphone_volume=1' \
+  "$audio_headphone_framework_patch"
+require_fixed 'mDevice->set_headphone_volume(mDevice, 1.0f)' \
+  "$audio_headphone_hal_patch"
+require_fixed 'patches/frameworks-av/0002-audioflinger-route-meizu-hifi-state-to-output.patch' \
+  "$patch_series"
+require_fixed 'patches/frameworks-base/0003-audio-restore-meizu-hifi-routing.patch' \
+  "$patch_series"
+require_fixed 'patches/packages-apps-settings/0001-system-add-meizu-hifi-sound.patch' \
+  "$patch_series"
+require_fixed 'primaryPlaybackThread_l()' "$audio_hifi_output_patch"
+require_fixed 'hifi_state=on' "$audio_hifi_service_patch"
+require_fixed 'MSG_APPLY_MEIZU_HIFI' "$audio_hifi_service_patch"
+require_fixed 'HifiSoundSettings' "$settings_hifi_patch"
+require_fixed 'hifi_line_out_warning_message' "$settings_hifi_patch"
+require_fixed 'ro.meizu.hardware.hifi=true' "$system_prop"
+require_fixed 'ro.hardware.hifi.support=true' "$system_prop"
 require_fixed 'git -C "$build_fprint" apply --check "$fprint_patch"' \
   "$install_worker"
 require_fixed 'Expected 42 archived m86 libfprint build files.' \
@@ -516,16 +597,21 @@ for wifi_package in hostapd wpa_supplicant wpa_supplicant.conf; do
     exit 1
   fi
 done
-require_fixed 'mount functionfs adb /dev/usb-ffs/adb uid=2000,gid=2000' \
+require_absent 'mount functionfs adb /dev/usb-ffs/adb uid=2000,gid=2000' \
   "$usb_rc"
-require_fixed 'write /sys/class/android_usb/android0/f_ffs/aliases adb' \
+require_absent 'write /sys/class/android_usb/android0/f_ffs/aliases adb' \
   "$usb_rc"
 require_fixed 'write /sys/class/android_usb/android0/idProduct 2008' "$usb_rc"
 require_fixed 'write /sys/class/android_usb/android0/idProduct 0C02' "$usb_rc"
+require_fixed 'write /sys/class/android_usb/android0/functions adb' "$usb_rc"
+require_fixed 'wait /dev/android_adb 5' "$usb_rc"
 require_fixed 'write /sys/class/android_usb/android0/idProduct 200B' "$usb_rc"
 require_fixed 'write /sys/class/android_usb/android0/idProduct 200C' "$usb_rc"
 require_fixed 'write /sys/class/android_usb/android0/idProduct 6863' "$usb_rc"
 require_fixed 'write /sys/class/android_usb/android0/idProduct 6864' "$usb_rc"
+require_absent '/mnt/vendor/cache' "$init_rc"
+require_fixed 'write /cache/m86-lineage-boot-stage boot' "$init_rc"
+require_fixed 'setprop logd.logpersistd.enable true' "$init_rc"
 require_fixed '/dev/mali0                   0666   system      system' \
   "$ueventd_rc"
 require_fixed '/dev/ion                     0666   system      system' \
@@ -584,9 +670,9 @@ require_fixed 'chmod 0660 /sys/class/leds/m86_led/brightness' \
 require_fixed 'chown cameraserver camera /sys/class/leds/torch0/hwen' \
   "$init_rc"
 require_fixed 'chmod 0660 /sys/class/leds/torch1/enable' "$init_rc"
-require_fixed 'chown system system /sys/devices/13930000.decon_fb/backlight/pwm-backlight.0/brightness' \
+require_fixed 'chown system system /sys/class/backlight/pwm-backlight.0/brightness' \
   "$init_rc"
-require_fixed 'chmod 0660 /sys/devices/13930000.decon_fb/backlight/pwm-backlight.0/brightness' \
+require_fixed 'chmod 0660 /sys/class/backlight/pwm-backlight.0/brightness' \
   "$init_rc"
 require_fixed 'mkdir /data/vendor/wifi/wpa/sockets 0770 wifi wifi' "$init_rc"
 require_fixed 'chown wifi wifi /sys/module/bcmdhd/parameters/firmware_path' \
@@ -647,9 +733,7 @@ require_fixed 'CONFIG_CMDLINE="androidboot.hardware=m86 androidboot.selinux=perm
   "$kernel_config"
 require_fixed 'CONFIG_CMDLINE_EXTEND=y' "$kernel_config"
 require_fixed 'CONFIG_RD_GZIP=y' "$kernel_config"
-require_fixed 'CONFIG_PSTORE=y' "$kernel_config"
-require_fixed 'CONFIG_PSTORE_CONSOLE=y' "$kernel_config"
-require_fixed 'CONFIG_PSTORE_RAM=y' "$kernel_config"
+require_fixed '# CONFIG_PSTORE is not set' "$kernel_config"
 require_fixed 'CONFIG_BCMDHD=y' "$kernel_config"
 require_fixed 'CONFIG_BCMDHD_PCIE=y' "$kernel_config"
 require_fixed 'CONFIG_BCMDHD_FW_PATH="/system/vendor/firmware/fw_bcmdhd.bin"' \
@@ -671,7 +755,7 @@ require_fixed 'cd "$product_out/system"' "$build_worker"
 require_fixed 'PROPRIETARY-OUTPUT.txt' "$build_worker"
 require_fixed 'ota-required-cache=0' "$ota_audit_tool"
 require_fixed 'transfer_operations=' "$ota_audit_tool"
-require_fixed 'block_targets=bootimg,dtb,system' "$ota_audit_tool"
+require_fixed 'block_targets=bootimg,system' "$ota_audit_tool"
 require_fixed 'OTA-AUDIT.txt' "$build_worker"
 require_fixed 'vendor/lib/libbt-vendor.so' "$blob_list"
 require_fixed 'vendor/lib/egl/libGLES_mali.so' "$blob_list"
@@ -729,14 +813,49 @@ expected_blob_count="$(
 generated_copy_count="$(
   rg -c '^    vendor/meizu/m86/proprietary/' "$vendor_product_makefile"
 )"
+excluded_vendor_copy_paths=(
+  lib/hw/gralloc.exynos5.so
+  lib64/hw/gralloc.exynos5.so
+  lib/hw/hwcomposer.exynos5.so
+  lib64/hw/hwcomposer.exynos5.so
+  lib/libdisplay.so
+  lib64/libdisplay.so
+  lib/libhdmi.so
+  lib64/libhdmi.so
+  lib/libion.so
+  lib64/libion.so
+)
+expected_generated_copy_count="$((
+  expected_blob_count - ${#excluded_vendor_copy_paths[@]}
+))"
 if [[ "$expected_blob_count" != "219" ]] || \
-    [[ "$generated_copy_count" != "$expected_blob_count" ]]; then
-  printf 'Expected 219 local blob mappings, found list=%s generated=%s.\n' \
-    "$expected_blob_count" "$generated_copy_count" >&2
+    [[ "$generated_copy_count" != "$expected_generated_copy_count" ]]; then
+  printf 'Expected 219 verified blobs and %s install mappings, found list=%s generated=%s.\n' \
+    "$expected_generated_copy_count" "$expected_blob_count" \
+    "$generated_copy_count" >&2
   exit 1
 fi
 
+for relative_path in "${excluded_vendor_copy_paths[@]}"; do
+  if rg -F -q -- "vendor/meizu/m86/proprietary/$relative_path:" \
+      "$vendor_product_makefile"; then
+    printf 'Source-built module is still overridden by: %s\n' \
+      "$relative_path" >&2
+    exit 1
+  fi
+done
+
 while IFS= read -r relative_path; do
+  excluded_copy=false
+  for excluded_path in "${excluded_vendor_copy_paths[@]}"; do
+    if [[ "$relative_path" == "$excluded_path" ]]; then
+      excluded_copy=true
+      break
+    fi
+  done
+  if [[ "$excluded_copy" == true ]]; then
+    continue
+  fi
   if [[ "$relative_path" == vendor/* ]]; then
     output_path="\$(TARGET_COPY_OUT_VENDOR)/${relative_path#vendor/}"
   else
@@ -819,6 +938,8 @@ require_manifest_hal \
 require_manifest_hal \
   android.hardware.light 2.0 hwbinder '' ILight
 require_manifest_hal \
+  android.hardware.keymaster 4.0 hwbinder '' IKeymasterDevice
+require_manifest_hal \
   android.hardware.memtrack 1.0 passthrough 32+64 IMemtrack
 require_manifest_hal \
   android.hardware.nfc 1.1 hwbinder '' INfc
@@ -832,6 +953,8 @@ for radio_slot in slot1 slot2; do
 done
 require_manifest_hal \
   android.hardware.sensors 1.0 hwbinder '' ISensors
+require_manifest_hal \
+  android.hardware.usb 1.0 hwbinder '' IUsb
 require_manifest_hal \
   android.hardware.vibrator 1.0 hwbinder '' IVibrator
 require_manifest_hal \
@@ -924,9 +1047,9 @@ if rg -q '(^|/)egl\.cfg([:;|]|$)' "$blob_list"; then
   printf 'Android 10 loads m86 Mali directly; the obsolete egl.cfg must not be packaged.\n' >&2
   exit 1
 fi
-if rg -q '^on property:sys\.usb\.config=(none|adb)([[:space:]]|$)' \
+if rg -q '^on property:sys\.usb\.config=none([[:space:]]|$)' \
     "$usb_rc"; then
-  printf 'm86 must not duplicate Android 10 generic none/adb USB handlers.\n' >&2
+  printf 'm86 must not duplicate Android 10 generic none USB handler.\n' >&2
   exit 1
 fi
 

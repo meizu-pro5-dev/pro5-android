@@ -1,0 +1,16 @@
+--- a/init.rc
++++ b/init.rc
+@@ -132,8 +132,12 @@ service healthd /sbin/healthd -r
+     critical
+ #    seclabel u:r:healthd:s0
+ 
+-service recovery /sbin/recovery
++# Test-only: the v3 builder replaces the existing permissive.sh payload with
++# the hash-gated persistent-log wrapper while preserving its executable cpio
++# metadata. init.recovery.m86.rc already sets SELinux permissive on early-init.
++service recovery /sbin/sh /sbin/permissive.sh
+     oneshot
++    seclabel u:r:recovery:s0
+ 
+ service adbd /sbin/adbd
+     disabled

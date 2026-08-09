@@ -76,6 +76,15 @@ def parse_hash_expectation(value: str) -> tuple[str, str]:
     return archive_path, expected_hash
 
 
+def parse_file_extraction(value: str) -> tuple[str, Path]:
+    archive_path, separator, output_path = value.partition("=")
+    if not separator or not output_path:
+        raise argparse.ArgumentTypeError(
+            "expected RAMDISK_PATH=OUTPUT_FILE"
+        )
+    return parse_archive_path(archive_path), Path(output_path)
+
+
 def parse_directory_file_expectation(value: str) -> tuple[str, tuple[str, ...]]:
     try:
         archive_path, file_list = value.rsplit("=", 1)
@@ -199,12 +208,41 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="RAMDISK_DIR=FILE[,FILE...]",
         help="require the exact direct-file inventory for a ramdisk directory",
     )
+    parser.add_argument(
+        "--extract-ramdisk-file",
+        action="append",
+        default=[],
+        type=parse_file_extraction,
+        metavar="RAMDISK_PATH=OUTPUT_FILE",
+        help=(
+            "extract one file from a supported compressed newc ramdisk; "
+            "refuse to overwrite an existing output"
+        ),
+    )
     parser.add_argument("--max-size", type=integer)
     return parser
 
 
 def main() -> int:
     args = build_parser().parse_args()
+    extraction_paths = [
+        archive_path for archive_path, _output in args.extract_ramdisk_file
+    ]
+    if len(set(extraction_paths)) != len(extraction_paths):
+        raise ValueError("ramdisk extraction list contains duplicate paths")
+    extraction_outputs = [
+        output.resolve() for _archive_path, output in args.extract_ramdisk_file
+    ]
+    if len(set(extraction_outputs)) != len(extraction_outputs):
+        raise ValueError("ramdisk extraction list contains duplicate outputs")
+    for output in extraction_outputs:
+        if output.exists():
+            raise ValueError(f"refusing to overwrite extraction output: {output}")
+        if not output.parent.is_dir():
+            raise ValueError(
+                f"ramdisk extraction output directory is absent: {output.parent}"
+            )
+
     image_size = args.image.stat().st_size
     with args.image.open("rb") as image_file:
         header = image_file.read(HEADER_SIZE)
@@ -347,8 +385,12 @@ def main() -> int:
         {archive_path: None for archive_path in args.expect_ramdisk_elf}
     )
     requested_ramdisk_files.update(dict(args.expect_ramdisk_file_sha256))
+    requested_ramdisk_files.update(
+        {archive_path: None for archive_path in extraction_paths}
+    )
     requested_ramdisk_directories = dict(args.expect_ramdisk_directory_files)
     inspected_ramdisk_directories: list[tuple[str, tuple[str, ...]]] = []
+    extracted_ramdisk_files: list[tuple[str, Path, bytes]] = []
     if requested_ramdisk_files or requested_ramdisk_directories:
         if ramdisk_compression not in ("gzip", "lzma", "xz"):
             failures.append(
@@ -406,6 +448,14 @@ def main() -> int:
                             f"expected {','.join(expected_files)}, found "
                             f"{','.join(actual_files)}"
                         )
+                for archive_path, output_path in args.extract_ramdisk_file:
+                    content = ramdisk_entries.get(archive_path)
+                    if content is None:
+                        failures.append(f"ramdisk file is absent: {archive_path}")
+                    else:
+                        extracted_ramdisk_files.append(
+                            (archive_path, output_path, content)
+                        )
 
     print(f"path={args.image}")
     print(f"file_size={image_size}")
@@ -446,6 +496,9 @@ def main() -> int:
         for failure in failures:
             print(f"ERROR: {failure}", file=sys.stderr)
         return 1
+    for archive_path, output_path, content in extracted_ramdisk_files:
+        output_path.write_bytes(content)
+        print(f"ramdisk_extract[{archive_path}]={output_path}")
     return 0
 
 

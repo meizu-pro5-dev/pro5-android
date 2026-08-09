@@ -1,0 +1,30 @@
+diff --git a/mtp/ffs/MtpDevHandle.cpp b/mtp/ffs/MtpDevHandle.cpp
+index 076f500..8d38f7a 100644
+--- a/mtp/ffs/MtpDevHandle.cpp
++++ b/mtp/ffs/MtpDevHandle.cpp
+@@ -59,6 +59,10 @@ int MtpDevHandle::sendEvent(mtp_event me) {
+ }
+ 
+ int MtpDevHandle::start(bool /* ptp */) {
++	// The legacy character-device path was already opened by MtpServer.  Its
++	// kernel driver is exclusive-open, so opening it again returns EBUSY.
++	if (mFd != -1) return 0;
++
+ 	mFd.reset(TEMP_FAILURE_RETRY(open(mtp_dev_path, O_RDWR)));
+ 	if (mFd == -1) return -1;
+ 	return 0;
+diff --git a/mtp/ffs/mtp_MtpServer.cpp b/mtp/ffs/mtp_MtpServer.cpp
+index 2f80c89..74206dc 100644
+--- a/mtp/ffs/mtp_MtpServer.cpp
++++ b/mtp/ffs/mtp_MtpServer.cpp
+@@ -74,7 +74,9 @@ void twmtp_MtpServer::start()
+ 		MTPD("Opening FFS EPO\n");
+ 		controlFd = open(FFS_MTP_EP0, O_RDWR);
+ 	} else {
+-		controlFd = open(mtp_device, O_WRONLY);
++		// MtpDevHandle reuses this descriptor for reads, writes and ioctls.
++		// Opening the Exynos legacy device a second time is not permitted.
++		controlFd = open(mtp_device, O_RDWR);
+ 	}
+ 	if (controlFd < 0) {
+ 		MTPE("could not open MTP driver, errno: %d\n", errno);

@@ -1,0 +1,34 @@
+From 57ae12810990471f093dafce89fe9bcc67c4f220 Mon Sep 17 00:00:00 2001
+From: Codex <codex@openai.com>
+Date: Sat, 8 Aug 2026 16:21:00 +0800
+Subject: [PATCH] audio: reserve Meizu legacy device slots
+
+The m86 Flyme primary HAL has three vendor fields after get_mic_mute. This is
+the same ABI adjustment carried by the original CM14 m86 port. Without it,
+all later callbacks are shifted and Android 10 calls an input-stream callback
+as set_master_mute, dereferencing the false mute value as a pointer.
+---
+ include/hardware/audio.h | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/include/hardware/audio.h b/include/hardware/audio.h
+index 33a0292..52cbfd1 100644
+--- a/include/hardware/audio.h
++++ b/include/hardware/audio.h
+@@ -708,6 +708,14 @@ struct audio_hw_device {
+     int (*set_mic_mute)(struct audio_hw_device *dev, bool state);
+     int (*get_mic_mute)(const struct audio_hw_device *dev, bool *state);
+ 
++    /**
++     * The Meizu m86 stock HAL extends this legacy ABI at this exact point.
++     * Keep the slots visible to every framework-side user of the structure so
++     * callbacks following them retain the offsets used by the binary HAL.
++     */
++    void *vendor_reserved[2];
++    int (*set_headphone_volume)(struct audio_hw_device *dev, float volume);
++
+     /* set/get global audio parameters */
+     int (*set_parameters)(struct audio_hw_device *dev, const char *kv_pairs);
+ 
+-- 
+2.39.5

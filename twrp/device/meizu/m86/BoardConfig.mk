@@ -73,11 +73,22 @@ BOARD_SUPPRESS_SECURE_ERASE := true
 TARGET_SCREEN_HEIGHT := 1920
 TARGET_SCREEN_WIDTH := 1080
 TARGET_RECOVERY_PIXEL_FORMAT := "RGBA_8888"
+# The Exynos DECON fbdev advertises two framebuffer pages, but TWRP 3.7 hangs
+# after selecting double buffering and before gui_init() returns. Avoid the
+# first yoffset=1920 FBIOPUT_VSCREENINFO switch and render into fb0 directly.
+RECOVERY_GRAPHICS_FORCE_SINGLE_BUFFER := true
 BOARD_HAS_NO_SELECT_BUTTON := true
 # The stock bootloader leaves its logo in the scanout buffer. The original
 # booting m86 recovery required one framebuffer blank/unblank cycle before the
 # recovery splash could replace it.
 TW_SCREEN_BLANK_ON_BOOT := true
+# V9 proved that omitting FBIOBLANK is insufficient, and the owner also saw
+# blackouts during continuous interaction. Timeout is not the root cause, but
+# keep it compiled out as a defensive isolation boundary while the independent
+# command-mode refresh failure is repaired. Keep the narrower blank guard for
+# explicit blank requests.
+TW_NO_SCREEN_TIMEOUT := true
+TW_NO_SCREEN_BLANK := true
 
 # TWRP 3.7.0_9 feature set. m86 has legacy full-disk-encryption metadata in
 # /cache/metadata, data/media internal storage, removable microSD, and OTG.
@@ -97,6 +108,13 @@ TW_EXTERNAL_STORAGE_MOUNT_POINT := "external_sd"
 # independently gated. NTFS is also userspace-based. Python and the install
 # prompt app are excluded to preserve the recovery size margin.
 TW_USE_NEW_MINADBD := true
+# The Exynos android_usb gadget exposes MTP through its legacy character
+# device, while ADB uses the embedded FunctionFS function. This is the same
+# split used by the contemporary Exynos recovery trees. Do not expose the
+# unrelated mass-storage mode: m86 uses data/media internally, and its class
+# LUN path is absent from this gadget layout.
+TW_MTP_DEVICE := "/dev/mtp_usb"
+TW_NO_USB_STORAGE := true
 TW_INCLUDE_NTFS_3G := true
 TW_EXCLUDE_PYTHON := true
 TW_EXCLUDE_TWRPAPP := true
@@ -115,3 +133,7 @@ LZMA_RAMDISK_TARGETS := recovery
 TW_BRIGHTNESS_PATH := "/sys/class/backlight/pwm-backlight.0/brightness"
 TW_MAX_BRIGHTNESS := 255
 TW_DEFAULT_BRIGHTNESS := 134
+# The PRO 5 fuel gauge registers under its hardware driver name instead of
+# Android's conventional "battery" class entry. Read the real gauge directly
+# so the header reports capacity and charging state.
+TW_CUSTOM_BATTERY_PATH := "/sys/class/power_supply/bq2753x-0"

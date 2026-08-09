@@ -1,0 +1,31 @@
+diff --git a/minuitwrp/graphics_fbdev.cpp b/minuitwrp/graphics_fbdev.cpp
+--- a/minuitwrp/graphics_fbdev.cpp
++++ b/minuitwrp/graphics_fbdev.cpp
+@@ -264,6 +264,9 @@ static GRSurface* fbdev_init(minui_backend* backend) {
+ #endif
+         double_buffered = false;
+         printf("single buffered\n");
++#ifdef RECOVERY_GRAPHICS_FORCE_SINGLE_BUFFER
++        printf("forced single-buffer flips refresh with FBIOPAN_DISPLAY\n");
++#endif
+     }
+ #if defined(RECOVERY_BGRA)
+     printf("RECOVERY_BGRA\n");
+@@ -302,6 +305,17 @@ static GRSurface* fbdev_flip(minui_backend* backend __unused) {
+         // Copy from the in-memory surface to the framebuffer.
+         memcpy(gr_framebuffer[0].data, gr_draw->data,
+                gr_draw->height * gr_draw->row_bytes);
++#ifdef RECOVERY_GRAPHICS_FORCE_SINGLE_BUFFER
++        // Exynos 7420 drives the PRO 5 panel in MIPI command mode.  Updating
++        // the mapped page alone does not send a new frame to the panel.  A
++        // page-zero pan follows each copy so DECON latches and transmits the
++        // new contents without ever selecting the unsafe second page.
++        vi.xoffset = 0;
++        vi.yoffset = 0;
++        if (ioctl(fb_fd, FBIOPAN_DISPLAY, &vi) < 0) {
++            perror("forced single-buffer refresh failed");
++        }
++#endif
+     }
+     return gr_draw;
+ }

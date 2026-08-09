@@ -12,6 +12,8 @@ __pycache__/
 out/
 work/
 artifacts/
+backups/
+outputs/
 ccache/
 
 # Never let an in-tree kernel configuration override the external O= build.

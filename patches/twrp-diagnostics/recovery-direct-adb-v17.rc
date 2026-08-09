@@ -1,0 +1,127 @@
+# Test-only PRO 5 TWRP v17 init.
+#
+# Keep the v16 display stack and v10 direct legacy ADB transport. Publish the
+# User-selected Flyme MTP+ADB VID/PID and the exact serial currently
+# enumerated by both macOS and adb while Flyme is running. Recovery still
+# exposes only the adb function so this test isolates USB descriptor matching.
+
+on early-init
+    setenforce permissive
+
+    write /sys/fs/selinux/checkreqprot 0
+    setcon u:r:init:s0
+
+    start ueventd
+    start healthd
+
+service set_permissive /sbin/toolbox setenforce 0
+    oneshot
+    seclabel u:r:recovery:s0
+
+on init
+    export PATH /sbin:/system/bin
+    export LD_LIBRARY_PATH .:/sbin
+    export ANDROID_ROOT /system
+    export ANDROID_DATA /data
+    export EXTERNAL_STORAGE /sdcard
+
+    mkdir /boot
+    mkdir /recovery
+    mkdir /system
+    mkdir /data
+    mkdir /cache
+    mkdir /custom
+    mkdir /efs
+    mkdir /sideload
+    mkdir /storage
+    mkdir /storage/sdcard1
+    mount tmpfs tmpfs /tmp
+
+    chown root shell /tmp
+    chmod 0775 /tmp
+
+    write /proc/sys/kernel/panic_on_oops 1
+
+on fs
+    mount pstore pstore /sys/fs/pstore
+
+    # Keep MTP and FunctionFS out of this diagnostic. The retained old adbd
+    # selects the native /dev/android_adb transport when /dev/usb-ffs is absent.
+    setprop mtp.crash_check 1
+
+    write /sys/module/decon/parameters/decon_log_level 7
+
+    stop adbd
+    write /sys/class/android_usb/android0/enable 0
+    write /sys/class/android_usb/android0/bDeviceClass 0
+    write /sys/class/android_usb/android0/bDeviceSubClass 0
+    write /sys/class/android_usb/android0/bDeviceProtocol 0
+
+on boot
+    ifup lo
+    hostname localhost
+    domainname localdomain
+
+    write /dev/kmsg pro5_twrp_v17_usb_begin
+    stop adbd
+    write /sys/class/android_usb/android0/enable 0
+    write /sys/class/android_usb/android0/idVendor 2A45
+    write /sys/class/android_usb/android0/idProduct 0C02
+    write /sys/class/android_usb/android0/iManufacturer Meizu
+    write /sys/class/android_usb/android0/iProduct M86
+    write /sys/class/android_usb/android0/iSerial 860BDNA2225S
+    write /sys/class/android_usb/android0/bDeviceClass 0
+    write /sys/class/android_usb/android0/bDeviceSubClass 0
+    write /sys/class/android_usb/android0/bDeviceProtocol 0
+    write /sys/class/android_usb/android0/functions adb
+    write /sys/class/android_usb/android0/enable 1
+    start adbd
+    setprop sys.usb.config adb
+    setprop sys.usb.state adb
+    write /dev/kmsg pro5_twrp_v17_usb_end
+
+    class_start default
+
+# Load properties, pre-Android 6.0.
+on load_all_props_action
+    load_all_props
+
+on firmware_mounts_complete
+    rm /dev/.booting
+
+on late-init
+    trigger early-fs
+    trigger fs
+    trigger post-fs
+    trigger post-fs-data
+
+    trigger load_all_props_action
+    trigger firmware_mounts_complete
+
+    trigger early-boot
+    trigger boot
+
+# The recovery ELF writes its ordinary GUI-return request to twrp.loghold.
+# Explicit bootloader/recovery power requests remain available as escapes.
+on property:sys.powerctl=reboot,bootloader
+    powerctl ${sys.powerctl}
+
+on property:sys.powerctl=reboot,recovery
+    powerctl ${sys.powerctl}
+
+service ueventd /sbin/ueventd
+    critical
+#    seclabel u:r:ueventd:s0
+
+service healthd /sbin/healthd -r
+    critical
+#    seclabel u:r:healthd:s0
+
+service recovery /sbin/sh /sbin/permissive.sh
+    oneshot
+    seclabel u:r:recovery:s0
+
+service adbd /sbin/adbd
+    disabled
+    socket adbd stream 660 system system
+#    seclabel u:r:adbd:s0

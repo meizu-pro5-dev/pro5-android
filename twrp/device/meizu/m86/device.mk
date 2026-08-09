@@ -13,4 +13,7 @@ PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
     ro.build.product=m86 \
     ro.product.device=m86 \
     ro.product.manufacturer=Meizu \
+    usb.vendor=18D1 \
+    usb.product.adb=4EE7 \
+    usb.product.mtpadb=4EE2 \
     persist.sys.usb.config=mtp,adb

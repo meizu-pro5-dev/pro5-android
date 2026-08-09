@@ -1,0 +1,306 @@
+From 8c6d11b0d3ff952d11b4dbf7af4ca328588022a3 Mon Sep 17 00:00:00 2001
+From: Codex <codex@openai.com>
+Date: Sun, 9 Aug 2026 14:10:00 +0800
+Subject: [PATCH] Settings: add Meizu HiFi Sound controls
+
+Expose the PRO 5 ES9018 controls under System's additional settings. Store
+only policy in Settings.System; AudioService owns the privileged HAL updates.
+Use automatic gain by default and warn before enabling line-out mode.
+---
+ res/values-zh-rCN/strings.xml                  |  15 +++
+ res/values/arrays.xml                          |   7 ++
+ res/values/strings.xml                         |  15 +++
+ res/xml/hifi_sound_settings.xml                |  22 ++++
+ res/xml/system_dashboard_fragment.xml          |   9 ++
+ .../settings/core/gateway/SettingsGateway.java |   2 +
+ .../system/HifiSoundPreferenceController.java  |  26 +++++
+ .../settings/system/HifiSoundSettings.java     | 121 +++++++++++++++++++++
+ 8 files changed, 217 insertions(+)
+
+diff --git a/res/values/strings.xml b/res/values/strings.xml
+index 843a8d9ea..042882ecf 100644
+--- a/res/values/strings.xml
++++ b/res/values/strings.xml
+@@ -11463,2 +11463,17 @@
+     <string name="bluetooth_connect_access_dialog_positive">Connect</string>
++
++    <string name="hifi_sound_title">HiFi Sound</string>
++    <string name="hifi_sound_summary">Configure the ES9018 headphone DAC</string>
++    <string name="hifi_enable_title">Use HiFi audio</string>
++    <string name="hifi_enable_summary_on">ES9018 is used automatically for wired media audio</string>
++    <string name="hifi_enable_summary_off">Wired audio uses the standard codec</string>
++    <string name="hifi_gain_title">Gain mode</string>
++    <string-array name="hifi_gain_entries">
++        <item>Automatic</item>
++        <item>Low gain</item>
++        <item>High gain</item>
++        <item>Line out</item>
++    </string-array>
++    <string name="hifi_line_out_warning_title">Enable line out?</string>
++    <string name="hifi_line_out_warning_message">Line-out mode can be extremely loud when headphones are connected. Lower the downstream amplifier volume before continuing.</string>
+ </resources>
+diff --git a/res/values-zh-rCN/strings.xml b/res/values-zh-rCN/strings.xml
+index 7c12117ae..9368e3c5b 100644
+--- a/res/values-zh-rCN/strings.xml
++++ b/res/values-zh-rCN/strings.xml
+@@ -4898,2 +4898,17 @@
+     <string name="bluetooth_connect_access_dialog_positive" msgid="3630561675207269710">"连接"</string>
++
++    <string name="hifi_sound_title">HiFi Sound</string>
++    <string name="hifi_sound_summary">配置 ES9018 耳机 DAC</string>
++    <string name="hifi_enable_title">使用 HiFi 音频</string>
++    <string name="hifi_enable_summary_on">有线媒体音频自动使用 ES9018</string>
++    <string name="hifi_enable_summary_off">有线音频使用标准编解码器</string>
++    <string name="hifi_gain_title">增益模式</string>
++    <string-array name="hifi_gain_entries">
++        <item>自动</item>
++        <item>低增益</item>
++        <item>高增益</item>
++        <item>线路输出</item>
++    </string-array>
++    <string name="hifi_line_out_warning_title">启用线路输出？</string>
++    <string name="hifi_line_out_warning_message">连接耳机时，线路输出模式的音量可能极高。继续前请先调低下游功放的音量。</string>
+ </resources>
+diff --git a/res/xml/hifi_sound_settings.xml b/res/xml/hifi_sound_settings.xml
+new file mode 100644
+index 000000000..b37924a43
+--- /dev/null
++++ b/res/xml/hifi_sound_settings.xml
+@@ -0,0 +1,22 @@
++<?xml version="1.0" encoding="utf-8"?>
++<PreferenceScreen
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    android:title="@string/hifi_sound_title">
++
++    <SwitchPreference
++        android:key="hifi_music_enabled"
++        android:title="@string/hifi_enable_title"
++        android:summaryOn="@string/hifi_enable_summary_on"
++        android:summaryOff="@string/hifi_enable_summary_off"
++        android:defaultValue="true"
++        android:persistent="false" />
++
++    <ListPreference
++        android:key="hifi_music_param"
++        android:title="@string/hifi_gain_title"
++        android:entries="@array/hifi_gain_entries"
++        android:entryValues="@array/hifi_gain_values"
++        android:defaultValue="0"
++        android:persistent="false" />
++
++</PreferenceScreen>
+diff --git a/res/values/arrays.xml b/res/values/arrays.xml
+index 8795164ac..067596529 100644
+--- a/res/values/arrays.xml
++++ b/res/values/arrays.xml
+@@ -1308,3 +1308,10 @@
+     </string-array>
+ 
++    <string-array name="hifi_gain_values" translatable="false">
++        <item>0</item>
++        <item>1</item>
++        <item>2</item>
++        <item>3</item>
++    </string-array>
++
+ </resources>
+diff --git a/res/xml/system_dashboard_fragment.xml b/res/xml/system_dashboard_fragment.xml
+index 384170008..781d2c2ce 100644
+--- a/res/xml/system_dashboard_fragment.xml
++++ b/res/xml/system_dashboard_fragment.xml
+@@ -60,4 +60,13 @@
+                 android:targetClass="@string/additional_system_update_menu" />
+     </Preference>
+ 
+-</PreferenceScreen>
+\ No newline at end of file
++    <Preference
++        android:key="hifi_sound_settings"
++        android:title="@string/hifi_sound_title"
++        android:summary="@string/hifi_sound_summary"
++        android:icon="@drawable/ic_settings_sound"
++        android:order="0"
++        android:fragment="com.android.settings.system.HifiSoundSettings"
++        settings:controller="com.android.settings.system.HifiSoundPreferenceController" />
++
++</PreferenceScreen>
+diff --git a/src/com/android/settings/core/gateway/SettingsGateway.java b/src/com/android/settings/core/gateway/SettingsGateway.java
+index f262d71d6..383300ed6 100644
+--- a/src/com/android/settings/core/gateway/SettingsGateway.java
++++ b/src/com/android/settings/core/gateway/SettingsGateway.java
+@@ -135,5 +135,6 @@ import com.android.settings.shortcut.CreateShortcut;
+ import com.android.settings.sim.SimSettings;
+ import com.android.settings.support.SupportDashboardActivity;
++import com.android.settings.system.HifiSoundSettings;
+ import com.android.settings.system.ResetDashboardFragment;
+ import com.android.settings.system.SystemDashboardFragment;
+ import com.android.settings.tts.TextToSpeechSettings;
+@@ -268,6 +269,7 @@ public class SettingsGateway {
+             AutomaticStorageManagerSettings.class.getName(),
+             StorageDashboardFragment.class.getName(),
+             SystemDashboardFragment.class.getName(),
++            HifiSoundSettings.class.getName(),
+             NetworkDashboardFragment.class.getName(),
+             ConnectedDeviceDashboardFragment.class.getName(),
+             UsbDetailsFragment.class.getName(),
+diff --git a/src/com/android/settings/system/HifiSoundPreferenceController.java b/src/com/android/settings/system/HifiSoundPreferenceController.java
+new file mode 100644
+index 000000000..7ee09b1b1
+--- /dev/null
++++ b/src/com/android/settings/system/HifiSoundPreferenceController.java
+@@ -0,0 +1,26 @@
++/*
++ * Copyright (C) 2026 The LineageOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++package com.android.settings.system;
++
++import android.content.Context;
++import android.os.SystemProperties;
++
++import com.android.settings.core.BasePreferenceController;
++
++/** Shows the HiFi entry only on products that expose the Meizu audio protocol. */
++public class HifiSoundPreferenceController extends BasePreferenceController {
++
++    private static final String PROPERTY_HIFI_SUPPORTED = "ro.hardware.hifi.support";
++
++    public HifiSoundPreferenceController(Context context, String preferenceKey) {
++        super(context, preferenceKey);
++    }
++
++    @Override
++    public int getAvailabilityStatus() {
++        return SystemProperties.getBoolean(PROPERTY_HIFI_SUPPORTED, false)
++                ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
++    }
++}
+diff --git a/src/com/android/settings/system/HifiSoundSettings.java b/src/com/android/settings/system/HifiSoundSettings.java
+new file mode 100644
+index 000000000..83fb5d976
+--- /dev/null
++++ b/src/com/android/settings/system/HifiSoundSettings.java
+@@ -0,0 +1,121 @@
++/*
++ * Copyright (C) 2026 The LineageOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++package com.android.settings.system;
++
++import android.app.settings.SettingsEnums;
++import android.content.Context;
++import android.media.AudioManager;
++import android.os.Bundle;
++import android.provider.SearchIndexableResource;
++import android.provider.Settings;
++
++import androidx.appcompat.app.AlertDialog;
++import androidx.preference.ListPreference;
++import androidx.preference.Preference;
++import androidx.preference.SwitchPreference;
++
++import com.android.settings.R;
++import com.android.settings.SettingsPreferenceFragment;
++import com.android.settings.search.BaseSearchIndexProvider;
++import com.android.settings.search.Indexable;
++import com.android.settingslib.search.SearchIndexable;
++
++import java.util.Arrays;
++import java.util.List;
++
++@SearchIndexable
++public class HifiSoundSettings extends SettingsPreferenceFragment
++        implements Preference.OnPreferenceChangeListener {
++
++    private static final String KEY_HIFI_ENABLED = "hifi_music_enabled";
++    private static final String KEY_HIFI_GAIN = "hifi_music_param";
++    private static final int GAIN_AUTO = 0;
++    private static final int GAIN_HIGH = 2;
++    private static final int GAIN_LINE_OUT = 3;
++
++    private SwitchPreference mEnabled;
++    private ListPreference mGain;
++    private AudioManager mAudioManager;
++
++    @Override
++    public void onCreate(Bundle savedInstanceState) {
++        super.onCreate(savedInstanceState);
++        addPreferencesFromResource(R.xml.hifi_sound_settings);
++
++        mAudioManager = getContext().getSystemService(AudioManager.class);
++        mEnabled = findPreference(KEY_HIFI_ENABLED);
++        mGain = findPreference(KEY_HIFI_GAIN);
++        mEnabled.setOnPreferenceChangeListener(this);
++        mGain.setOnPreferenceChangeListener(this);
++        refreshState();
++    }
++
++    private void refreshState() {
++        final boolean enabled = Settings.System.getInt(getContentResolver(),
++                KEY_HIFI_ENABLED, 1) != 0;
++        final int gain = Settings.System.getInt(getContentResolver(), KEY_HIFI_GAIN, GAIN_AUTO);
++        mEnabled.setChecked(enabled);
++        mGain.setEnabled(enabled);
++        mGain.setValue(Integer.toString(Math.max(GAIN_AUTO, Math.min(GAIN_LINE_OUT, gain))));
++        mGain.setSummary(mGain.getEntry());
++    }
++
++    @Override
++    public boolean onPreferenceChange(Preference preference, Object newValue) {
++        if (preference == mEnabled) {
++            final boolean enabled = (Boolean) newValue;
++            Settings.System.putInt(getContentResolver(), KEY_HIFI_ENABLED, enabled ? 1 : 0);
++            mGain.setEnabled(enabled);
++            return true;
++        }
++
++        if (preference == mGain) {
++            final int gain = Integer.parseInt((String) newValue);
++            if (gain == GAIN_LINE_OUT) {
++                new AlertDialog.Builder(getContext())
++                        .setTitle(R.string.hifi_line_out_warning_title)
++                        .setMessage(R.string.hifi_line_out_warning_message)
++                        .setNegativeButton(android.R.string.cancel, null)
++                        .setPositiveButton(android.R.string.ok,
++                                (dialog, which) -> applyGain(GAIN_LINE_OUT))
++                        .show();
++                return false;
++            }
++            applyGain(gain);
++            return true;
++        }
++        return false;
++    }
++
++    private void applyGain(int gain) {
++        if (gain >= GAIN_HIGH && mAudioManager != null) {
++            final int current = mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
++            final int safeHighGain = Math.max(1,
++                    mAudioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC) * 4 / 5);
++            if (current > safeHighGain) {
++                mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC, safeHighGain, 0);
++            }
++        }
++        Settings.System.putInt(getContentResolver(), KEY_HIFI_GAIN, gain);
++        mGain.setValue(Integer.toString(gain));
++        mGain.setSummary(mGain.getEntry());
++    }
++
++    @Override
++    public int getMetricsCategory() {
++        return SettingsEnums.SETTINGS_SYSTEM_CATEGORY;
++    }
++
++    public static final Indexable.SearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
++            new BaseSearchIndexProvider() {
++                @Override
++                public List<SearchIndexableResource> getXmlResourcesToIndex(
++                        Context context, boolean enabled) {
++                    final SearchIndexableResource sir = new SearchIndexableResource(context);
++                    sir.xmlResId = R.xml.hifi_sound_settings;
++                    return Arrays.asList(sir);
++                }
++            };
++}
+-- 
+2.39.5

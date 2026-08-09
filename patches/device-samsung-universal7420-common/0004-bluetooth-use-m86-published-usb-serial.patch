@@ -1,0 +1,74 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: PRO 5 Android 10 Port <pro5-port@localhost>
+Date: Sat, 8 Aug 2026 22:00:00 +0800
+Subject: [PATCH] bluetooth: use the published m86 factory serial
+
+The PRO 5 bootloader does not populate ro.serialno or ro.boot.serialno. The
+device identity helper validates the signed private-slot payload and publishes
+its serial to android_usb before releasing the Bluetooth service.
+
+Use that sysfs value as the final m86-only identity source. This preserves all
+factory BDA and Android property sources while making the existing stable
+locally-administered fallback usable on the real device.
+---
+ hardware/bluetooth/bluetooth_address.cc | 37 +++++++++++++++++++++++--
+ 1 file changed, 35 insertions(+), 2 deletions(-)
+
+diff --git a/hardware/bluetooth/bluetooth_address.cc b/hardware/bluetooth/bluetooth_address.cc
+--- a/hardware/bluetooth/bluetooth_address.cc
++++ b/hardware/bluetooth/bluetooth_address.cc
+@@ -33,6 +33,39 @@ namespace implementation {
+ 
+ namespace {
+ 
++bool read_m86_published_serial(char* serial) {
++  const char path[] = "/sys/class/android_usb/android0/iSerial";
++  int fd = open(path, O_RDONLY | O_CLOEXEC);
++  if (fd < 0) {
++    ALOGE("%s: unable to open %s: %s", __func__, path, strerror(errno));
++    return false;
++  }
++
++  ssize_t result;
++  do {
++    result = read(fd, serial, PROPERTY_VALUE_MAX - 1);
++  } while (result < 0 && errno == EINTR);
++  close(fd);
++  if (result <= 0) {
++    ALOGE("%s: unable to read %s: %s", __func__, path,
++          result < 0 ? strerror(errno) : "empty value");
++    return false;
++  }
++
++  size_t length = static_cast<size_t>(result);
++  while (length > 0 &&
++         (serial[length - 1] == '\n' || serial[length - 1] == '\r' ||
++          serial[length - 1] == ' ' || serial[length - 1] == '\t')) {
++    --length;
++  }
++  serial[length] = '\0';
++  if (length == 0) {
++    ALOGE("%s: %s contains no serial", __func__, path);
++    return false;
++  }
++  return true;
++}
++
+ bool derive_m86_address_from_serial(uint8_t* local_addr) {
+   char hardware[PROPERTY_VALUE_MAX] = {0};
+   if (property_get("ro.hardware", hardware, nullptr) <= 0 ||
+@@ -41,8 +74,10 @@ bool derive_m86_address_from_serial(uint8_t* local_addr) {
+ 
+   char serial[PROPERTY_VALUE_MAX] = {0};
+   if (property_get("ro.serialno", serial, nullptr) <= 0 &&
+-      property_get("ro.boot.serialno", serial, nullptr) <= 0) {
+-    ALOGE("%s: m86 has no factory BDA or device serial", __func__);
++      property_get("ro.boot.serialno", serial, nullptr) <= 0 &&
++      !read_m86_published_serial(serial)) {
++    ALOGE("%s: m86 has no factory BDA or published device serial",
++          __func__);
+     return false;
+   }
+ 
+-- 
+2.34.1

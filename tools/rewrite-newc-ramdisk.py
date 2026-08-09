@@ -346,6 +346,44 @@ def compressed_ramdisk(payload: bytes, compression: str) -> bytes:
     return lzma.compress(payload, format=lzma.FORMAT_ALONE, filters=filters)
 
 
+def compared_archives(
+    base: NewcArchive, rewritten: NewcArchive
+) -> tuple[
+    tuple[str, ...],
+    tuple[str, ...],
+    tuple[str, ...],
+    tuple[str, ...],
+    bool,
+    bool,
+]:
+    base_by_path = {entry.path: entry for entry in base.entries}
+    rewritten_by_path = {entry.path: entry for entry in rewritten.entries}
+    base_paths = tuple(entry.path for entry in base.entries)
+    rewritten_paths = tuple(entry.path for entry in rewritten.entries)
+    added_paths = tuple(sorted(set(rewritten_by_path) - set(base_by_path)))
+    removed_paths = tuple(sorted(set(base_by_path) - set(rewritten_by_path)))
+    common_paths = sorted(set(base_by_path) & set(rewritten_by_path))
+    changed_data_paths = tuple(
+        path
+        for path in common_paths
+        if base_by_path[path].data != rewritten_by_path[path].data
+    )
+    changed_metadata_paths = tuple(
+        path
+        for path in common_paths
+        if dataclasses.replace(base_by_path[path], data=b"")
+        != dataclasses.replace(rewritten_by_path[path], data=b"")
+    )
+    return (
+        added_paths,
+        removed_paths,
+        changed_data_paths,
+        changed_metadata_paths,
+        base_paths == rewritten_paths,
+        base.tail == rewritten.tail,
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     base_source = parser.add_mutually_exclusive_group(required=True)
@@ -474,6 +512,14 @@ def main() -> int:
     rewritten_archive, delete_actions = deleted_archive(
         rewritten_archive, args.delete
     )
+    (
+        added_paths,
+        removed_paths,
+        changed_data_paths,
+        changed_metadata_paths,
+        entry_order_identical,
+        archive_tail_identical,
+    ) = compared_archives(base_archive, rewritten_archive)
     rewritten_cpio = rewritten_archive.serialize()
     rewritten_ramdisk = compressed_ramdisk(rewritten_cpio, args.compression)
     args.output.write_bytes(rewritten_ramdisk)
@@ -513,6 +559,17 @@ def main() -> int:
     print(f"output_ramdisk_sha256={sha256(rewritten_ramdisk)}")
     print(f"output_cpio_size={len(rewritten_cpio)}")
     print(f"output_cpio_sha256={sha256(rewritten_cpio)}")
+    print(f"base_entry_count_including_trailer={len(base_archive.entries)}")
+    print(
+        "output_entry_count_including_trailer="
+        f"{len(rewritten_archive.entries)}"
+    )
+    print(f"added_paths={','.join(added_paths)}")
+    print(f"removed_paths={','.join(removed_paths)}")
+    print(f"changed_data_paths={','.join(changed_data_paths)}")
+    print(f"changed_metadata_paths={','.join(changed_metadata_paths)}")
+    print(f"entry_order_identical={'yes' if entry_order_identical else 'no'}")
+    print(f"archive_tail_identical={'yes' if archive_tail_identical else 'no'}")
     return 0
 
 

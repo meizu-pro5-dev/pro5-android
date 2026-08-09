@@ -1,0 +1,10 @@
+on init
+    mkdir /custom 0555 root root
+    mkdir /efs 0555 root root
+    mkdir /mnv 0555 root root
+    mkdir /external_sd 0770 root root
+    mkdir /usb-otg 0770 root root
+
+# USB identity and state transitions live in the main recovery init. Keeping
+# this hardware file free of a second USB action prevents the previous
+# 18d1:4ee2 override from racing the selected Meizu 2a45:0c02 identity.

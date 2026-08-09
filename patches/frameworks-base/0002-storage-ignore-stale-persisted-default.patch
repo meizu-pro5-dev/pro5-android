@@ -1,0 +1,33 @@
+From 542201935503325371972528a06b6df19fd36ff2 Mon Sep 17 00:00:00 2001
+From: Codex <codex@openai.com>
+Date: Sun, 9 Aug 2026 01:10:00 +0800
+Subject: [PATCH] storage: ignore a stale persisted device default
+
+Older Android 10 builds may already have written the wrong isolated-storage
+decision to /data/property.  Reading persist.sys.isolated_storage as the next
+build's default makes a dirty flash inherit that error even when the system
+image requests legacy shared storage.
+
+Take the device default from a read-only system-image property instead.  The
+resolved value is still published through persist.sys.isolated_storage for
+the rest of the framework after local and DeviceConfig overrides are applied.
+---
+ .../core/java/com/android/server/StorageManagerService.java     | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/services/core/java/com/android/server/StorageManagerService.java b/services/core/java/com/android/server/StorageManagerService.java
+index 320c20f0b5e..e1ae97450bf 100644
+--- a/services/core/java/com/android/server/StorageManagerService.java
++++ b/services/core/java/com/android/server/StorageManagerService.java
+@@ -854,7 +854,7 @@ class StorageManagerService extends IStorageManager.Stub
+             res = true;
+         } else {
+             res = SystemProperties.getBoolean(
+-                    StorageManager.PROP_ISOLATED_STORAGE, true);
++                    "ro.sys.isolated_storage", true);
+         }
+ 
+         Slog.d(TAG, "Isolated storage local flag " + local + " and remote flag "
+-- 
+2.39.5
+

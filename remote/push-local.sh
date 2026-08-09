@@ -18,7 +18,7 @@ rsync -az --delete-delay \
   --include '/legacy/device-meizu-m86-cm14/UPSTREAM.md' \
   --include '/legacy/device-meizu-m86-cm14/libfprint/***' \
   --exclude '/legacy/***' \
-  --exclude '/.git/' \
+  --exclude '.git/' \
   --exclude '/.DS_Store' \
   --exclude '__pycache__/' \
   --exclude '*.pyc' \

@@ -1,0 +1,29 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: PRO 5 Recovery Bring-up <pro5-port@localhost>
+Date: Sat, 8 Aug 2026 03:10:00 +0800
+Subject: [PATCH] defconfig: disable DECON LPD for recovery
+
+Live recovery diagnostics show that the framebuffer and backlight stay active
+while DECON enters LPD and DSIM is runtime-suspended.  A page-zero PAN wakes
+DECON and updates VSYNC, but the display returns to LPD about 70 milliseconds
+later.  Keep the recovery display pipeline active instead of allowing the
+normal Android low-power display policy to shut it down between redraws.
+---
+ arch/arm64/configs/cm_pro5_defconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm64/configs/cm_pro5_defconfig b/arch/arm64/configs/cm_pro5_defconfig
+index a2fcae38..a3a331d2 100644
+--- a/arch/arm64/configs/cm_pro5_defconfig
++++ b/arch/arm64/configs/cm_pro5_defconfig
+@@ -2291,7 +2291,7 @@
+ CONFIG_EXYNOS_DECON=y
+ CONFIG_EXYNOS_DECON_FB=y
+ CONFIG_EXYNOS_DECON_DPU=y
+-CONFIG_DECON_LPD_DISPLAY=y
++# CONFIG_DECON_LPD_DISPLAY is not set
+ CONFIG_DECON_BLOCKING_MODE=y
+ CONFIG_DECON_EVENT_LOG=y
+ # CONFIG_DECON_DISPLAY_LOGO is not set
+-- 
+2.39.5

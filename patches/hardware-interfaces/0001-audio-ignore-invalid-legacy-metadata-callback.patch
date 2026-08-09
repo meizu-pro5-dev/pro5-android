@@ -1,0 +1,40 @@
+From 3cefa48bb9523db34c651d64db0cc0bf565b582d Mon Sep 17 00:00:00 2001
+From: Codex <codex@openai.com>
+Date: Sat, 8 Aug 2026 10:30:00 +0800
+Subject: [PATCH] audio: ignore invalid legacy metadata callback
+
+Pre-source-metadata audio HALs have a shorter audio_stream_out structure.
+When one of those binary HALs is loaded by the Android 10 passthrough wrapper,
+reading the appended update_source_metadata slot can return a small non-null
+value from adjacent legacy storage. The Meizu PRO5 Flyme HAL consistently
+returns 0x2, so the wrapper branches to PC 0x2 and kills audioserver while
+AudioPolicy is opening its primary output.
+
+Treat addresses in the unmapped first page as absent callbacks. This preserves
+the existing path for valid modern HAL callbacks while allowing older binary
+HALs to report the optional operation as unsupported.
+---
+ audio/core/all-versions/default/StreamOut.cpp | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/audio/core/all-versions/default/StreamOut.cpp b/audio/core/all-versions/default/StreamOut.cpp
+index ad8249e..e8de978 100644
+--- a/audio/core/all-versions/default/StreamOut.cpp
++++ b/audio/core/all-versions/default/StreamOut.cpp
+@@ -547,7 +547,13 @@ Return<void> StreamOut::debug(const hidl_handle& fd, const hidl_vec<hidl_string>&
+ 
+ #if MAJOR_VERSION >= 4
+ Return<void> StreamOut::updateSourceMetadata(const SourceMetadata& sourceMetadata) {
+-    if (mStream->update_source_metadata == nullptr) {
++    const auto callback = mStream->update_source_metadata;
++    const uintptr_t callbackAddress = reinterpret_cast<uintptr_t>(callback);
++    if (callback == nullptr || callbackAddress < 4096) {
++        if (callback != nullptr) {
++            ALOGW("ignoring invalid legacy update_source_metadata callback %p",
++                  reinterpret_cast<void*>(callbackAddress));
++        }
+         return Void();  // not supported by the HAL
+     }
+     std::vector<playback_track_metadata> halTracks;
+-- 
+2.39.5

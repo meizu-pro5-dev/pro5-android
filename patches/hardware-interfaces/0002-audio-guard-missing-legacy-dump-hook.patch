@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: PRO 5 Android 10 Port <pro5-port@localhost>
+Date: Sat, 8 Aug 2026 22:05:00 +0800
+Subject: [PATCH] audio: guard a missing legacy dump hook
+
+The Flyme m86 audio_hw_device predates the dump callback but otherwise opens
+and streams correctly. The HIDL wrapper currently calls the null pointer when
+dumpsys inspects AudioFlinger, killing audioserver during diagnostics.
+
+Treat an absent optional callback as unsupported, matching the guards already
+used for other versioned legacy hooks.
+---
+ audio/core/all-versions/default/Device.cpp | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/audio/core/all-versions/default/Device.cpp b/audio/core/all-versions/default/Device.cpp
+--- a/audio/core/all-versions/default/Device.cpp
++++ b/audio/core/all-versions/default/Device.cpp
+@@ -352,7 +352,8 @@ Return<void> Device::debugDump(const hidl_handle& fd) {
+ #endif
+ 
+ Return<void> Device::debug(const hidl_handle& fd, const hidl_vec<hidl_string>& /* options */) {
+-    if (fd.getNativeHandle() != nullptr && fd->numFds == 1) {
++    if (fd.getNativeHandle() != nullptr && fd->numFds == 1 &&
++        mDevice->dump != nullptr) {
+         analyzeStatus("dump", mDevice->dump(mDevice, fd->data[0]));
+     }
+     return Void();
+-- 
+2.34.1

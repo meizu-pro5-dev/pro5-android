@@ -1,0 +1,20 @@
+diff --git a/minuitwrp/graphics_fbdev.cpp b/minuitwrp/graphics_fbdev.cpp
+--- a/minuitwrp/graphics_fbdev.cpp
++++ b/minuitwrp/graphics_fbdev.cpp
+@@ -79,7 +79,16 @@ static void fbdev_blank(minui_backend* backend __unused, bool blank)
+ 
+ static void set_displayed_framebuffer(unsigned n)
+ {
++#ifdef RECOVERY_GRAPHICS_FORCE_SINGLE_BUFFER
++    // Forced single buffering still needs one initial page selection.  The
++    // bootloader may leave DECON scanning out page 1 while recovery renders
++    // into page 0.  Permit only the init-time page-zero request; subsequent
++    // single-buffer flips remain memcpy-only.
++    if (n != 0) return;
++    printf("forcing single-buffer scanout to framebuffer page 0\n");
++#else
+     if (n > 1 || !double_buffered) return;
++#endif
+ 
+     vi.yres_virtual = gr_framebuffer[0].height * 2;
+     vi.yoffset = n * gr_framebuffer[0].height;

@@ -2,4 +2,10 @@
 build/make	patches/twrp-build-make/0001-sort-recovery-ramdisk-inventories.patch
 bootable/recovery	patches/twrp-bootable-recovery/0001-make-pigz-own-gzip-recovery-symlinks.patch
 bootable/recovery	patches/twrp-bootable-recovery/0002-allow-selective-recovery-languages.patch
+bootable/recovery	patches/twrp-bootable-recovery/0003-fbdev-select-page-zero-for-forced-single-buffer.patch
+bootable/recovery	patches/twrp-bootable-recovery/0004-fbdev-refresh-forced-single-buffer-with-pan.patch
+bootable/recovery	patches/twrp-bootable-recovery/0005-fbdev-wait-for-vsync-before-single-buffer-copy.patch
+bootable/recovery	patches/twrp-bootable-recovery/0006-fbdev-match-legacy-single-buffer-pan-contract.patch
+bootable/recovery	patches/twrp-bootable-recovery/0007-fbdev-replay-legacy-force-mode-init.patch
+bootable/recovery	patches/twrp-bootable-recovery/0008-mtp-reuse-legacy-device-fd.patch
 system/sepolicy	patches/twrp-system-sepolicy/0001-omit-host-pcre2-bytecode.patch

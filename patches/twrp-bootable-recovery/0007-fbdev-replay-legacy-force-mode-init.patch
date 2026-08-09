@@ -1,0 +1,29 @@
+diff --git a/minuitwrp/graphics_fbdev.cpp b/minuitwrp/graphics_fbdev.cpp
+--- a/minuitwrp/graphics_fbdev.cpp
++++ b/minuitwrp/graphics_fbdev.cpp
+@@ -135,6 +135,25 @@ static GRSurface* fbdev_init(minui_backend* backend) {
+         return NULL;
+     }
+ 
++#ifdef RECOVERY_GRAPHICS_FORCE_SINGLE_BUFFER
++    // The known-working PRO 5 TWRP 3.0 backend immediately replayed the
++    // kernel-provided mode with FB_ACTIVATE_FORCE and vmode cleared.  Do this
++    // before FBIOGET_FSCREENINFO/mmap: m86's FBIOPUT_VSCREENINFO enters
++    // decon_set_par() and establishes the command-mode window geometry that
++    // the subsequent single-buffer PAN transactions depend on.
++    //
++    // Keep every geometry and pixel-format field returned by the kernel.  In
++    // particular, do not synthesize yres_virtual or bits_per_pixel here.
++    vi.vmode = 0;
++    vi.activate = FB_ACTIVATE_FORCE;
++    if (ioctl(fd, FBIOPUT_VSCREENINFO, &vi) < 0) {
++        perror("failed to replay forced single-buffer fb0 mode");
++        close(fd);
++        return NULL;
++    }
++    printf("replayed legacy forced single-buffer fb0 mode\n");
++#endif
++
+ #ifdef RECOVERY_FORCE_RGB_565
+     // Changing fb_var_screeninfo can affect fb_fix_screeninfo,
+     // so this needs done before querying for fi.

@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: PRO 5 Recovery Bring-up <pro5-port@localhost>
+Date: Sat, 8 Aug 2026 03:00:00 +0800
+Subject: [PATCH] usb: force gadget VBUS session when android_usb is enabled
+
+Recovery consistently sees the FUSB302 in the unattached state even with a
+USB host connected.  The charger path detects VBUS, but the MUIC notifier
+never sends USB_HOST_ATTACH.  android_usb therefore leaves DWC3 outside its
+device session and the host cannot enumerate any descriptor.
+
+Treat userspace enabling the configured gadget as sufficient intent to turn
+on the DWC3 gadget session.  Keep the normal notifier path in place for later
+attach and detach events.
+---
+ drivers/usb/gadget/android.c | 16 ++++++++++++----
+ 1 file changed, 12 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/usb/gadget/android.c b/drivers/usb/gadget/android.c
+index 63ca6374..311b6e24 100644
+--- a/drivers/usb/gadget/android.c
++++ b/drivers/usb/gadget/android.c
+@@ -1495,10 +1495,18 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
+ 				f->enable(f);
+ 		}
+ 
+-		if (dev->usb_attach) {
+-			wake_lock(&dev->wakelock);
+-			dwc3_exynos_vbus_event(NULL, 1);
+-		}
++		/*
++		 * Recovery can classify an attached USB host as a charger before
++		 * the MUIC notifier reports USB_HOST_ATTACH.  In that case
++		 * usb_attach remains false and DWC3 never enters its gadget
++		 * session, so the host cannot enumerate even an ADB-only setup.
++		 * Userspace enabling android_usb is sufficient intent to prepare
++		 * the device side; a later notifier event remains harmless.
++		 */
++		wake_lock(&dev->wakelock);
++		if (!dev->usb_attach)
++			pr_info("android_usb: forcing DWC3 gadget VBUS session\n");
++		dwc3_exynos_vbus_event(NULL, 1);
+ 
+ 		android_enable(dev);
+ 		dev->enabled = true;
+-- 
+2.39.5

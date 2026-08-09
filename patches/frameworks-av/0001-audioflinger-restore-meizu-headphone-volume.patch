@@ -1,0 +1,42 @@
+From 3b65d7f15caec9d17fbfc6481d1fe6f40f709b91 Mon Sep 17 00:00:00 2001
+From: Codex <codex@openai.com>
+Date: Sun, 9 Aug 2026 13:24:00 +0800
+Subject: [PATCH] audioflinger: restore Meizu headphone volume callback
+
+The Flyme m86 audio HAL maintains a second hardware-side headphone volume.
+The original CM14 port reset it to unity whenever AudioFlinger updated a
+stream volume, leaving the framework volume curve as the only attenuation.
+
+Send a private device parameter before applying the framework stream volume.
+The m86 legacy HIDL wrapper consumes it and invokes the vendor ABI callback;
+it is not forwarded to the proprietary HAL as an ordinary parameter.
+---
+ services/audioflinger/AudioFlinger.cpp | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/services/audioflinger/AudioFlinger.cpp b/services/audioflinger/AudioFlinger.cpp
+index dd0575ea7..5a01bdb96 100644
+--- a/services/audioflinger/AudioFlinger.cpp
++++ b/services/audioflinger/AudioFlinger.cpp
+@@ -1287,6 +1287,19 @@ status_t AudioFlinger::setStreamVolume(audio_stream_type_t stream, float value,
+                         "AUDIO_STREAM_PATCH must have full scale volume");
+ 
+     AutoMutex lock(mLock);
++    if (mPrimaryHardwareDev != nullptr) {
++        AutoMutex hardwareLock(mHardwareLock);
++        sp<DeviceHalInterface> dev = mPrimaryHardwareDev->hwDevice();
++
++        mHardwareStatus = AUDIO_HW_SET_MASTER_VOLUME;
++        const status_t headphoneVolumeStatus = dev->setParameters(
++                String8("vendor.meizu.set_headphone_volume=1"));
++        mHardwareStatus = AUDIO_HW_IDLE;
++
++        ALOGW_IF(headphoneVolumeStatus != NO_ERROR,
++                "setStreamVolume: failed to restore Meizu headphone volume: %d",
++                headphoneVolumeStatus);
++    }
+     VolumeInterface *volumeInterface = getVolumeInterface_l(output);
+     if (volumeInterface == NULL) {
+         return BAD_VALUE;
+-- 
+2.39.5

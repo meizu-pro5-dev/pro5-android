@@ -191,9 +191,72 @@ cd "$source_root"
 # shellcheck disable=SC1091
 source build/envsetup.sh
 lunch lineage_m86-userdebug
-mka "$target" -j"$jobs"
 
 product_out="$out_root/target/product/m86"
+root_cache="$product_out/root/cache"
+if [[ -L "$root_cache" ]]; then
+  # BOARD_CACHEIMAGE_FILE_SYSTEM_TYPE now makes /cache a real mountpoint.
+  # An incremental tree can retain Android's old /data/cache symlink, and
+  # rootdir's mkdir -p cannot replace it. Remove only that generated link and
+  # the post-install owner so Ninja recreates the directory idempotently.
+  rm -f -- "$root_cache" "$product_out/root/init.environ.rc"
+  printf 'Removed stale generated /cache symlink before incremental build.\n'
+fi
+
+# An incremental tree can retain the Flyme HWC1/libdisplay/libhdmi copies after
+# their generated vendor mappings are removed. Delete only an installed output
+# that is byte-identical to the corresponding immutable vendor input so the
+# current Android 10 source module owns the destination on this build.
+for relative_path in \
+  lib/hw/hwcomposer.exynos5.so \
+  lib64/hw/hwcomposer.exynos5.so \
+  lib/libdisplay.so \
+  lib64/libdisplay.so \
+  lib/libhdmi.so \
+  lib64/libhdmi.so; do
+  installed_graphics="$product_out/system/$relative_path"
+  vendor_graphics="$source_root/vendor/meizu/m86/proprietary/$relative_path"
+  if [[ -f "$installed_graphics" ]] && \
+      [[ -f "$vendor_graphics" ]] && \
+      cmp --quiet "$installed_graphics" "$vendor_graphics"; then
+    rm -f -- "$installed_graphics"
+  fi
+done
+if [[ "$target" == bacon && -d "$product_out/system" ]]; then
+  # Earlier m86 product definitions copied Flyme's libion over Android 10's
+  # source-built library. Remove only a stale destination that does not export
+  # ion_is_legacy so Ninja reinstalls the current module. Keep already-correct
+  # outputs intact for idempotent incremental builds.
+  for installed_ion in \
+    "$product_out/system/lib/libion.so" \
+    "$product_out/system/lib64/libion.so"; do
+    if [[ -f "$installed_ion" ]] && \
+        ! nm -D --defined-only "$installed_ion" 2>/dev/null | \
+          awk '$NF == "ion_is_legacy" { found=1 } END { exit !found }'; then
+      rm -f -- "$installed_ion"
+    fi
+  done
+
+  # Earlier bring-up packages selected the generic 64-bit Bluetooth service.
+  # The current product selects only the m86 32-bit service, but Android's
+  # incremental PRODUCT_OUT can retain the generic init rc and package both
+  # definitions of vendor.bluetooth-1-0. Remove only that generated stale rc;
+  # Ninja will recreate it if a future product intentionally selects it.
+  stale_bluetooth_rc="$product_out/system/vendor/etc/init/android.hardware.bluetooth@1.0-service.rc"
+  if [[ -f "$stale_bluetooth_rc" ]]; then
+    rm -f -- "$stale_bluetooth_rc"
+    printf 'Removed stale generic Bluetooth service rc before packaging.\n'
+  fi
+fi
+if [[ "$target" == bacon && -d "$product_out" ]]; then
+  # bacon leaves dated release ZIPs from earlier runs in PRODUCT_OUT. Remove
+  # only those generated m86 release packages so the retained artifact cannot
+  # be confused with a stale build; Ninja recreates the current output below.
+  find "$product_out" -maxdepth 1 -type f \
+    -name 'lineage-17.1-*-m86.zip' -delete
+fi
+mka "$target" -j"$jobs"
+
 artifact_dir="$artifact_root/$build_stamp-$target"
 mkdir -p "$artifact_dir"
 
@@ -203,6 +266,15 @@ if [[ ! -s "$kernel_dtb" ]]; then
   printf 'The Android build did not produce the m86 raw DTB.\n' >&2
   exit 1
 fi
+release_dtb="$kernel_dtb"
+if [[ "$target" == bacon ]]; then
+  stock_dtb="$remote_root/stock/flyme-8.0.5.0A/stock-boot.dtb"
+  release_dtb="$product_out/dtb-hybrid.img"
+  python3 "$local_root/tools/build-pro5-hybrid-dtb.py" \
+    --dtc "$kernel_out/scripts/dtc/dtc" \
+    --stock "$stock_dtb" \
+    --output "$release_dtb"
+fi
 for required_exfat_setting in \
   CONFIG_EXFAT_FS=y \
   CONFIG_EXFAT_VIRTUAL_XATTR=y \
@@ -210,16 +282,6 @@ for required_exfat_setting in \
   if ! grep -F -x -q "$required_exfat_setting" "$kernel_out/.config"; then
     printf 'The generated m86 kernel config omitted %s.\n' \
       "$required_exfat_setting" >&2
-    exit 1
-  fi
-done
-for required_diagnostic_setting in \
-  CONFIG_PSTORE=y \
-  CONFIG_PSTORE_CONSOLE=y \
-  CONFIG_PSTORE_RAM=y; do
-  if ! grep -F -x -q "$required_diagnostic_setting" "$kernel_out/.config"; then
-    printf 'The generated m86 kernel config omitted %s.\n' \
-      "$required_diagnostic_setting" >&2
     exit 1
   fi
 done
@@ -238,23 +300,10 @@ for required_exfat_object in \
     exit 1
   fi
 done
-for required_diagnostic_object in \
-  fs/pstore/ramoops.o \
-  drivers/platform/exynos/exynos_ramoops.o; do
-  if [[ ! -s "$kernel_out/$required_diagnostic_object" ]]; then
-    printf 'The Android build omitted kernel object %s.\n' \
-      "$required_diagnostic_object" >&2
-    exit 1
-  fi
-done
 sha256sum \
   "$kernel_out/fs/exfat/exfat_core.o" \
   "$kernel_out/fs/exfat/exfat_fs.o" > "$artifact_dir/EXFAT-KERNEL.txt"
-sha256sum \
-  "$kernel_out/fs/pstore/ramoops.o" \
-  "$kernel_out/drivers/platform/exynos/exynos_ramoops.o" \
-  > "$artifact_dir/PSTORE-KERNEL.txt"
-cp -a "$kernel_dtb" "$artifact_dir/dtb.img"
+cp -a "$release_dtb" "$artifact_dir/dtb.img"
 
 copy_required() {
   local source_file="$1"
@@ -278,7 +327,6 @@ case "$target" in
   bacon)
     copy_required "$product_out/boot.img"
     copy_required "$product_out/recovery.img"
-    copy_required "$product_out/dtb.img"
 
     mapfile -t target_files_packages < <(
       find "$product_out/obj/PACKAGING/target_files_intermediates" \
@@ -291,6 +339,13 @@ case "$target" in
       printf '  %s\n' "${target_files_packages[@]}" >&2
       exit 1
     fi
+
+    target_files_dir="${target_files_packages[0]%.zip}"
+    cp -a "$release_dtb" "$target_files_dir/RADIO/dtb.img"
+    (
+      cd "$target_files_dir"
+      zip -q -u "${target_files_packages[0]}" RADIO/dtb.img
+    )
 
     # Android 10's bacon target retains the canonical sparse system image
     # under the expanded target-files directory instead of PRODUCT_OUT. Copy
@@ -309,6 +364,18 @@ case "$target" in
       printf '  %s\n' "${ota_packages[@]}" >&2
       exit 1
     fi
+
+    # bacon first generated the OTA with the kernel tree's diagnostic DTB.
+    # Re-run releasetools after replacing RADIO/dtb.img so both the signed OTA
+    # and retained target-files package contain the reviewed Flyme-based
+    # fingerprint hybrid.
+    ota_package="${ota_packages[0]}"
+    rm -f -- "$ota_package"
+    python3 "$source_root/build/make/tools/releasetools/ota_from_target_files.py" \
+      -p "$out_root/host/linux-x86" \
+      -k "$source_root/build/target/product/security/testkey" \
+      "${target_files_packages[0]}" \
+      "$ota_package"
     copy_required "${ota_packages[0]}"
     copy_required "${target_files_packages[0]}"
     ;;
@@ -351,8 +418,9 @@ if [[ -s "$artifact_dir/system.img" ]] && \
 fi
 
 if [[ "$target" == bacon ]]; then
-  if ! cmp --quiet "$product_out/dtb.img" "$kernel_dtb"; then
-    printf 'Packaged product DTB differs from the configured kernel DTB.\n' >&2
+  if ! unzip -p "${target_files_packages[0]}" RADIO/dtb.img | \
+      cmp --quiet - "$release_dtb"; then
+    printf 'Packaged target-files DTB differs from the reviewed hybrid.\n' >&2
     exit 1
   fi
 
@@ -360,17 +428,73 @@ if [[ "$target" == bacon ]]; then
   "$local_root/tools/audit-lineage-ota.sh" \
     "$ota_package" \
     "$artifact_dir/boot.img" \
-    "$kernel_dtb" |
+    "$release_dtb" |
     tee "$artifact_dir/OTA-AUDIT.txt"
 
+  installed_vendor_blob_count="$((vendor_blob_count - 10))"
   if ! (
     cd "$product_out/system"
-    sha256sum --quiet -c "$vendor_blob_lock"
+    awk '$2 != "./lib/hw/gralloc.exynos5.so" &&
+         $2 != "./lib64/hw/gralloc.exynos5.so" &&
+         $2 != "./lib/hw/hwcomposer.exynos5.so" &&
+         $2 != "./lib64/hw/hwcomposer.exynos5.so" &&
+         $2 != "./lib/libdisplay.so" &&
+         $2 != "./lib64/libdisplay.so" &&
+         $2 != "./lib/libhdmi.so" &&
+         $2 != "./lib64/libhdmi.so" &&
+         $2 != "./lib/libion.so" &&
+         $2 != "./lib64/libion.so"' \
+      "$vendor_blob_lock" |
+      sha256sum --quiet -c -
   ); then
-    printf 'Installed system tree differs from the 219 locked Flyme inputs.\n' >&2
+    printf 'Installed system tree differs from the %s selected Flyme inputs.\n' \
+      "$installed_vendor_blob_count" >&2
     exit 1
   fi
-  printf 'verified_installed_blob_count=%s\n' "$vendor_blob_count" |
+
+  source_gralloc_32="$product_out/obj_arm/SHARED_LIBRARIES/gralloc.exynos5_intermediates/gralloc.exynos5.so"
+  source_gralloc_64="$product_out/obj/SHARED_LIBRARIES/gralloc.exynos5_intermediates/gralloc.exynos5.so"
+  if ! cmp --quiet \
+      "$product_out/system/lib/hw/gralloc.exynos5.so" \
+      "$source_gralloc_32" || \
+      ! cmp --quiet \
+      "$product_out/system/lib64/hw/gralloc.exynos5.so" \
+      "$source_gralloc_64"; then
+    printf 'Installed gralloc modules are not the source-built Exynos outputs.\n' >&2
+    exit 1
+  fi
+
+  source_ion_32="$out_root/soong/.intermediates/system/core/libion/libion/android_arm_armv8-a_core_shared/libion.so"
+  source_ion_64="$out_root/soong/.intermediates/system/core/libion/libion/android_arm64_armv8-a_core_shared/libion.so"
+  if ! cmp --quiet "$product_out/system/lib/libion.so" "$source_ion_32" || \
+      ! cmp --quiet "$product_out/system/lib64/libion.so" "$source_ion_64"; then
+    printf 'Installed libion libraries are not the Android 10 outputs.\n' >&2
+    exit 1
+  fi
+
+  source_hdmi_32="$product_out/obj_arm/SHARED_LIBRARIES/libhdmi_intermediates/libhdmi.so"
+  source_hdmi_64="$product_out/obj/SHARED_LIBRARIES/libhdmi_intermediates/libhdmi.so"
+  if ! cmp --quiet "$product_out/system/lib/libhdmi.so" "$source_hdmi_32" || \
+      ! cmp --quiet "$product_out/system/lib64/libhdmi.so" "$source_hdmi_64"; then
+    printf 'Installed libhdmi libraries are not the Android 10 outputs.\n' >&2
+    exit 1
+  fi
+  if readelf -d "$product_out/system/lib/libhdmi.so" | \
+      grep -Fq 'Shared library: [libdisplay.so]' || \
+      readelf -d "$product_out/system/lib64/libhdmi.so" | \
+      grep -Fq 'Shared library: [libdisplay.so]'; then
+    printf 'Installed libhdmi still depends on the removed Flyme libdisplay.\n' >&2
+    exit 1
+  fi
+
+  {
+    printf 'verified_locked_blob_count=%s\n' "$vendor_blob_count"
+    printf 'verified_installed_blob_count=%s\n' \
+      "$installed_vendor_blob_count"
+    printf 'source_built_gralloc_count=2\n'
+    printf 'source_built_libhdmi_count=2\n'
+    printf 'source_built_libion_count=2\n'
+  } |
     tee "$artifact_dir/PROPRIETARY-OUTPUT.txt"
 
   "$local_root/tools/audit-camera-abi.sh" \
@@ -404,7 +528,8 @@ repo manifest -r -o "$artifact_dir/lineage-17.1-m86-lock.xml"
   printf 'stock_base=Flyme 8.0.5.0A / Android 7 / API 24\n'
   printf 'verified_vendor_blob_count=%s\n' "$vendor_blob_count"
   printf 'boot_header_cmdline=empty\n'
-  printf 'dtb_packaging=raw separate partition\n'
+  printf 'dtb_artifact=Flyme-based AP fingerprint hybrid\n'
+  printf 'dtb_ota_action=write reviewed hybrid to dtb\n'
   printf 'ramdisk_compression=gzip\n'
   if [[ "$target" == bacon ]]; then
     printf 'system_image_source=target-files IMAGES/system.img\n'

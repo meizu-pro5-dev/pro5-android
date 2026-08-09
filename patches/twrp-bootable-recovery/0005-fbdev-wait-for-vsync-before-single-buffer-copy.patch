@@ -1,0 +1,19 @@
+diff --git a/minuitwrp/graphics_fbdev.cpp b/minuitwrp/graphics_fbdev.cpp
+--- a/minuitwrp/graphics_fbdev.cpp
++++ b/minuitwrp/graphics_fbdev.cpp
+@@ -309,5 +309,15 @@ static GRSurface* fbdev_flip(minui_backend* backend __unused) {
+         set_displayed_framebuffer(1-displayed_buffer);
+     } else {
++#ifdef RECOVERY_GRAPHICS_FORCE_SINGLE_BUFFER
++        // The PRO 5 scans the same page that recovery updates.  Its original
++        // TWRP fbdev backend waited for the panel's VSYNC before overwriting
++        // that page.  Preserve that ordering so touch-driven redraw bursts do
++        // not race command-mode DECON while the previous frame is in flight.
++        unsigned int vsync = 0;
++        if (ioctl(fb_fd, FBIO_WAITFORVSYNC, &vsync) < 0) {
++            perror("forced single-buffer pre-copy vsync failed");
++        }
++#endif
+         // Copy from the in-memory surface to the framebuffer.
+         memcpy(gr_framebuffer[0].data, gr_draw->data,
+                gr_draw->height * gr_draw->row_bytes);

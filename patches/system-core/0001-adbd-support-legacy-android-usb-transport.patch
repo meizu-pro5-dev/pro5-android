@@ -1,0 +1,134 @@
+From 2fa8f4106a2eeef526d45e57233e59a858c0db99 Mon Sep 17 00:00:00 2001
+From: Codex <codex@openai.com>
+Date: Sat, 8 Aug 2026 16:22:00 +0800
+Subject: [PATCH] adbd: support the legacy android_usb transport
+
+The Exynos 7420 m86 kernel enumerates FunctionFS but never completes the ADB
+handshake. Its native /dev/android_adb transport is stable and is already used
+by the accepted recovery. Allow a device property to keep modern adbd while
+routing its blocking USB I/O through that kernel transport.
+---
+ adb/daemon/include/adbd/usb.h |  3 ++
+ adb/daemon/usb_legacy.cpp     | 89 ++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 92 insertions(+)
+
+diff --git a/adb/daemon/include/adbd/usb.h b/adb/daemon/include/adbd/usb.h
+index 067f4a7..84c99ca 100644
+--- a/adb/daemon/include/adbd/usb.h
++++ b/adb/daemon/include/adbd/usb.h
+@@ -49,6 +49,9 @@ struct usb_handle {
+     void (*kick)(usb_handle* h);
+     void (*close)(usb_handle* h);
+ 
++    // Legacy android_usb character transport.
++    android::base::unique_fd legacy;
++
+     // FunctionFS
+     android::base::unique_fd control;
+     android::base::unique_fd bulk_out;  // "out" from the host's perspective => source for adbd
+diff --git a/adb/daemon/usb_legacy.cpp b/adb/daemon/usb_legacy.cpp
+index 2d3d3a7..92ccde0 100644
+--- a/adb/daemon/usb_legacy.cpp
++++ b/adb/daemon/usb_legacy.cpp
+@@ -278,10 +278,99 @@ usb_handle* create_usb_handle(unsigned num_bufs, unsigned io_size) {
+     return h;
+ }
+ 
++static int usb_android_write(usb_handle* h, const void* data, int len) {
++    const char* buf = static_cast<const char*>(data);
++    int remaining = len;
++
++    while (remaining > 0) {
++        int n = adb_write(h->legacy, buf, remaining);
++        if (n <= 0) {
++            PLOG(ERROR) << "legacy android_usb write failed";
++            return -1;
++        }
++        buf += n;
++        remaining -= n;
++    }
++    return len;
++}
++
++static int usb_android_read(usb_handle* h, void* data, int len, bool allow_partial) {
++    char* buf = static_cast<char*>(data);
++    int remaining = len;
++
++    while (remaining > 0) {
++        int n = adb_read(h->legacy, buf, remaining);
++        if (n <= 0) {
++            PLOG(ERROR) << "legacy android_usb read failed";
++            return -1;
++        }
++        buf += n;
++        remaining -= n;
++        if (allow_partial && n < remaining + n) {
++            return len - remaining;
++        }
++    }
++    return len;
++}
++
++static void usb_android_kick(usb_handle* h) {
++    h->kicked = true;
++    if (h->legacy.get() >= 0) {
++        TEMP_FAILURE_RETRY(dup2(dummy_fd.get(), h->legacy.get()));
++    }
++}
++
++static void usb_android_close(usb_handle* h) {
++    h->kicked = false;
++    h->legacy.reset();
++
++    h->lock.lock();
++    h->open_new_connection = true;
++    h->lock.unlock();
++    h->notify.notify_one();
++}
++
++static void usb_android_open_thread(usb_handle* usb) {
++    adb_thread_setname("usb legacy android");
++
++    while (true) {
++        std::unique_lock<std::mutex> lock(usb->lock);
++        while (!usb->open_new_connection) {
++            usb->notify.wait(lock);
++        }
++        usb->open_new_connection = false;
++        lock.unlock();
++
++        while (true) {
++            usb->legacy.reset(adb_open("/dev/android_adb", O_RDWR | O_CLOEXEC));
++            if (usb->legacy.get() >= 0) {
++                break;
++            }
++            std::this_thread::sleep_for(1s);
++        }
++
++        LOG(INFO) << "registering legacy android_usb transport";
++        register_usb_transport(usb, nullptr, nullptr, 1);
++    }
++}
++
++static void usb_init_android() {
++    usb_handle* h = new usb_handle();
++    h->write = usb_android_write;
++    h->read = usb_android_read;
++    h->kick = usb_android_kick;
++    h->close = usb_android_close;
++    std::thread(usb_android_open_thread, h).detach();
++}
++
+ void usb_init_legacy() {
+     D("[ usb_init - using legacy FunctionFS ]");
+     dummy_fd.reset(adb_open("/dev/null", O_WRONLY | O_CLOEXEC));
+     CHECK_NE(-1, dummy_fd.get());
++    if (android::base::GetBoolProperty("ro.adb.legacy_android_usb", false)) {
++        usb_init_android();
++        return;
++    }
+ 
+     std::thread(usb_legacy_ffs_open_thread, create_usb_handle(USB_FFS_NUM_BUFS, USB_FFS_BULK_SIZE))
+             .detach();
+-- 
+2.39.5

@@ -1,0 +1,140 @@
+# Functional PRO 5 TWRP init for the v20 runtime cleanup.
+#
+# This keeps the v19 legacy /dev/android_adb transport and its proven Meizu
+# USB identity.  TWRP may switch the gadget between adb and mtp,adb through
+# sys.usb.config; MTP uses the Exynos /dev/mtp_usb character device.
+
+on early-init
+    setenforce permissive
+
+    write /sys/fs/selinux/checkreqprot 0
+    setcon u:r:init:s0
+
+    start ueventd
+    start healthd
+
+service set_permissive /sbin/toolbox setenforce 0
+    oneshot
+    seclabel u:r:recovery:s0
+
+on init
+    export PATH /sbin:/system/bin
+    export LD_LIBRARY_PATH .:/sbin
+    export ANDROID_ROOT /system
+    export ANDROID_DATA /data
+    export EXTERNAL_STORAGE /sdcard
+
+    mkdir /boot
+    mkdir /recovery
+    mkdir /system
+    mkdir /data
+    mkdir /cache
+    mkdir /custom
+    mkdir /efs
+    mkdir /sideload
+    mkdir /storage
+    mkdir /storage/sdcard1
+    mount tmpfs tmpfs /tmp
+
+    chown root shell /tmp
+    chmod 0775 /tmp
+
+on fs
+    # Start with ADB only. TWRP enables MTP after storage discovery by setting
+    # sys.usb.config=mtp,adb. Do not set mtp.crash_check: that diagnostic flag
+    # made TWRP deliberately suppress its MTP server in v9 through v19.
+    stop adbd
+    write /sys/class/android_usb/android0/enable 0
+    write /sys/class/android_usb/android0/bDeviceClass 0
+    write /sys/class/android_usb/android0/bDeviceSubClass 0
+    write /sys/class/android_usb/android0/bDeviceProtocol 0
+
+on boot
+    ifup lo
+    hostname localhost
+    domainname localdomain
+
+    write /dev/kmsg pro5_twrp_v20_usb_begin
+    write /sys/class/android_usb/android0/enable 0
+    write /sys/class/android_usb/android0/idVendor 2A45
+    write /sys/class/android_usb/android0/idProduct 0C02
+    write /sys/class/android_usb/android0/iManufacturer Meizu
+    write /sys/class/android_usb/android0/iProduct M86
+    write /sys/class/android_usb/android0/iSerial 860BDNA2225S
+    write /sys/class/android_usb/android0/bDeviceClass 0
+    write /sys/class/android_usb/android0/bDeviceSubClass 0
+    write /sys/class/android_usb/android0/bDeviceProtocol 0
+    start adbd
+    setprop sys.usb.config adb
+    write /dev/kmsg pro5_twrp_v20_usb_ready
+
+    class_start default
+
+# Load properties, pre-Android 6.0.
+on load_all_props_action
+    load_all_props
+
+on firmware_mounts_complete
+    rm /dev/.booting
+
+on late-init
+    trigger early-fs
+    trigger fs
+    trigger post-fs
+    trigger post-fs-data
+
+    trigger load_all_props_action
+    trigger firmware_mounts_complete
+
+    trigger early-boot
+    trigger boot
+
+# Legacy Exynos android_usb state machine. The v19 live probe confirmed that
+# both functions bind together, macOS enumerates the composite device and old
+# adbd reconnects while the MTP function is selected.
+on property:sys.usb.config=none
+    stop adbd
+    write /sys/class/android_usb/android0/enable 0
+    setprop sys.usb.state none
+
+on property:sys.usb.config=adb
+    stop adbd
+    write /sys/class/android_usb/android0/enable 0
+    write /sys/class/android_usb/android0/idVendor 2A45
+    write /sys/class/android_usb/android0/idProduct 0C02
+    write /sys/class/android_usb/android0/functions adb
+    write /sys/class/android_usb/android0/enable 1
+    start adbd
+    setprop sys.usb.state adb
+
+on property:sys.usb.config=mtp,adb
+    stop adbd
+    write /sys/class/android_usb/android0/enable 0
+    write /sys/class/android_usb/android0/idVendor 2A45
+    write /sys/class/android_usb/android0/idProduct 0C02
+    write /sys/class/android_usb/android0/functions mtp,adb
+    write /sys/class/android_usb/android0/enable 1
+    start adbd
+    setprop sys.usb.state mtp,adb
+
+# Restore every power request emitted by the unmodified TWRP recovery ELF.
+# This is the exact wildcard contract used by the old working m86 recovery.
+on property:sys.powerctl=*
+    powerctl ${sys.powerctl}
+
+service ueventd /sbin/ueventd
+    critical
+#    seclabel u:r:ueventd:s0
+
+service healthd /sbin/healthd -r
+    critical
+#    seclabel u:r:healthd:s0
+
+service recovery /sbin/recovery
+    oneshot
+    seclabel u:r:recovery:s0
+
+service adbd /sbin/adbd
+    disabled
+    socket adbd stream 660 system system
+#    seclabel u:r:adbd:s0

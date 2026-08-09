@@ -114,16 +114,6 @@ for required_exfat_setting in \
     exit 1
   fi
 done
-for required_diagnostic_setting in \
-  CONFIG_PSTORE=y \
-  CONFIG_PSTORE_CONSOLE=y \
-  CONFIG_PSTORE_RAM=y; do
-  if ! grep -F -x -q "$required_diagnostic_setting" "$out_root/.config"; then
-    printf 'The generated m86 kernel config omitted %s.\n' \
-      "$required_diagnostic_setting" >&2
-    exit 1
-  fi
-done
 if grep -E -q \
     'CONFIG_(FAT_VIRTUAL_XATTR|FAT_VIRTUAL_XATTR_SELINUX_LABEL|FAT_SUPPORT_STLOG|EXFAT_SUPPORT_STLOG)' \
     "$out_root/.config"; then
@@ -139,16 +129,6 @@ for required_exfat_object in \
     exit 1
   fi
 done
-for required_diagnostic_object in \
-  fs/pstore/ramoops.o \
-  drivers/platform/exynos/exynos_ramoops.o; do
-  if [[ ! -s "$out_root/$required_diagnostic_object" ]]; then
-    printf 'The standalone build omitted kernel object %s.\n' \
-      "$required_diagnostic_object" >&2
-    exit 1
-  fi
-done
-
 artifact_dir="$artifact_root/$build_stamp-kernel-standalone"
 mkdir -p "$artifact_dir"
 install -m 0644 "$kernel_image" "$artifact_dir/Image"
@@ -160,13 +140,6 @@ install -m 0644 "$kernel_exfat_lock" \
   cd "$out_root"
   sha256sum fs/exfat/exfat_core.o fs/exfat/exfat_fs.o
 ) > "$artifact_dir/EXFAT-KERNEL.txt"
-(
-  cd "$out_root"
-  sha256sum \
-    fs/pstore/ramoops.o \
-    drivers/platform/exynos/exynos_ramoops.o
-) > "$artifact_dir/PSTORE-KERNEL.txt"
-
 aarch64_revision="$(git -C "$aarch64_toolchain" rev-parse HEAD)"
 arm_revision="$(git -C "$arm_toolchain" rev-parse HEAD)"
 {
@@ -183,7 +156,6 @@ arm_revision="$(git -C "$arm_toolchain" rev-parse HEAD)"
   sha256sum \
     BUILD-METADATA \
     EXFAT-KERNEL.txt \
-    PSTORE-KERNEL.txt \
     Image \
     exynos7420-m86-codegen.dtb \
     kernel-exfat-exynos7420.sha256 \

@@ -1,0 +1,33 @@
+From 67e2426e4cf70c8282aa387833860e67a644ce33 Mon Sep 17 00:00:00 2001
+From: Codex <codex@openai.com>
+Date: Sat, 8 Aug 2026 21:20:00 +0800
+Subject: [PATCH] adbd: enter native android_usb without FunctionFS
+
+The m86 kernel exposes its proven ADB transport as /dev/android_adb and does
+not create the FunctionFS ep0 endpoint.  The daemon's native transport support
+therefore remained unreachable because main.cpp gated usb_init() exclusively
+on that endpoint.  Honor the device-only transport property at the same gate.
+Other devices retain the original FunctionFS check.
+---
+ adb/daemon/main.cpp | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/adb/daemon/main.cpp b/adb/daemon/main.cpp
+index 32ff16f..acc3bba 100644
+--- a/adb/daemon/main.cpp
++++ b/adb/daemon/main.cpp
+@@ -220,7 +220,11 @@ int adbd_main(int server_port) {
+     bool is_usb = false;
+ 
+ #if defined(__ANDROID__)
+-    if (access(USB_FFS_ADB_EP0, F_OK) == 0) {
++    // Some legacy android_usb gadgets expose a native character transport
++    // without creating FunctionFS endpoints.
++    bool use_legacy_android_usb = android::base::GetBoolProperty(
++            "ro.adb.legacy_android_usb", false);
++    if (use_legacy_android_usb || access(USB_FFS_ADB_EP0, F_OK) == 0) {
+         // Listen on USB.
+         usb_init();
+         is_usb = true;
+-- 
+2.39.5

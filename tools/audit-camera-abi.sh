@@ -76,6 +76,8 @@ for required_symbol in \
   androidGetTid \
   set_value \
   _ZN7android5FenceD1Ev \
+  _ZNK7android10GLConsumer16getCurrentBufferEv \
+  _ZN7android13GraphicBuffer4lockEjPPv \
   _ZN7android16CameraParameters17EFFECT_POINT_BLUEE \
   _ZN7android16CameraParameters26PIXEL_FORMAT_YUV420SP_NV21E; do
   if ! printf '%s\n' "${shim_exports[@]}" | rg -F -x -q "$required_symbol"; then
