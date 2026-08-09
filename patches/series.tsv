@@ -3,14 +3,12 @@ build/make	patches/build-make/0001-releasetools-allow-full-ota-without-cache-siz
 device/samsung/universal7420-common	patches/device-samsung-universal7420-common/0001-target-add-meizu-m86.patch
 device/samsung/universal7420-common	patches/device-samsung-universal7420-common/0002-bluetooth-add-m86-address-fallback.patch
 device/samsung/universal7420-common	patches/device-samsung-universal7420-common/0003-rild-use-platform-daemon-for-m86.patch
-device/samsung/universal7420-common	patches/device-samsung-universal7420-common/0004-bluetooth-use-m86-published-usb-serial.patch
 external/glib	patches/external-glib/0001-build-libglib-for-m86-vendor.patch
 external/glib	patches/external-glib/0003-clang-port-legacy-android-stubs.patch
 lineage-sdk	patches/lineage-sdk/0001-input-add-meizu-mback-actions-and-settings.patch
 frameworks/av	patches/frameworks-av/0001-audioflinger-restore-meizu-headphone-volume.patch
 frameworks/av	patches/frameworks-av/0002-audioflinger-route-meizu-hifi-state-to-output.patch
 frameworks/base	patches/frameworks-base/0001-storage-respect-device-isolated-storage-default.patch
-frameworks/base	patches/frameworks-base/0002-storage-ignore-stale-persisted-default.patch
 frameworks/base	patches/frameworks-base/0003-audio-restore-meizu-hifi-routing.patch
 frameworks/base	patches/frameworks-base/0004-input-handle-configurable-meizu-mback-gestures.patch
 packages/apps/Settings	patches/packages-apps-settings/0001-system-add-meizu-hifi-sound.patch

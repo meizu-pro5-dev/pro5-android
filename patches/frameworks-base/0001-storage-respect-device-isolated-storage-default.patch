@@ -1,33 +1,14 @@
-From 1c02b66f4669fb2f749bb7289f305f44b4c7cf64 Mon Sep 17 00:00:00 2001
-From: Codex <codex@openai.com>
-Date: Sun, 9 Aug 2026 00:40:00 +0800
-Subject: [PATCH] storage: respect the device isolated-storage default
-
-Android 10's StorageManagerService overwrites persist.sys.isolated_storage
-with true when neither DeviceConfig nor the local debug setting supplies an
-override.  That defeats device system properties and leaves legacy sdcardfs
-kernels presenting a mounted volume that MediaProvider cannot traverse.
-
-Use the existing device property as the fallback.  Devices without an explicit
-opinion retain the Android 10 default of true, while m86 can select the legacy
-shared-storage model required by its maintained 3.10 sdcardfs implementation.
----
- .../core/java/com/android/server/StorageManagerService.java    | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
 diff --git a/services/core/java/com/android/server/StorageManagerService.java b/services/core/java/com/android/server/StorageManagerService.java
-index 3ce02393326..320c20f0b5e 100644
+index 99c59fdb550..c79a38c8061 100644
 --- a/services/core/java/com/android/server/StorageManagerService.java
 +++ b/services/core/java/com/android/server/StorageManagerService.java
-@@ -853,7 +853,8 @@ class StorageManagerService extends IStorageManager.Stub
+@@ -856,7 +856,8 @@ class StorageManagerService extends IStorageManager.Stub
          } else if (remote == 1) {
              res = true;
          } else {
 -            res = true;
 +            res = SystemProperties.getBoolean(
-+                    StorageManager.PROP_ISOLATED_STORAGE, true);
++                    "ro.sys.isolated_storage", true);
          }
  
          Slog.d(TAG, "Isolated storage local flag " + local + " and remote flag "
--- 
-2.39.5

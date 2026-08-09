@@ -1,21 +1,5 @@
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: PRO 5 Android 10 Port <pro5-port@localhost>
-Date: Fri, 7 Aug 2026 03:00:00 +0800
-Subject: [PATCH] bluetooth: add a stable m86 address fallback
-
-Flyme's pre-HIDL stack generated and persisted an address when neither a
-factory file nor a boot property was available. Android 10's HIDL wrapper
-instead aborts, while the m86 stock ramdisk leaves ro.bt.bdaddr_path unset.
-
-Keep all upstream address sources first. For m86 only, derive a stable locally
-administered unicast address from the bootloader serial as a last resort. This
-keeps clean-data boots functional without assigning a new address on every
-boot or changing behavior for the Samsung targets.
----
- hardware/bluetooth/bluetooth_address.cc | 41 +++++++++++++++++++++++++++++++++
- 1 file changed, 41 insertions(+)
-
 diff --git a/hardware/bluetooth/bluetooth_address.cc b/hardware/bluetooth/bluetooth_address.cc
+index 93a5469..0f50e3b 100644
 --- a/hardware/bluetooth/bluetooth_address.cc
 +++ b/hardware/bluetooth/bluetooth_address.cc
 @@ -19,6 +19,7 @@
@@ -26,11 +10,44 @@ diff --git a/hardware/bluetooth/bluetooth_address.cc b/hardware/bluetooth/blueto
  #include <unistd.h>
  #include <utils/Log.h>
  
-@@ -28,6 +29,44 @@ namespace bluetooth {
+@@ -28,6 +29,79 @@ namespace bluetooth {
  namespace V1_0 {
  namespace implementation {
  
 +namespace {
++
++bool read_m86_published_serial(char* serial) {
++  const char path[] = "/sys/class/android_usb/android0/iSerial";
++  int fd = open(path, O_RDONLY | O_CLOEXEC);
++  if (fd < 0) {
++    ALOGE("%s: unable to open %s: %s", __func__, path, strerror(errno));
++    return false;
++  }
++
++  ssize_t result;
++  do {
++    result = read(fd, serial, PROPERTY_VALUE_MAX - 1);
++  } while (result < 0 && errno == EINTR);
++  close(fd);
++  if (result <= 0) {
++    ALOGE("%s: unable to read %s: %s", __func__, path,
++          result < 0 ? strerror(errno) : "empty value");
++    return false;
++  }
++
++  size_t length = static_cast<size_t>(result);
++  while (length > 0 &&
++         (serial[length - 1] == '\n' || serial[length - 1] == '\r' ||
++          serial[length - 1] == ' ' || serial[length - 1] == '\t')) {
++    --length;
++  }
++  serial[length] = '\0';
++  if (length == 0) {
++    ALOGE("%s: %s contains no serial", __func__, path);
++    return false;
++  }
++  return true;
++}
 +
 +bool derive_m86_address_from_serial(uint8_t* local_addr) {
 +  char hardware[PROPERTY_VALUE_MAX] = {0};
@@ -41,8 +58,10 @@ diff --git a/hardware/bluetooth/bluetooth_address.cc b/hardware/bluetooth/blueto
 +
 +  char serial[PROPERTY_VALUE_MAX] = {0};
 +  if (property_get("ro.serialno", serial, nullptr) <= 0 &&
-+      property_get("ro.boot.serialno", serial, nullptr) <= 0) {
-+    ALOGE("%s: m86 has no factory BDA or device serial", __func__);
++      property_get("ro.boot.serialno", serial, nullptr) <= 0 &&
++      !read_m86_published_serial(serial)) {
++    ALOGE("%s: m86 has no factory BDA or published device serial",
++          __func__);
 +    return false;
 +  }
 +
@@ -71,7 +90,7 @@ diff --git a/hardware/bluetooth/bluetooth_address.cc b/hardware/bluetooth/blueto
  void BluetoothAddress::bytes_to_string(const uint8_t* addr, char* addr_str) {
    sprintf(addr_str, "%02x:%02x:%02x:%02x:%02x:%02x", addr[0], addr[1], addr[2],
            addr[3], addr[4], addr[5]);
-@@ -87,6 +126,8 @@ bool BluetoothAddress::get_local_address(uint8_t* local_addr) {
+@@ -87,6 +161,8 @@ bool BluetoothAddress::get_local_address(uint8_t* local_addr) {
      return true;
    }
  
@@ -80,5 +99,3 @@ diff --git a/hardware/bluetooth/bluetooth_address.cc b/hardware/bluetooth/blueto
    return false;
  }
  
--- 
-2.34.1
