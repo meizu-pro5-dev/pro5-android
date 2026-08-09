@@ -152,6 +152,11 @@ export KBUILD_BUILD_USER=pro5-port
 export KBUILD_BUILD_HOST=autodl
 export KBUILD_BUILD_VERSION=1
 export KBUILD_BUILD_TIMESTAMP='Sat Sep 29 16:28:54 UTC 2018'
+# The builder exposes 128 configured CPUs through sysconf but grants this job
+# 32 CPUs. Android 10 dex2oat uses the configured count by default, creating
+# 128 compiler workers and exhausting its mmap arena. Match dex2oat to Ninja's
+# reviewed job count instead of the host-wide configured CPU count.
+export ART_BOOT_IMAGE_EXTRA_ARGS="-j$jobs"
 
 ccache --max-size=25G
 ccache --zero-stats
