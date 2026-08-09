@@ -1,3 +1,0 @@
-# Empty root-image mountpoints for the read-only Meizu auxiliary partitions.
-/custom    u:object_r:rootfs:s0
-/mnv       u:object_r:rootfs:s0

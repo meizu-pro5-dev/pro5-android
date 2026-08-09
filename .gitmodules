@@ -1,0 +1,12 @@
+[submodule "device/meizu/m86"]
+	path = device/meizu/m86
+	url = ../android_device_meizu_m86.git
+	branch = lineage-17.1
+[submodule "kernel/meizu/m86"]
+	path = kernel/meizu/m86
+	url = ../android_kernel_meizu_m86.git
+	branch = lineage-17.1
+[submodule "vendor/meizu/m86"]
+	path = vendor/meizu/m86
+	url = ../android_vendor_meizu_m86.git
+	branch = lineage-17.1
