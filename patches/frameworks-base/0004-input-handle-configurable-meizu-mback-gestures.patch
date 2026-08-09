@@ -1,0 +1,143 @@
+From 719e17151a4556737a1fc504037aab3226a12266 Mon Sep 17 00:00:00 2001
+From: Codex <codex@openai.com>
+Date: Sun, 9 Aug 2026 15:54:49 +0800
+Subject: [PATCH] input: handle configurable Meizu mBack gestures
+
+---
+ .../server/policy/PhoneWindowManager.java     | 71 +++++++++++++++++++
+ 1 file changed, 71 insertions(+)
+
+diff --git a/services/core/java/com/android/server/policy/PhoneWindowManager.java b/services/core/java/com/android/server/policy/PhoneWindowManager.java
+index 32e5ed0..0269ac4 100644
+--- a/services/core/java/com/android/server/policy/PhoneWindowManager.java
++++ b/services/core/java/com/android/server/policy/PhoneWindowManager.java
+@@ -526,6 +526,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+     int mBackKillTimeout;
+ 
+     int mDeviceHardwareKeys;
++    private boolean mSupportsMback;
+ 
+     // Button wake control flags
+     boolean mHomeWakeScreen;
+@@ -586,6 +587,10 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+     private Action mAppSwitchPressAction;
+     private Action mAppSwitchLongPressAction;
+     private Action mEdgeLongSwipeAction;
++    private Action mMbackTapAction;
++    private Action mMbackDoubleTapAction;
++    private Action mMbackSwipeLeftAction;
++    private Action mMbackSwipeRightAction;
+ 
+     // support for activating the lock screen while the screen is on
+     private HashSet<Integer> mAllowLockscreenWhenOnDisplays = new HashSet<>();
+@@ -924,6 +929,18 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+             resolver.registerContentObserver(LineageSettings.System.getUriFor(
+                     LineageSettings.System.KEY_HOME_DOUBLE_TAP_ACTION), false, this,
+                     UserHandle.USER_ALL);
++            resolver.registerContentObserver(LineageSettings.System.getUriFor(
++                    LineageSettings.System.MBACK_TAP_ACTION), false, this,
++                    UserHandle.USER_ALL);
++            resolver.registerContentObserver(LineageSettings.System.getUriFor(
++                    LineageSettings.System.MBACK_DOUBLE_TAP_ACTION), false, this,
++                    UserHandle.USER_ALL);
++            resolver.registerContentObserver(LineageSettings.System.getUriFor(
++                    LineageSettings.System.MBACK_SWIPE_LEFT_ACTION), false, this,
++                    UserHandle.USER_ALL);
++            resolver.registerContentObserver(LineageSettings.System.getUriFor(
++                    LineageSettings.System.MBACK_SWIPE_RIGHT_ACTION), false, this,
++                    UserHandle.USER_ALL);
+             resolver.registerContentObserver(LineageSettings.System.getUriFor(
+                     LineageSettings.System.KEY_MENU_ACTION), false, this,
+                     UserHandle.USER_ALL);
+@@ -1862,6 +1879,12 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+             case SPLIT_SCREEN:
+                 toggleSplitScreen();
+                 break;
++            case HOME:
++                triggerVirtualKeypress(KeyEvent.KEYCODE_HOME);
++                break;
++            case BACK:
++                triggerVirtualKeypress(KeyEvent.KEYCODE_BACK);
++                break;
+             default:
+                 break;
+         }
+@@ -2174,6 +2197,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+ 
+         mDeviceHardwareKeys = mContext.getResources().getInteger(
+                 org.lineageos.platform.internal.R.integer.config_deviceHardwareKeys);
++        mSupportsMback = SystemProperties.getBoolean("ro.meizu.hardware.mback", false);
+ 
+         updateKeyAssignments();
+ 
+@@ -2380,6 +2404,21 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+                 LineageSettings.System.KEY_EDGE_LONG_SWIPE_ACTION,
+                 mEdgeLongSwipeAction);
+ 
++        mMbackTapAction = Action.BACK;
++        mMbackDoubleTapAction = Action.NOTHING;
++        mMbackSwipeLeftAction = Action.HOME;
++        mMbackSwipeRightAction = Action.APP_SWITCH;
++        if (mSupportsMback) {
++            mMbackTapAction = Action.fromSettings(resolver,
++                    LineageSettings.System.MBACK_TAP_ACTION, mMbackTapAction);
++            mMbackDoubleTapAction = Action.fromSettings(resolver,
++                    LineageSettings.System.MBACK_DOUBLE_TAP_ACTION, mMbackDoubleTapAction);
++            mMbackSwipeLeftAction = Action.fromSettings(resolver,
++                    LineageSettings.System.MBACK_SWIPE_LEFT_ACTION, mMbackSwipeLeftAction);
++            mMbackSwipeRightAction = Action.fromSettings(resolver,
++                    LineageSettings.System.MBACK_SWIPE_RIGHT_ACTION, mMbackSwipeRightAction);
++        }
++
+         mShortPressOnWindowBehavior = SHORT_PRESS_WINDOW_NOTHING;
+         if (mContext.getPackageManager().hasSystemFeature(FEATURE_PICTURE_IN_PICTURE)) {
+             mShortPressOnWindowBehavior = SHORT_PRESS_WINDOW_PICTURE_IN_PICTURE;
+@@ -3052,6 +3091,30 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+             WindowManager.LayoutParams.TYPE_SYSTEM_ERROR,
+         };
+ 
++    private Action getMbackAction(KeyEvent event) {
++        if (!mSupportsMback) {
++            return null;
++        }
++
++        final InputDevice device = event.getDevice();
++        if (device == null || !"fpc1020".equals(device.getName())) {
++            return null;
++        }
++
++        switch (event.getKeyCode()) {
++            case KeyEvent.KEYCODE_F9:
++                return mMbackTapAction;
++            case KeyEvent.KEYCODE_F10:
++                return mMbackDoubleTapAction;
++            case KeyEvent.KEYCODE_F11:
++                return mMbackSwipeLeftAction;
++            case KeyEvent.KEYCODE_F12:
++                return mMbackSwipeRightAction;
++            default:
++                return null;
++        }
++    }
++
+     // TODO(b/117479243): handle it in InputPolicy
+     /** {@inheritDoc} */
+     @Override
+@@ -3102,6 +3165,14 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+                     + repeatCount + " keyguardOn=" + keyguardOn + " canceled=" + canceled);
+         }
+ 
++        final Action mbackAction = getMbackAction(event);
++        if (mbackAction != null) {
++            if (!down && !canceled) {
++                performKeyAction(mbackAction, event);
++            }
++            return -1;
++        }
++
+         // If we think we might have a volume down & power key chord on the way
+         // but we're not sure, then tell the dispatcher to wait a little while and
+         // try again later before dispatching.
+-- 
+2.50.1 (Apple Git-155)
+
