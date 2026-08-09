@@ -49,6 +49,9 @@ uses them if `request_firmware()` cannot obtain the files.
 The firmware parser now bounds the number of parsed values and rejects an
 incomplete or malformed file before falling back to the compiled coefficients.
 
+The complete package and static validation results are recorded in
+`mback-fir-build-2026-08-09.md`.
+
 ## Device validation
 
 After flashing, verify the input and audio paths with:

@@ -73,9 +73,12 @@ Typical control flow:
 `start-build.sh` accepts `kernel`, `bootimage`, `recoveryimage`, or `bacon`.
 It applies the checked-in platform patches and installs the local device,
 kernel, and vendor trees before launching a logged build in tmux. Override the
-memory-safe default 8-way build with `PRO5_BUILD_JOBS`. The builder exposes
+lower-memory default 8-way build with `PRO5_BUILD_JOBS`. The builder exposes
 more host RAM than the job cgroup permits, so high parallelism can make
-`dex2oat` fail an otherwise valid build with `ENOMEM`.
+`dex2oat` fail an otherwise valid build with `ENOMEM`. On the current 60 GiB
+cgroup, a clean dual-architecture boot-image dexpreopt must also be run one
+architecture at a time; the accepted mBack/FIR build and exact workaround are
+recorded in `docs/mback-fir-build-2026-08-09.md`.
 
 `start-kernel-build.sh` is the earlier standalone gate. It needs only the
 LineageOS GCC 4.9 prebuilts, builds the unmodified m86 `Image` and raw
