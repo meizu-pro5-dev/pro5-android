@@ -1,10 +1,16 @@
 # mBack and Flyme 5 FIR implementation
 
-## mBack input path
+## mBack input paths
 
-The FPC1020 driver reports four logical gestures through its `fpc1020` input
-device. The m86 key layout keeps these events distinct instead of exposing
-hard-coded Back or Menu keys:
+The production Flyme 8 Trustonic HAL creates an input device named
+`uinput-fpc`. Flyme's original `uinput-fpc.kl` maps Linux BTN_EAST (305) to a
+private `FINGERPRINT` Android key that AOSP does not define. The Android 10
+port maps scan code 305 to F9, which feeds the configurable mBack tap action.
+
+The retained raw-driver layout is not installed as an active fingerprint
+backend, but remains documented for recovery experiments. It reports four
+logical gestures through its `fpc1020` input device. The m86 key layout keeps
+these events distinct instead of exposing hard-coded Back or Menu keys:
 
 | Gesture | Linux scan codes | Android key |
 | --- | --- | --- |
@@ -15,7 +21,7 @@ hard-coded Back or Menu keys:
 
 Both the driver's slow-swipe and quick-swipe variants are mapped to the same
 directional action. `PhoneWindowManager` accepts these F-keys only when the
-event comes from the input device named `fpc1020`, consumes both down and up,
+event comes from the input device named `uinput-fpc` or `fpc1020`, consumes both down and up,
 and performs the configured action on the uncancelled key-up event. Injected
 Home and Back events therefore cannot recurse into the mBack handler.
 
@@ -30,8 +36,20 @@ LineageParts' official **System > Buttons > mBack** category and are stored in
 
 Each gesture can be assigned no action, Menu, Recents, search, voice search,
 in-app search, camera, sleep, last app, split screen, Home, or Back. The
-three-button navigation bar remains enabled as a fallback while device testing
-is completed.
+official **Disable hardware buttons** switch controls the complete navigation
+mode. It is enabled by default: the three-button navigation bar is visible and
+all mBack navigation gestures are consumed without performing their assigned
+actions. Turning the switch off removes the screen navigation bar and restores
+mBack immediately. The gesture preferences are disabled while mBack itself is
+disabled, and the selected mode persists across reboot.
+
+The device no longer sets `qemu.hw.mainkeys`; that boot-time override would
+make the navigation bar impossible to hide dynamically. A device overlay sets
+`def_force_show_navbar` to `1` for clean installs. On the first boot after an
+upgrade, `PhoneWindowManager` initializes the same safe default once per user,
+then records a private secure marker so subsequent boots and updates preserve
+the user's choice. Fingerprint authentication remains active in either mode;
+only navigation actions from the trusted FPC input names are suppressed.
 
 ## Flyme 5.1.2.0A FIR path
 
@@ -58,16 +76,22 @@ After flashing, verify the input and audio paths with:
 
 ```bash
 adb shell getprop ro.meizu.hardware.mback
+adb shell cat /proc/bus/input/devices
 adb shell getevent -lt /dev/input/eventX
 adb shell settings get lineage_system mback_tap_action
 adb shell settings get lineage_system mback_double_tap_action
 adb shell settings get lineage_system mback_swipe_left_action
 adb shell settings get lineage_system mback_swipe_right_action
+adb shell settings get lineage_system force_show_navbar
+adb shell settings get secure meizu_mback_navbar_initialized
 adb shell dmesg | grep -i 'ess9018.*FIR'
 ```
 
 Confirm all four mBack preferences update immediately, persist across reboot,
 and do not turn unrelated external F9-F12 keyboard events into navigation.
+Toggle **Disable hardware buttons** in both directions and confirm that the
+navigation bar and mBack actions are mutually exclusive without affecting
+fingerprint unlock.
 With wired headphones attached, toggle HiFi and confirm the kernel either logs
 successful `stage1.txt`/`stage2.txt` requests or applies the identical fallback
 without an invalid-coefficient error.

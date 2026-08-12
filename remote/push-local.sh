@@ -26,10 +26,9 @@ rsync -az --delete-delay \
   --exclude '/backups/' \
   --exclude '/evidence/' \
   --exclude '/out/' \
+  --exclude '/outputs/' \
   --exclude '/work/' \
   --exclude '/vendor/meizu/m86/proprietary/' \
-  --exclude '*.img' \
-  --exclude '*.bin' \
   --exclude '*.tar' \
   --exclude '*.tar.*' \
   --exclude '*.zip' \

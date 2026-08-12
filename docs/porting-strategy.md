@@ -1,5 +1,14 @@
 # Meizu PRO 5 Android 10 porting strategy
 
+> Historical bring-up record; not the active execution plan.
+>
+> The authoritative plan is `docs/device-tree-refactor-plan.md`, section 17,
+> with gate state in `docs/domain-gates.tsv`. In particular, NFC and
+> fingerprint are default-hidden independent experiments, and the active
+> sequence is A10 facts/cleanup/build/device → A11 port/build/device → seal.
+> The K0–S1 milestones below describe how the original A10 baseline was
+> obtained; they must not be used to bypass the current M0–M8 gates.
+
 ## Decision
 
 Build LineageOS 17.1 as a legacy, non-Treble Android 10 target on the stock
@@ -158,8 +167,10 @@ inspection identifies `RIL_Init`, Android 7 RIL v12 structures, both
 `/dev/umts_ipc0` and `/dev/umts_ipc1`, and no `RIL_SAP_Init`. LineageOS 17.1's
 compatibility layer accepts RIL versions 6 and newer and registers `slot1` and
 `slot2` as radio 1.1 HIDL instances. The stock `rild_exynos` remains retained
-in the evidence-locked blob inventory but is not started because it exposes
-the pre-HIDL socket service. The Galaxy extended `libril`, `modemloader`,
+in the evidence-locked blob inventory and is not started because it exposes
+the pre-HIDL socket service. The current cleanup-pending product still installs
+that unused byte; M4 removes it from the active product while preserving the
+inventory evidence. The Galaxy extended `libril`, `modemloader`,
 radio-partition arguments, and Galaxy modem firmware are excluded.
 
 The final Flyme ramdisk starts the exact `cbd` blob as `cbd -m user`; that
@@ -212,7 +223,7 @@ FULL/RAW capability until runtime tests support it.
   `/system/bin/gpsd` receives the API 27 linker override. Its old
   binder/gui/OpenSSL dependency surface remains an output-side symbol gate;
   no broad Android 7 platform library is imported.
-- NFC: Android 10's pinned NXP PN5xx HIDL 1.1 service drives the actual
+- NFC experiment (default hidden): Android 10's pinned NXP PN5xx HIDL 1.1 service drives the actual
   `/dev/pn544` PN65T path and exposes the standard `NfcNci` application. The
   final Flyme `libpn547_fw.so` is SHA-256 locked, while every active m86 RF,
   clock, routing and P61 value is preserved in `libnfc-nxp.conf`; the transport
@@ -222,24 +233,22 @@ FULL/RAW capability until runtime tests support it.
   Beam-compatible peer discovery where supported, HCE, screen-off behavior,
   suspend/resume and repeated service restarts; P61 wired/SPI secure-element
   use remains a separate test gate.
-- Fingerprint: Android 10's generic biometrics 2.1 service wraps a 64-bit,
-  source-built m86 HAL and the last public FPC1020 transport/NBIS matcher from
-  the archived m86 tree. The archived code is patched for per-user storage,
-  checked I/O, current Clang and joinable cancellation; the feature, VINTF
-  declaration and only the sysfs nodes actually used by capture/navigation are
-  owned by m86. Flyme 8 contains neither a reusable fingerprint HAL nor a
-  compatible trusted application, so matching and metadata remain in normal
-  Android userspace and the returned authentication token deliberately has a
-  zero HMAC. This can be evaluated for convenience screen unlock only: it is
-  not a strong biometric and cannot authorize Keystore-bound keys. Runtime
-  acceptance requires enroll/enumerate/authenticate/remove for two Android
+- Fingerprint experiment (default hidden): Android 10's generic biometrics 2.1 service wraps the final
+  Flyme 8 64-bit `fingerprint.m86.so` and `lib_fpc_tac_shared.so`. The verified
+  0401 Trustonic TA performs capture, liveness, enrollment, matching and
+  template updates for FPC1150/FPC2050; the kernel retains SPI4 `secure-mode`
+  and exposes only the production `irq`, `wakeup_enable`, `clk_enable` and
+  `lock_freq` ABI. `mcDriverDaemon` starts after `/data` with the stock secure
+  SPI driver and registry path. Runtime acceptance requires enrollment quality
+  and attempt count comparable to Flyme 8, authenticate/remove for two Android
   users, reboot persistence, cancel/timeout, five-template capacity, repeated
-  service restarts, suspend/resume and confirmation that auth-bound keys reject
-  its non-TEE token.
+  service restarts, suspend/resume and auth-token validation.
 - Power: Android 10's power 1.0 service wraps a source-built m86 module. The
   module preserves the maintained kernel's interactive-governor boost pulse,
-  `exynos_march_cpu_hotplug` balanced/eco profiles and FPC navigation switch,
-  but does not import Galaxy frequency tables. Runtime acceptance covers UI
+  `exynos_march_cpu_hotplug` balanced/eco profiles, while the secure FPC HAL
+  owns navigation lifecycle directly; it does not use the retired raw
+  driver's `/proc/nav_switch` or import Galaxy frequency tables. Runtime
+  acceptance covers UI
   interaction latency, battery saver entry/exit, screen-off suspend, wakeup
   sources and a repeated suspend/resume battery-and-temperature soak.
 
@@ -257,7 +266,7 @@ Every file must be reconciled with the verified Flyme 8 system image:
 7. keep proprietary bytes out of the local Git history while retaining the
    extraction list, generated build definitions and hashes locally.
 
-## Milestones and gates
+## Historical milestones and gates
 
 | Milestone | Build gate | Device gate |
 | --- | --- | --- |

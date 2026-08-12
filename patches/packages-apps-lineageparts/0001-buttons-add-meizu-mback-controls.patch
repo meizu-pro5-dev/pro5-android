@@ -8,8 +8,8 @@ Subject: [PATCH] buttons: add Meizu mBack controls
  res/values/arrays.xml                         | 31 ++++++++++++
  res/values/strings.xml                        |  7 +++
  res/xml/button_settings.xml                   | 38 +++++++++++++++
- .../lineageparts/input/ButtonSettings.java    | 48 +++++++++++++++++++
- 5 files changed, 131 insertions(+)
+ .../lineageparts/input/ButtonSettings.java    | 61 +++++++++++++++++--
+ 5 files changed, 144 insertions(+), 3 deletions(-)
 
 diff --git a/res/values-zh-rCN/strings.xml b/res/values-zh-rCN/strings.xml
 index c117a1d..db8f4aa 100644
@@ -203,6 +203,24 @@ index 423dc60..d75e8b6 100644
          // Power button ends calls.
          mPowerEndCall = findPreference(KEY_POWER_END_CALL);
  
+@@ -240,7 +264,7 @@ public class ButtonSettings extends SettingsPreferenceFragment
+         mEdgeLongSwipeAction = initList(KEY_EDGE_LONG_SWIPE, edgeLongSwipeAction);
+ 
+         // Hardware key disabler
+-        if (isKeyDisablerSupported(getActivity())) {
++        if (supportsNavigationKeyToggle(getActivity())) {
+             // Remove keys that can be provided by the navbar
+             updateDisableNavkeysOption();
+             mNavigationPreferencesCat.setEnabled(mDisableNavigationKeys.isChecked());
+@@ -398,7 +422,7 @@ public class ButtonSettings extends SettingsPreferenceFragment
+ 
+         // Only show the navigation bar category on devices that have a navigation bar
+         // or support disabling the hardware keys
+-        if (!hasNavigationBar() && !isKeyDisablerSupported(getActivity())) {
++        if (!hasNavigationBar() && !supportsNavigationKeyToggle(getActivity())) {
+             prefScreen.removePreference(mNavigationPreferencesCat);
+         }
+ 
 @@ -577,6 +601,22 @@ public class ButtonSettings extends SettingsPreferenceFragment
              handleListChange(mEdgeLongSwipeAction, newValue,
                      LineageSettings.System.KEY_EDGE_LONG_SWIPE_ACTION);
@@ -226,7 +244,40 @@ index 423dc60..d75e8b6 100644
          }
          return false;
      }
-@@ -772,6 +812,14 @@ public class ButtonSettings extends SettingsPreferenceFragment
+@@ -606,7 +646,9 @@ public class ButtonSettings extends SettingsPreferenceFragment
+         final PreferenceCategory assistCategory =
+                 prefScreen.findPreference(CATEGORY_ASSIST);
+         final PreferenceCategory appSwitchCategory =
+                 prefScreen.findPreference(CATEGORY_APPSWITCH);
++        final PreferenceCategory mbackCategory =
++                prefScreen.findPreference(CATEGORY_MBACK);
+         final ButtonBacklightBrightness backlight =
+                 (ButtonBacklightBrightness) prefScreen.findPreference(KEY_BUTTON_BACKLIGHT);
+ 
+@@ -662,7 +704,10 @@ public class ButtonSettings extends SettingsPreferenceFragment
+         if (assistCategory != null) {
+             assistCategory.setEnabled(!navbarEnabled);
+         }
+         if (appSwitchCategory != null) {
+             appSwitchCategory.setEnabled(!navbarEnabled);
+         }
++        if (mbackCategory != null) {
++            mbackCategory.setEnabled(!navbarEnabled);
++        }
+     }
+@@ -681,6 +726,11 @@ public class ButtonSettings extends SettingsPreferenceFragment
+         return hardware.isSupported(LineageHardwareManager.FEATURE_KEY_DISABLE);
+     }
+ 
++    private static boolean supportsNavigationKeyToggle(Context context) {
++        return isKeyDisablerSupported(context)
++                || SystemProperties.getBoolean("ro.meizu.hardware.mback", false);
++    }
++
+     public static void restoreKeyDisabler(Context context) {
+         if (!isKeyDisablerSupported(context)) {
+             return;
+@@ -772,6 +822,14 @@ public class ButtonSettings extends SettingsPreferenceFragment
                  result.add(KEY_VOLUME_ANSWER_CALL);
              }
  
@@ -241,6 +292,14 @@ index 423dc60..d75e8b6 100644
              if (!DeviceUtils.hasBackKey(context)) {
                  result.add(CATEGORY_BACK);
                  result.add(KEY_BACK_WAKE_SCREEN);
+@@ -843,7 +901,7 @@ public class ButtonSettings extends SettingsPreferenceFragment
+                 result.add(KEY_TORCH_LONG_PRESS_POWER_TIMEOUT);
+             }
+ 
+-            if (!isKeyDisablerSupported(context)) {
++            if (!supportsNavigationKeyToggle(context)) {
+                 result.add(KEY_DISABLE_NAV_KEYS);
+             }
+ 
 -- 
 2.50.1 (Apple Git-155)
-

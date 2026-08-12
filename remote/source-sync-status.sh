@@ -12,8 +12,12 @@ set -euo pipefail
 remote_root="$1"
 session_name="pro5-source-sync"
 log_file="$remote_root/logs/source-sync.log"
+launcher="$remote_root/local/remote/detached-worker.sh"
+worker="$remote_root/local/remote/worker-sync-source.sh"
 
-if tmux has-session -t "$session_name" 2>/dev/null; then
+if [[ -x "$launcher" ]] && "$launcher" running "$session_name"; then
+  printf 'state: running\n'
+elif pgrep -f "$worker" >/dev/null 2>&1; then
   printf 'state: running\n'
 else
   printf 'state: stopped\n'

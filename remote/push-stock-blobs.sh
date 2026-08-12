@@ -7,6 +7,8 @@ project_root="$(cd "$script_dir/.." && pwd)"
 # shellcheck source=common.sh
 source "$script_dir/common.sh"
 
+"$script_dir/push-stock-dtb.sh"
+
 stock_dump="${PRO5_STOCK_DUMP:-$project_root/../work/pro5-flyme-8.0.5.0A/blob-dump}"
 remote_dump="$PRO5_REMOTE_ROOT/stock/flyme-8.0.5.0A/blob-dump"
 manifest="$stock_dump/PROPRIETARY_SHA256SUMS"

@@ -14,15 +14,11 @@ set -euo pipefail
 remote_root="$1"
 session_name="pro5-source-sync"
 worker="$remote_root/local/remote/worker-sync-source.sh"
+launcher="$remote_root/local/remote/detached-worker.sh"
 
-if tmux has-session -t "$session_name" 2>/dev/null; then
-  printf 'tmux session %s is already running\n' "$session_name"
-  exit 0
-fi
-
-chmod 0755 "$worker"
-tmux new-session -d -s "$session_name" "$worker"
-printf 'Started tmux session %s: bounded per-project sync\n' "$session_name"
+chmod 0755 "$worker" "$launcher"
+"$launcher" start "$session_name" "$worker"
+printf 'Started detached worker %s: bounded per-project sync\n' "$session_name"
 REMOTE
 
 "$script_dir/source-sync-status.sh"

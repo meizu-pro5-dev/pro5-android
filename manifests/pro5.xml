@@ -19,11 +19,6 @@
       revision="refs/heads/lineage-17.1"
       clone-depth="1" />
   <project
-      path="external/glib"
-      name="platform/external/bluetooth/glib"
-      remote="aosp"
-      revision="1143b9918eab068401b604eb11c3f651f4e38b25" />
-  <project
       path="hardware/samsung"
       name="universal7420/android_hardware_samsung"
       remote="github-root"

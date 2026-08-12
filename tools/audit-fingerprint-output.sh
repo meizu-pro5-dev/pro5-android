@@ -2,21 +2,73 @@
 
 set -euo pipefail
 
-if [[ "$#" -ne 1 ]]; then
-  printf 'Usage: %s <product-out>\n' "${0##*/}" >&2
+if [[ "$#" -lt 1 ]] || [[ "$#" -gt 2 ]]; then
+  printf 'Usage: %s <product-out> [absent|experiment]\n' "${0##*/}" >&2
   exit 2
 fi
 
 product_out="$1"
+mode="${2:-absent}"
 vendor_out="$product_out/system/vendor"
-fingerprint_hal="$vendor_out/lib64/hw/fingerprint.m86.so"
+system_out="$product_out/system"
+fingerprint_hal="$system_out/lib64/hw/fingerprint.m86.so"
+fingerprint_tac="$system_out/lib64/lib_fpc_tac_shared.so"
+mc_daemon="$system_out/bin/mcDriverDaemon"
+mc_driver="$system_out/app/020a0000000000000000000000000000.drbin"
+fingerprint_ta="$system_out/app/mcRegistry/04010000000000000000000000000000.tlbin"
 fingerprint_service="$vendor_out/bin/hw/android.hardware.biometrics.fingerprint@2.1-service"
 fingerprint_rc="$vendor_out/etc/init/android.hardware.biometrics.fingerprint@2.1-service.rc"
 vendor_manifest="$vendor_out/etc/vintf/manifest.xml"
 fingerprint_permission="$vendor_out/etc/permissions/android.hardware.fingerprint.xml"
+shadow_fingerprint_hal="$vendor_out/lib64/hw/fingerprint.m86.so"
+
+case "$mode" in
+  absent)
+    for forbidden_output in \
+      "$fingerprint_hal" \
+      "$fingerprint_tac" \
+      "$mc_daemon" \
+      "$mc_driver" \
+      "$fingerprint_ta" \
+      "$fingerprint_service" \
+      "$fingerprint_rc" \
+      "$fingerprint_permission" \
+      "$shadow_fingerprint_hal"; do
+      if [[ -e "$forbidden_output" ]]; then
+        printf 'Default product exposes deferred fingerprint output: %s\n' \
+          "$forbidden_output" >&2
+        exit 1
+      fi
+    done
+    if [[ -f "$vendor_manifest" ]] && \
+        grep -F -q '<name>android.hardware.biometrics.fingerprint</name>' \
+          "$vendor_manifest"; then
+      printf 'Default product declares the deferred fingerprint HAL.\n' >&2
+      exit 1
+    fi
+    printf 'fingerprint_default=hidden\n'
+    printf 'fingerprint output absence audit passed.\n'
+    exit 0
+    ;;
+  experiment) ;;
+  *)
+    printf 'Unsupported fingerprint audit mode: %s\n' "$mode" >&2
+    exit 2
+    ;;
+esac
+
+if [[ -e "$shadow_fingerprint_hal" ]]; then
+  printf 'A higher-priority vendor fingerprint HAL shadows Flyme 8: %s\n' \
+    "$shadow_fingerprint_hal" >&2
+  exit 1
+fi
 
 for required_output in \
   "$fingerprint_hal" \
+  "$fingerprint_tac" \
+  "$mc_daemon" \
+  "$mc_driver" \
+  "$fingerprint_ta" \
   "$fingerprint_service" \
   "$fingerprint_rc" \
   "$vendor_manifest" \
@@ -27,7 +79,8 @@ for required_output in \
   fi
 done
 
-for elf_file in "$fingerprint_hal" "$fingerprint_service"; do
+for elf_file in "$fingerprint_hal" "$fingerprint_tac" "$mc_daemon" \
+  "$fingerprint_service"; do
   if ! readelf -h "$elf_file" | \
       grep -Eq 'Class:[[:space:]]+ELF64'; then
     printf 'Fingerprint output is not ELF64: %s\n' "$elf_file" >&2
@@ -58,10 +111,16 @@ require_needed() {
   fi
 }
 
-require_needed "$fingerprint_hal" libglib.so
+require_needed "$fingerprint_hal" lib_fpc_tac_shared.so
+require_needed "$fingerprint_tac" libMcClient.so
 require_needed "$fingerprint_service" \
   android.hardware.biometrics.fingerprint@2.1.so
 require_needed "$fingerprint_service" libhardware.so
+
+if strings "$fingerprint_hal" | grep -F -q '/dev/fpc1020'; then
+  printf 'The active fingerprint HAL still contains the raw FPC1020 backend.\n' >&2
+  exit 1
+fi
 
 for manifest_contract in \
   '<name>android.hardware.biometrics.fingerprint</name>' \
@@ -89,8 +148,28 @@ fi
 
 printf 'fingerprint_hal_sha256=%s\n' \
   "$(sha256sum "$fingerprint_hal" | awk '{ print $1 }')"
+if [[ "$(sha256sum "$fingerprint_hal" | awk '{ print $1 }')" != \
+    "aff55391dbc02df8657257d917ed83a56f6a19fe6a9a8834eba5e54d8df58fbe" ]]; then
+  printf 'Fingerprint HAL does not match Flyme 8.0.5.0A.\n' >&2
+  exit 1
+fi
+if [[ "$(sha256sum "$fingerprint_tac" | awk '{ print $1 }')" != \
+    "3915223313767fcd30c84b1cb41a1c975fd4fe52e90f03e7e3c082d1cdfdd09c" ]]; then
+  printf 'Fingerprint TAC does not match Flyme 8.0.5.0A.\n' >&2
+  exit 1
+fi
+if [[ "$(sha256sum "$fingerprint_ta" | awk '{ print $1 }')" != \
+    "8aa172d0d34428151fa10d8232e56c8ef664e159e96a88a2477cd1718d05851f" ]]; then
+  printf 'Fingerprint TA does not match Flyme 8.0.5.0A.\n' >&2
+  exit 1
+fi
+printf 'fingerprint_tac_sha256=%s\n' \
+  "$(sha256sum "$fingerprint_tac" | awk '{ print $1 }')"
+printf 'fingerprint_ta_sha256=%s\n' \
+  "$(sha256sum "$fingerprint_ta" | awk '{ print $1 }')"
 printf 'fingerprint_service_sha256=%s\n' \
   "$(sha256sum "$fingerprint_service" | awk '{ print $1 }')"
 printf 'fingerprint_abi=ELF64 AArch64\n'
 printf 'fingerprint_hidl=2.1/default\n'
+printf 'fingerprint_backend=Flyme8 FPC Trustonic secure world\n'
 printf 'fingerprint output audit passed.\n'

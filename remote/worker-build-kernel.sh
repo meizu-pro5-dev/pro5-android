@@ -12,6 +12,7 @@ run_root="$remote_root/run"
 artifact_root="$remote_root/artifacts"
 
 jobs="${1:-8}"
+requested_jobs="$jobs"
 status_file="${2:-$run_root/kernel-latest.status}"
 log_file="${3:-$run_root/kernel-latest.log}"
 build_stamp="${4:-$(date +%Y%m%d-%H%M%S)}"
@@ -43,6 +44,16 @@ trap 'write_status $?' EXIT
 trap 'exit 143' TERM
 trap 'exit 130' INT
 trap 'exit 129' HUP
+
+memory_plan_file="$run_root/kernel-$build_stamp-memory-plan.txt"
+"$script_dir/prepare-builder-memory.sh" \
+  "$requested_jobs" kernel "$out_root" "$memory_plan_file"
+jobs="$(awk -F= '$1 == "effective_jobs" { print $2 }' "$memory_plan_file")"
+if [[ ! "$jobs" =~ ^[1-9][0-9]*$ ]]; then
+  printf 'Builder memory plan produced an invalid job count: %s\n' \
+    "$jobs" >&2
+  exit 1
+fi
 
 aarch64_toolchain="$source_root/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9"
 arm_toolchain="$source_root/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9"
@@ -82,8 +93,8 @@ make_args=(
 )
 
 printf 'Standalone kernel build started at %s\n' "$(date --iso-8601=seconds)"
-printf 'Kernel: %s\nOutput: %s\nJobs: %s\nLocal commit: %s\n' \
-  "$kernel_root" "$out_root" "$jobs" "$local_commit"
+printf 'Kernel: %s\nOutput: %s\nRequested jobs: %s\nJobs: %s\nLocal commit: %s\n' \
+  "$kernel_root" "$out_root" "$requested_jobs" "$jobs" "$local_commit"
 
 if [[ "$remote_root" == "/" ]] || \
     [[ "$out_root" != "$remote_root/out/kernel-m86" ]]; then
@@ -136,6 +147,7 @@ install -m 0644 "$kernel_dtb" "$artifact_dir/exynos7420-m86-codegen.dtb"
 install -m 0644 "$out_root/.config" "$artifact_dir/kernel.config"
 install -m 0644 "$kernel_exfat_lock" \
   "$artifact_dir/kernel-exfat-exynos7420.sha256"
+install -m 0644 "$memory_plan_file" "$artifact_dir/BUILD-MEMORY.txt"
 (
   cd "$out_root"
   sha256sum fs/exfat/exfat_core.o fs/exfat/exfat_fs.o

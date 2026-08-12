@@ -19,13 +19,14 @@ remote_root="$1"
 tail_lines="$2"
 session_name="pro5-build"
 run_root="$remote_root/run"
+launcher="$remote_root/local/remote/detached-worker.sh"
 status_file="$run_root/build-latest.status"
 log_file="$run_root/build-latest.log"
 
-if tmux has-session -t "$session_name" 2>/dev/null; then
+if [[ -x "$launcher" ]] && \
+    "$launcher" running "$session_name" >/dev/null 2>&1; then
   printf 'state: running\n'
-  tmux list-panes -t "$session_name" \
-    -F 'pid=#{pane_pid} active=#{pane_active} command=#{pane_current_command}'
+  sed -n 's/^pid=/pid=/p' "$run_root/$session_name.pid"
 else
   printf 'state: stopped\n'
 fi

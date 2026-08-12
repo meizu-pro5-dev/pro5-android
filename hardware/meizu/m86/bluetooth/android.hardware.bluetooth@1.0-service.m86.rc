@@ -1,0 +1,13 @@
+service vendor.bluetooth-m86 /vendor/bin/hw/android.hardware.bluetooth@1.0-service.m86
+    class hal
+    disabled
+    interface android.hardware.bluetooth@1.0::IBluetoothHci default
+    capabilities BLOCK_SUSPEND NET_ADMIN SYS_NICE
+    user bluetooth
+    group bluetooth
+    writepid /dev/stune/foreground/tasks
+
+# Bluetooth owns its service lifecycle. The identity helper only publishes a
+# stable per-device input; it does not start or stop a foreign service.
+on property:vendor.m86.identity.ready=1
+    start vendor.bluetooth-m86

@@ -1,0 +1,2 @@
+date	milestone	domain	skipped_gate	requested_by	scope	disposition	evidence
+2026-08-11	M1	boot-chain+ramdisk-adb	repeated cold boots and 20 physical USB reconnects	user	permit M2 A10 observe/clean/build/device work only; A11 and release seal remain blocked	accepted-risk	evidence/m1-device-20260811/README.md

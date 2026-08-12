@@ -13,6 +13,7 @@ artifact_root="$remote_root/artifacts"
 twrp_patch_series="$local_root/patches/twrp-series.tsv"
 
 jobs="${1:-8}"
+requested_jobs="$jobs"
 status_file="${2:-$run_root/twrp-build-latest.status}"
 log_file="${3:-$run_root/twrp-build-latest.log}"
 build_stamp="${4:-$(date +%Y%m%d-%H%M%S)}"
@@ -52,6 +53,16 @@ trap 'write_status $?' EXIT
 trap 'exit 143' TERM
 trap 'exit 130' INT
 trap 'exit 129' HUP
+
+memory_plan_file="$run_root/twrp-$build_stamp-memory-plan.txt"
+"$script_dir/prepare-builder-memory.sh" \
+  "$requested_jobs" twrp "$build_out" "$memory_plan_file"
+jobs="$(awk -F= '$1 == "effective_jobs" { print $2 }' "$memory_plan_file")"
+if [[ ! "$jobs" =~ ^[1-9][0-9]*$ ]]; then
+  printf 'Builder memory plan produced an invalid job count: %s\n' \
+    "$jobs" >&2
+  exit 1
+fi
 
 # shellcheck source=builder-network.sh
 source "$script_dir/builder-network.sh"
@@ -189,8 +200,8 @@ ccache --max-size=25G
 ccache --zero-stats
 
 printf 'TWRP build started at %s\n' "$(date --iso-8601=seconds)"
-printf 'Source: %s\nJobs: %s\nStable output for both passes: %s\n' \
-  "$source_root" "$jobs" "$build_out"
+printf 'Source: %s\nRequested jobs: %s\nJobs: %s\nStable output for both passes: %s\n' \
+  "$source_root" "$requested_jobs" "$jobs" "$build_out"
 printf 'Local revision: %s\n' "$local_revision"
 printf 'Kernel profile: %s\n' "$kernel_profile"
 printf 'Python: %s\n' "$(python2.7 --version 2>&1)"
@@ -476,6 +487,7 @@ cp -a "$local_root/twrp/FLASHING.md" "$artifact_dir/FLASHING.md"
 cp -a "$local_root/locks/stock-flyme-8.0.5.0A.sha256" \
   "$artifact_dir/stock-flyme-8.0.5.0A.sha256"
 cp -a "$kernel_exfat_lock" "$artifact_dir/kernel-exfat-exynos7420.sha256"
+cp -a "$memory_plan_file" "$artifact_dir/BUILD-MEMORY.txt"
 (
   cd "$kernel_out"
   sha256sum fs/exfat/exfat_core.o fs/exfat/exfat_fs.o
@@ -613,6 +625,7 @@ twrp_version="$(
   printf 'pass1_snapshot=%s\n' "$snapshot_root"
   printf 'output_path_policy=same absolute OUT_DIR for both clean passes\n'
   printf 'jobs=%s\n' "$jobs"
+  printf 'requested_jobs=%s\n' "$requested_jobs"
   printf 'build_datetime=%s\n' "$BUILD_DATETIME"
   printf 'build_number=%s\n' "$BUILD_NUMBER"
   printf 'clean_build_passes=2\n'

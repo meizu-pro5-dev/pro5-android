@@ -4,17 +4,19 @@ Date: Sun, 9 Aug 2026 15:54:49 +0800
 Subject: [PATCH] input: handle configurable Meizu mBack gestures
 
 ---
- .../server/policy/PhoneWindowManager.java     | 71 +++++++++++++++++++
- 1 file changed, 71 insertions(+)
+ .../server/policy/PhoneWindowManager.java     | 90 +++++++++++++++++++
+ 1 file changed, 90 insertions(+)
 
 diff --git a/services/core/java/com/android/server/policy/PhoneWindowManager.java b/services/core/java/com/android/server/policy/PhoneWindowManager.java
 index 32e5ed0..0269ac4 100644
 --- a/services/core/java/com/android/server/policy/PhoneWindowManager.java
 +++ b/services/core/java/com/android/server/policy/PhoneWindowManager.java
-@@ -526,6 +526,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+@@ -526,6 +526,9 @@ public class PhoneWindowManager implements WindowManagerPolicy {
      int mBackKillTimeout;
  
      int mDeviceHardwareKeys;
++    private static final String MEIZU_MBACK_NAVBAR_INITIALIZED =
++            "meizu_mback_navbar_initialized";
 +    private boolean mSupportsMback;
  
      // Button wake control flags
@@ -70,7 +72,7 @@ index 32e5ed0..0269ac4 100644
  
          updateKeyAssignments();
  
-@@ -2380,6 +2404,21 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+@@ -2380,6 +2406,21 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                  LineageSettings.System.KEY_EDGE_LONG_SWIPE_ACTION,
                  mEdgeLongSwipeAction);
  
@@ -92,7 +94,29 @@ index 32e5ed0..0269ac4 100644
          mShortPressOnWindowBehavior = SHORT_PRESS_WINDOW_NOTHING;
          if (mContext.getPackageManager().hasSystemFeature(FEATURE_PICTURE_IN_PICTURE)) {
              mShortPressOnWindowBehavior = SHORT_PRESS_WINDOW_PICTURE_IN_PICTURE;
-@@ -3052,6 +3091,30 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+@@ -2386,5 +2427,21 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+         }
+     }
+ 
++    private void initializeMbackNavbarDefault() {
++        if (!mSupportsMback || Settings.Secure.getIntForUser(
++                mContext.getContentResolver(), MEIZU_MBACK_NAVBAR_INITIALIZED, 0,
++                UserHandle.USER_CURRENT) != 0) {
++            return;
++        }
++
++        final ContentResolver resolver = mContext.getContentResolver();
++        if (LineageSettings.System.putIntForUser(resolver,
++                LineageSettings.System.FORCE_SHOW_NAVBAR, 1, UserHandle.USER_CURRENT)) {
++            Settings.Secure.putIntForUser(resolver,
++                    MEIZU_MBACK_NAVBAR_INITIALIZED, 1, UserHandle.USER_CURRENT);
++        }
++    }
++
+     public void updateSettings() {
++        initializeMbackNavbarDefault();
+         ContentResolver resolver = mContext.getContentResolver();
+@@ -3052,6 +3109,31 @@ public class PhoneWindowManager implements WindowManagerPolicy {
              WindowManager.LayoutParams.TYPE_SYSTEM_ERROR,
          };
  
@@ -102,7 +126,8 @@ index 32e5ed0..0269ac4 100644
 +        }
 +
 +        final InputDevice device = event.getDevice();
-+        if (device == null || !"fpc1020".equals(device.getName())) {
++        if (device == null || (!"fpc1020".equals(device.getName())
++                && !"uinput-fpc".equals(device.getName()))) {
 +            return null;
 +        }
 +
@@ -123,13 +148,13 @@ index 32e5ed0..0269ac4 100644
      // TODO(b/117479243): handle it in InputPolicy
      /** {@inheritDoc} */
      @Override
-@@ -3102,6 +3165,14 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+@@ -3102,6 +3184,14 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                      + repeatCount + " keyguardOn=" + keyguardOn + " canceled=" + canceled);
          }
  
 +        final Action mbackAction = getMbackAction(event);
 +        if (mbackAction != null) {
-+            if (!down && !canceled) {
++            if (!down && !canceled && mForceNavbar == 0) {
 +                performKeyAction(mbackAction, event);
 +            }
 +            return -1;
@@ -140,4 +165,3 @@ index 32e5ed0..0269ac4 100644
          // try again later before dispatching.
 -- 
 2.50.1 (Apple Git-155)
-

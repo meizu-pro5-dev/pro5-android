@@ -6,7 +6,9 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=common.sh
 source "$script_dir/common.sh"
 
-"$script_dir/push-local.sh"
+if [[ "${PRO5_SKIP_LOCAL_PUSH:-0}" != 1 ]]; then
+  "$script_dir/push-local.sh"
+fi
 
 "${pro5_ssh[@]}" bash -s -- "$PRO5_REMOTE_ROOT" <<'REMOTE'
 set -euo pipefail
@@ -20,8 +22,35 @@ if [[ ! -f "$source_root/.repo/manifest.xml" ]]; then
   exit 1
 fi
 
+tree_fingerprint() {
+  local tree_root="$1"
+  local exclude_proprietary="$2"
+
+  (
+    cd "$tree_root"
+    if [[ "$exclude_proprietary" == true ]]; then
+      find . \
+        \( -type d \( -name .git -o -path './proprietary' \) -prune \) -o \
+        \( -type f -o -type l \) -print0
+    else
+      find . -type d -name .git -prune -o \
+        \( -type f -o -type l \) -print0
+    fi |
+      LC_ALL=C sort -z |
+      while IFS= read -r -d '' input; do
+        if [[ -L "$input" ]]; then
+          printf 'link\t%s\t%s\n' "$input" "$(readlink "$input")"
+        else
+          printf 'file\t%s\t' "$input"
+          sha256sum "$input" | awk '{ print $1 }'
+        fi
+      done
+  ) | sha256sum | awk '{ print $1 }'
+}
+
 for relative_path in \
   device/meizu/m86 \
+  hardware/meizu/m86 \
   kernel/meizu/m86 \
   vendor/meizu/m86; do
   local_tree="$local_root/$relative_path"
@@ -29,12 +58,17 @@ for relative_path in \
 
   if [[ ! -d "$local_tree" ]] || \
       [[ -z "$(find "$local_tree" -type f -print -quit)" ]]; then
-    printf 'Skipping empty local tree: %s\n' "$relative_path"
-    continue
+    printf 'Required authoritative local tree is missing or empty: %s\n' \
+      "$relative_path" >&2
+    exit 1
   fi
 
   mkdir -p "$build_tree"
-  rsync_args=(-a --delete-delay)
+  # The build checkout may contain the 24 case-sensitive kernel overlay
+  # files from a previous invocation.  They are reinstalled explicitly below
+  # after the authoritative tree is fingerprinted.  Use immediate deletion
+  # here so stale overlay files cannot survive into the fingerprint check.
+  rsync_args=(-a --delete)
   if [[ "$relative_path" == vendor/meizu/m86 ]]; then
     # Proprietary bytes are staged separately from the verified stock dump.
     # They are intentionally absent from the local Git tree and must survive
@@ -42,40 +76,38 @@ for relative_path in \
     rsync_args+=(--exclude proprietary/)
   fi
   rsync "${rsync_args[@]}" "$local_tree/" "$build_tree/"
+  exclude_proprietary=false
+  if [[ "$relative_path" == vendor/meizu/m86 ]]; then
+    exclude_proprietary=true
+  fi
+  local_fingerprint="$(tree_fingerprint \
+    "$local_tree" "$exclude_proprietary")"
+  installed_fingerprint="$(tree_fingerprint \
+    "$build_tree" "$exclude_proprietary")"
+  if [[ "$local_fingerprint" != "$installed_fingerprint" ]]; then
+    printf 'Installed tree fingerprint mismatch: %s\n' "$relative_path" >&2
+    exit 1
+  fi
   printf 'Installed: %s\n' "$relative_path"
 done
 
-# The last m86 community tree is immutable local evidence. Copy only its
-# FPC1020/libfprint implementation into the generated Android build tree, then
-# apply the reviewed Android 10 fixes kept with the active device sources.
-legacy_fprint="$local_root/legacy/device-meizu-m86-cm14/libfprint"
-build_fprint="$source_root/device/meizu/m86/fingerprint/libfprint"
-fprint_patch="$local_root/patches/legacy-m86-libfprint/0001-port-m86-fpc-to-android10.patch"
-
-if [[ ! -f "$legacy_fprint/fpc1150.c" ]] || \
-    [[ ! -f "$legacy_fprint/nbis/mindtct/detect.c" ]]; then
-  printf 'Missing archived m86 libfprint source.\n' >&2
+# The only production DTB owner is the hash-locked Flyme input. Proprietary
+# bytes stay outside Git and are staged into the generated source checkout.
+stock_dtb="$remote_root/stock/flyme-8.0.5.0A/dtb"
+stock_lock="$local_root/locks/stock-flyme-8.0.5.0A.sha256"
+installed_dtb="$source_root/device/meizu/m86/prebuilt/dtb.img"
+expected_dtb_hash="$(awk '$2 == "dtb" { print $1 }' "$stock_lock")"
+if [[ ! "$expected_dtb_hash" =~ ^[0-9a-f]{64}$ ]] || [[ ! -s "$stock_dtb" ]]; then
+  printf 'Verified stock DTB is not staged on the builder.\n' >&2
   exit 1
 fi
-if [[ ! -f "$fprint_patch" ]]; then
-  printf 'Missing Android 10 m86 libfprint patch.\n' >&2
+actual_dtb_hash="$(sha256sum "$stock_dtb" | awk '{ print $1 }')"
+if [[ "$actual_dtb_hash" != "$expected_dtb_hash" ]]; then
+  printf 'Builder stock DTB hash mismatch: %s\n' "$actual_dtb_hash" >&2
   exit 1
 fi
-
-mkdir -p "$build_fprint"
-rsync -a --delete \
-  --exclude Android.mk \
-  --exclude '*_' \
-  --exclude '*__' \
-  "$legacy_fprint/" "$build_fprint/"
-
-if [[ "$(find "$build_fprint" -type f | wc -l | tr -d ' ')" != "42" ]]; then
-  printf 'Expected 42 archived m86 libfprint build files.\n' >&2
-  exit 1
-fi
-git -C "$build_fprint" apply --check "$fprint_patch"
-git -C "$build_fprint" apply "$fprint_patch"
-printf 'Installed: patched m86 FPC1020/libfprint source\n'
+install -D -m 0644 "$stock_dtb" "$installed_dtb"
+printf 'Installed: locked stock DTB (%s)\n' "$actual_dtb_hash"
 
 overlay_root="$local_root/overlays/kernel-meizu-m86-case-sensitive"
 overlay_hashes="$overlay_root/SHA256SUMS"

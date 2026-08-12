@@ -11,7 +11,8 @@ if [[ ! "$PRO5_BUILDER_PORT" =~ ^[0-9]+$ ]]; then
   exit 2
 fi
 
-if [[ ! "$PRO5_REMOTE_ROOT" =~ ^/root/autodl-tmp/[A-Za-z0-9._/-]+$ ]]; then
+if [[ ! "$PRO5_REMOTE_ROOT" =~ ^/root/autodl-tmp/[A-Za-z0-9._/-]+$ ]] || \
+    [[ "$PRO5_REMOTE_ROOT" == *'/../'* ]] || [[ "$PRO5_REMOTE_ROOT" == */.. ]]; then
   printf 'Refusing unsafe PRO5_REMOTE_ROOT: %s\n' "$PRO5_REMOTE_ROOT" >&2
   exit 2
 fi

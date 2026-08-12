@@ -147,7 +147,6 @@ remove_reviewed_project_patches() {
 platform_projects=(
   build/soong
   device/samsung/universal7420-common
-  external/glib
   hardware/samsung
   hardware/samsung_slsi/exynos
   hardware/samsung_slsi/exynos5

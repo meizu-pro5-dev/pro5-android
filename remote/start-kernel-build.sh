@@ -28,13 +28,15 @@ jobs="$2"
 local_commit="$3"
 session_name="pro5-kernel-build"
 worker="$remote_root/local/remote/worker-build-kernel.sh"
+launcher="$remote_root/local/remote/detached-worker.sh"
 run_root="$remote_root/run"
 build_stamp="$(date +%Y%m%d-%H%M%S)"
 status_file="$run_root/kernel-latest.status"
 log_file="$run_root/kernel-$build_stamp.log"
 
-if tmux has-session -t "$session_name" 2>/dev/null; then
-  printf 'tmux session %s is already running\n' "$session_name"
+if [[ -x "$launcher" ]] && \
+    "$launcher" running "$session_name" >/dev/null 2>&1; then
+  printf 'Detached worker %s is already running.\n' "$session_name"
   exit 0
 fi
 
@@ -42,12 +44,10 @@ mkdir -p "$run_root"
 rm -f -- "$status_file"
 : > "$log_file"
 ln -sfn "$(basename "$log_file")" "$run_root/kernel-latest.log"
-chmod 0755 "$worker"
-
-printf -v worker_command '%q %q %q %q %q %q' \
+chmod 0755 "$worker" "$launcher"
+"$launcher" start "$session_name" \
   "$worker" "$jobs" "$status_file" "$log_file" "$build_stamp" "$local_commit"
-tmux new-session -d -s "$session_name" "$worker_command"
-printf 'Started tmux session %s: jobs=%s\n' "$session_name" "$jobs"
+printf 'Started detached worker %s: jobs=%s\n' "$session_name" "$jobs"
 REMOTE
 
 "$script_dir/kernel-build-status.sh"

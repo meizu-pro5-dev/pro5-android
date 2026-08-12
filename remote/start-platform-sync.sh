@@ -14,8 +14,9 @@ set -euo pipefail
 remote_root="$1"
 session_name="pro5-platform-sync"
 worker="$remote_root/local/remote/worker-sync-platform.sh"
+launcher="$remote_root/local/remote/detached-worker.sh"
 
-if tmux has-session -t pro5-source-sync 2>/dev/null; then
+if [[ -x "$launcher" ]] && "$launcher" running pro5-source-sync >/dev/null 2>&1; then
   printf 'Base source sync is still running; platform sync was not started.\n' >&2
   exit 1
 fi
@@ -25,14 +26,9 @@ if [[ ! -s "$remote_root/logs/lineage-17.1-manifest.xml" ]]; then
   exit 1
 fi
 
-if tmux has-session -t "$session_name" 2>/dev/null; then
-  printf 'tmux session %s is already running\n' "$session_name"
-  exit 0
-fi
-
-chmod 0755 "$worker"
-tmux new-session -d -s "$session_name" "$worker"
-printf 'Started tmux session %s\n' "$session_name"
+chmod 0755 "$worker" "$launcher"
+"$launcher" start "$session_name" "$worker"
+printf 'Started detached worker %s\n' "$session_name"
 REMOTE
 
 "$script_dir/platform-sync-status.sh"

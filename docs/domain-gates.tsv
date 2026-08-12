@@ -1,0 +1,24 @@
+milestone	domain	a10_build	a10_device	a10_evidence	a11_build	a11_device	a11_evidence	seal
+M1	boot-chain	passed	pending	evidence/m1-device-20260811/README.md	blocked	blocked	donor-free skeleton only	pending
+M1	partition-dtb	pending	pending	stock baseline passed; M3 raw-FPC four-byte hybrid pending build/flash	blocked	blocked	donor-free skeleton only	pending
+M1	ramdisk-adb	passed	pending	evidence/m1-device-20260811/README.md	blocked	blocked	donor-free skeleton only	pending
+M2	graphics-display	passed	passed	evidence/m2-device-20260811/README.md	blocked	blocked	-	pending
+M3	storage	passed	pending	artifacts/pro5-lineage-20260812-131437-testzip/M3-TARGET-FILES.txt; runtime mount/encryption/I/O pending	blocked	blocked	-	pending
+M3	usb-mtp	passed	pending	artifacts/pro5-lineage-20260812-131437-testzip/M3-TARGET-FILES.txt; host MTP/reconnect/hash matrix pending	blocked	blocked	-	pending
+M3	standard-keys	passed	pending	artifacts/pro5-lineage-20260812-131437-testzip/M3-TARGET-FILES.txt; physical key/wake matrix pending	blocked	blocked	-	pending
+M3	mback	passed	pending	artifacts/pro5-lineage-20260812-131437-testzip/M3-TARGET-FILES.txt; raw producer/four gestures/disabled HOME runtime pending	blocked	blocked	-	pending
+M4	wifi	passed	pending	artifacts/pro5-lineage-20260812-131437-testzip/WIFI-TARGET-FILES.txt; scan/reconnect/hotspot/P2P device matrix pending	blocked	blocked	-	pending
+M4	bluetooth	passed	pending	artifacts/pro5-lineage-20260812-131437-testzip/BLUETOOTH-TARGET-FILES.txt; post-cleanup toggle/pairing/audio/suspend matrix pending	blocked	blocked	-	pending
+M4	radio	passed	pending	artifacts/pro5-lineage-20260812-131437-testzip/RADIO-TARGET-FILES.txt; dual-SIM/SMS/data/call-state device matrix pending	blocked	blocked	-	pending
+M5	normal-audio	passed	pending	artifacts/pro5-lineage-20260812-131437-testzip/M5-AUDIO-TARGET-FILES.txt + M5-AUDIO-ABI.txt; normal route/device gate pending	blocked	blocked	-	pending
+M5	hifi	pending	pending	build/static baseline only	blocked	blocked	-	pending
+M6	lights	pending	pending	build/static baseline only	blocked	blocked	-	pending
+M6	vibrator	pending	pending	build/static baseline only	blocked	blocked	-	pending
+M6	power	pending	pending	build/static baseline only	blocked	blocked	-	pending
+M6	sensors	pending	pending	build/static baseline only	blocked	blocked	-	pending
+M6	gnss	pending	pending	build/static baseline only	blocked	blocked	-	pending
+M7	media-omx	pending	pending	build/static baseline only	blocked	blocked	-	pending
+M7	camera	pending	pending	build/static baseline only	blocked	blocked	-	pending
+M8	nfc-experiment	pending	pending	default hidden; experiment untested	blocked	blocked	-	pending
+M8	fingerprint-experiment	pending	pending	default hidden; experiment untested	blocked	blocked	-	pending
+M8	enforcing-release	pending	pending	permissive/static policy only	blocked	blocked	-	pending

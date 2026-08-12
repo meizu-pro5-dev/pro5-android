@@ -1,23 +1,8 @@
 # repository path	patch path
-build/make	patches/build-make/0001-releasetools-allow-full-ota-without-cache-size.patch
 device/samsung/universal7420-common	patches/device-samsung-universal7420-common/0001-target-add-meizu-m86.patch
-device/samsung/universal7420-common	patches/device-samsung-universal7420-common/0002-bluetooth-add-m86-address-fallback.patch
 device/samsung/universal7420-common	patches/device-samsung-universal7420-common/0003-rild-use-platform-daemon-for-m86.patch
-external/glib	patches/external-glib/0001-build-libglib-for-m86-vendor.patch
-external/glib	patches/external-glib/0003-clang-port-legacy-android-stubs.patch
-lineage-sdk	patches/lineage-sdk/0001-input-add-meizu-mback-actions-and-settings.patch
-frameworks/av	patches/frameworks-av/0001-audioflinger-restore-meizu-headphone-volume.patch
-frameworks/av	patches/frameworks-av/0002-audioflinger-route-meizu-hifi-state-to-output.patch
 frameworks/base	patches/frameworks-base/0001-storage-respect-device-isolated-storage-default.patch
-frameworks/base	patches/frameworks-base/0003-audio-restore-meizu-hifi-routing.patch
-frameworks/base	patches/frameworks-base/0004-input-handle-configurable-meizu-mback-gestures.patch
-packages/apps/Settings	patches/packages-apps-settings/0001-system-add-meizu-hifi-sound.patch
-packages/apps/LineageParts	patches/packages-apps-lineageparts/0001-buttons-add-meizu-mback-controls.patch
-hardware/samsung_slsi/exynos	patches/hardware-samsung-slsi-exynos/0001-gralloc-harden-fbdev-copy-post.patch
 hardware/libhardware	patches/hardware-libhardware/0001-audio-reserve-meizu-legacy-device-slots.patch
 hardware/interfaces	patches/hardware-interfaces/0001-audio-ignore-invalid-legacy-metadata-callback.patch
 hardware/interfaces	patches/hardware-interfaces/0002-audio-guard-missing-legacy-dump-hook.patch
 hardware/interfaces	patches/hardware-interfaces/0003-camera-provider-use-framework-binder-for-legacy-hal.patch
-hardware/interfaces	patches/hardware-interfaces/0004-audio-call-meizu-headphone-volume-hook.patch
-system/core	patches/system-core/0001-adbd-support-legacy-android-usb-transport.patch
-system/core	patches/system-core/0002-adbd-enter-native-android-usb-without-functionfs.patch
