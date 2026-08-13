@@ -14,18 +14,24 @@ if [[ ! "$jobs" =~ ^[1-9][0-9]*$ ]] || ((jobs > 64)); then
 fi
 
 local_commit="$(git -C "$project_root" rev-parse HEAD)"
+kernel_commit="$(git -C "$project_root/kernel/meizu/m86" rev-parse HEAD)"
 if [[ -n "$(git -C "$project_root" status --porcelain --untracked-files=normal)" ]]; then
   local_commit="${local_commit}-dirty"
+fi
+if [[ -n "$(git -C "$project_root/kernel/meizu/m86" \
+    status --porcelain --untracked-files=normal)" ]]; then
+  kernel_commit="${kernel_commit}-dirty"
 fi
 "$script_dir/install-local-trees.sh"
 
 "${pro5_ssh[@]}" bash -s -- \
-  "$PRO5_REMOTE_ROOT" "$jobs" "$local_commit" <<'REMOTE'
+  "$PRO5_REMOTE_ROOT" "$jobs" "$local_commit" "$kernel_commit" <<'REMOTE'
 set -euo pipefail
 
 remote_root="$1"
 jobs="$2"
 local_commit="$3"
+kernel_commit="$4"
 session_name="pro5-kernel-build"
 worker="$remote_root/local/remote/worker-build-kernel.sh"
 launcher="$remote_root/local/remote/detached-worker.sh"
@@ -46,7 +52,8 @@ rm -f -- "$status_file"
 ln -sfn "$(basename "$log_file")" "$run_root/kernel-latest.log"
 chmod 0755 "$worker" "$launcher"
 "$launcher" start "$session_name" \
-  "$worker" "$jobs" "$status_file" "$log_file" "$build_stamp" "$local_commit"
+  "$worker" "$jobs" "$status_file" "$log_file" "$build_stamp" "$local_commit" \
+  "$kernel_commit"
 printf 'Started detached worker %s: jobs=%s\n' "$session_name" "$jobs"
 REMOTE
 

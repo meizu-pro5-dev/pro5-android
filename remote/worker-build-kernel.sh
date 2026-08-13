@@ -17,6 +17,7 @@ status_file="${2:-$run_root/kernel-latest.status}"
 log_file="${3:-$run_root/kernel-latest.log}"
 build_stamp="${4:-$(date +%Y%m%d-%H%M%S)}"
 local_commit="${5:-unknown}"
+kernel_commit="${6:-unknown}"
 
 if [[ ! "$jobs" =~ ^[1-9][0-9]*$ ]] || ((jobs > 64)); then
   printf 'Invalid kernel build job count: %s\n' "$jobs" >&2
@@ -156,7 +157,7 @@ aarch64_revision="$(git -C "$aarch64_toolchain" rev-parse HEAD)"
 arm_revision="$(git -C "$arm_toolchain" rev-parse HEAD)"
 {
   printf 'local_commit=%s\n' "$local_commit"
-  printf 'kernel_source=67699d9442a9557eca24ba7a489ffa1b0601e806\n'
+  printf 'kernel_source=%s\n' "$kernel_commit"
   printf 'aarch64_toolchain=%s\n' "$aarch64_revision"
   printf 'arm_toolchain=%s\n' "$arm_revision"
   printf 'jobs=%s\n' "$jobs"
