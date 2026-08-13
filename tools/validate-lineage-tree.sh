@@ -45,6 +45,7 @@ kernel_config_legacy="$kernel_root/arch/arm64/configs/pro5_defconfig"
 fingerprint_experiment_kernel_config="$kernel_root/arch/arm64/configs/cm_pro5_fingerprint_experiment_defconfig"
 kernel_fpc_driver="$kernel_root/drivers/input/fingerprint/fpc/fpc1020_main.c"
 kernel_fpc_common="$kernel_root/drivers/input/fingerprint/fpc/fpc1020_common.c"
+kernel_dhd_linux="$kernel_root/drivers/net/wireless/bcmdhd/dhd_linux.c"
 patch_series="$project_root/patches/series.tsv"
 ownership_ledger="$project_root/docs/module-ownership.tsv"
 debt_ledger="$project_root/docs/platform-debt.tsv"
@@ -182,6 +183,7 @@ for required in \
   "$fingerprint_experiment_kernel_config" \
   "$kernel_fpc_driver" \
   "$kernel_fpc_common" \
+  "$kernel_dhd_linux" \
   "$patch_series" \
   "$ownership_ledger" \
   "$debt_ledger" \
@@ -933,6 +935,9 @@ validate_m4_connectivity_radio() {
     require_fixed "$wifi_board_contract" "$wifi_board_config"
     require_absent "$wifi_board_contract" "$board_config"
   done
+  require_fixed 'int dtim_suspended = CUSTOM_SUSPEND_BCN_LI_DTIM;' \
+    "$kernel_dhd_linux"
+  require_absent 'int dtim_suspended = 0;' "$kernel_dhd_linux"
   require_count 1 'DEVICE_MANIFEST_FILE += $(M86_PATH)/wifi/manifest.xml' \
     "$wifi_board_config"
   for wifi_hal in \
