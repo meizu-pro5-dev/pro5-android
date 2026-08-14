@@ -14,8 +14,8 @@ HMAC), which blocks fingerprint enrollment on m86. Compute a proper
 HMAC-SHA256 over the token header in the fallback so the TA accepts it,
 matching the behavior of the keymaster-backed implementation.
 ---
- gatekeeperd/SoftGateKeeper.h | 11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
+ gatekeeperd/SoftGateKeeper.h | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
 
 diff --git a/gatekeeperd/SoftGateKeeper.h b/gatekeeperd/SoftGateKeeper.h
 index 0be2555..1a7b3c9 100644
@@ -29,7 +29,7 @@ index 0be2555..1a7b3c9 100644
  
  #include <crypto_scrypt.h>
  }
-@@ -84,9 +85,11 @@ public:
+@@ -84,9 +85,12 @@ public:
      }
  
      virtual void ComputeSignature(uint8_t *signature, uint32_t signature_length,
@@ -38,6 +38,7 @@ index 0be2555..1a7b3c9 100644
 +            const uint32_t message_length) const {
          if (signature == NULL) return;
 -        memset(signature, 0, signature_length);
++        if (signature_length < SHA256_DIGEST_LENGTH) return;
 +        HMAC(EVP_sha256(), key, key_length, message, message_length, signature,
 +                NULL);
      }
