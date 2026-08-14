@@ -1,0 +1,50 @@
+From 1a9bf61b2cb5274feba18b8bb65e5e91e6b40c22 Mon Sep 17 00:00:00 2001
+From: Meizu PRO 5 bring-up <noreply@example.invalid>
+Date: Thu, 13 Aug 2026 23:59:00 +0800
+Subject: [PATCH] nfc: load PN547C2 firmware container for pn65T
+
+The PN65T ROM reports hardware version 0x01 before any firmware load.
+That value has no entry in the chip-type switch, so the feature list
+falls through to PN80T and the firmware loader looks for the PN553
+container at /vendor/lib/libpn553_fw.so, which this product does not
+ship.  The download is then rejected and the NFC controller runs on its
+ROM bootloader only: core init answers, but RF routing never completes,
+so NfcService applyRouting trips the watchdog and crash-loops.
+
+Recognize 0x01 as PN547C2 and give pn547C2/pn65T its own feature-list
+branch pointing at the Flyme firmware container libpn547_fw.so (which
+already exports the gphDnldNfc_DlSeq/DlSeqSz symbols this loader
+dlopens).  The PN547 firmware major is 0x01, matching the PN553 gate.
+---
+ halimpl/utils/NxpNfcCapability.cpp | 4 ++++
+ extns/impl/Nxp_Features.h         | 6 ++++++
+ 2 files changed, 10 insertions(+)
+
+--- a/halimpl/utils/NxpNfcCapability.cpp
++++ b/halimpl/utils/NxpNfcCapability.cpp
+@@ -54,6 +54,10 @@
+     if ((offsetHwVersion > 0) && (offsetHwVersion < msg_len)) {
+       ALOGD("%s HwVersion : 0x%02x", __func__, msg[offsetHwVersion]);
+       switch (msg[offsetHwVersion]) {
++        case 0x01:  // PN547C2 ROM bootloader id reported before firmware load
++          chipType = pn547C2;
++          break;
++
+         case 0x40:  // PN553 A0
+         case 0x41:  // PN553 B0
+           // NQ310
+--- a/extns/impl/Nxp_Features.h
++++ b/extns/impl/Nxp_Features.h
+@@ -103,6 +103,12 @@
+       nfcFL._PHDNLDNFC_USERDATA_EEPROM_LEN = 0x0C00U;                       \
+       nfcFL._FW_MOBILE_MAJOR_NUMBER = FW_MOBILE_MAJOR_NUMBER_PN548AD;       \
+                                                                             \
++    } else if (chipType == pn547C2 || chipType == pn65T) {                  \
++                                                                            \
++      STRCPY_FW_LIB("libpn547_fw")                                          \
++                                                                            \
++      nfcFL._FW_MOBILE_MAJOR_NUMBER = FW_MOBILE_MAJOR_NUMBER_PN553;         \
++                                                                            \
+     }                                                                       \
+   }
+ #define STRCPY_FW_LIB(str) {                                                \

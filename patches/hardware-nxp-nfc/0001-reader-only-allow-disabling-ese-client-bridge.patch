@@ -1,0 +1,53 @@
+From 1a9bf61b2cb5274feba18b8bb65e5e91e6b40c22 Mon Sep 17 00:00:00 2001
+From: Meizu PRO 5 bring-up <noreply@example.invalid>
+Date: Thu, 13 Aug 2026 20:45:00 +0800
+Subject: [PATCH] nfc: allow reader-only products to disable eSE bridge
+
+The NFC HAL unconditionally initializes EseAdaptation during MinOpen.  That
+causes an Android reader/HCE-only product to request the optional NXP eSE HIDL
+service even when it does not package an eSE implementation.  Make that bridge
+opt-out through an NXP configuration value while retaining the existing
+behavior when the value is absent or non-zero.
+
+---
+ halimpl/hal/phNxpNciHal.cc  | 13 +++++++++++--
+ halimpl/utils/phNxpConfig.h |  1 +
+ 2 files changed, 12 insertions(+), 2 deletions(-)
+
+--- a/halimpl/hal/phNxpNciHal.cc
++++ b/halimpl/hal/phNxpNciHal.cc
+@@ -550,6 +550,7 @@
+   NFCSTATUS wConfigStatus = NFCSTATUS_SUCCESS;
+   NFCSTATUS status = NFCSTATUS_SUCCESS;
+   nxpncihal_ctrl.bIsForceFwDwnld = false;
++  uint32_t ese_client_enabled = 1;
+   NXPLOG_NCIHAL_D("phNxpNci_MinOpen(): enter");
+   /*NCI_INIT_CMD*/
+   static uint8_t cmd_init_nci[] = {0x20, 0x01, 0x00};
+@@ -594,8 +595,14 @@
+ 
+   /* By default HAL status is HAL_STATUS_OPEN */
+   nxpncihal_ctrl.halStatus = HAL_STATUS_OPEN;
+-  gpEseAdapt = &EseAdaptation::GetInstance();
+-  gpEseAdapt->Initialize();
++  if (GetNxpNumValue(NAME_NXP_ESE_CLIENT_ENABLE, &ese_client_enabled,
++                     sizeof(ese_client_enabled)) &&
++      ese_client_enabled == 0) {
++    NXPLOG_NCIHAL_D("eSE client bridge disabled by configuration");
++  } else {
++    gpEseAdapt = &EseAdaptation::GetInstance();
++    gpEseAdapt->Initialize();
++  }
+ 
+   /*nci version NCI_VERSION_UNKNOWN version by default*/
+   nxpncihal_ctrl.nci_info.nci_version = NCI_VERSION_UNKNOWN;
+--- a/halimpl/utils/phNxpConfig.h
++++ b/halimpl/utils/phNxpConfig.h
+@@ -94,6 +94,7 @@
+ #define NAME_NFC_DEBUG_ENABLED "NFC_DEBUG_ENABLED"
+ #define NAME_RF_STATUS_UPDATE_ENABLE "RF_STATUS_UPDATE_ENABLE"
+ #define NAME_DEFAULT_ROUTE "DEFAULT_ROUTE"
++#define NAME_NXP_ESE_CLIENT_ENABLE "NXP_ESE_CLIENT_ENABLE"
+ #define NAME_DEFAULT_OFFHOST_ROUTE "DEFAULT_OFFHOST_ROUTE"
+ #define NAME_DEFAULT_NFCF_ROUTE "DEFAULT_NFCF_ROUTE"
+ #define NAME_DEFAULT_SYS_CODE_ROUTE "DEFAULT_SYS_CODE_ROUTE"
