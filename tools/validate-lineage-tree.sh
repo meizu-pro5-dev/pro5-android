@@ -700,7 +700,7 @@ validate_m3_storage_usb_input() {
     "$fingerprint_experiment_kernel_config"
   require_fixed 'CONFIG_FINGERPRINT_FPC_TEE=y' \
     "$fingerprint_experiment_kernel_config"
-  require_fixed 'CONFIG_SECURE_OS_BOOSTER_API=y' \
+  require_fixed '# CONFIG_SECURE_OS_BOOSTER_API is not set' \
     "$fingerprint_experiment_kernel_config"
   require_fixed '{ .compatible = "fpc,fpc_irq", },' "$kernel_fpc_driver"
   require_fixed 'of_get_named_gpio(node, "gx,gpio_irq", 0)' \
@@ -857,7 +857,7 @@ validate_m3_storage_usb_input() {
     "$build_worker"
   require_fixed 'expected_fpc_backend=tee' "$build_worker"
   require_fixed 'fingerprint_dtb=stock-secure-mode' "$build_worker"
-  require_fixed 'CONFIG_SECURE_OS_BOOSTER_API=y' "$build_worker"
+  require_fixed '# CONFIG_SECURE_OS_BOOSTER_API is not set' "$build_worker"
   require_fixed 'audit-fingerprint-output.sh" "$product_out" experiment' \
     "$build_worker"
   require_fixed 'Settings.Secure.getIntForUser' "$mback_contract"

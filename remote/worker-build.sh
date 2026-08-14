@@ -709,7 +709,7 @@ if ((!module_only_target)); then
     for required_fp_kernel_setting in \
       '# CONFIG_FINGERPRINT_FPC_FPC1020_FAMILY is not set' \
       CONFIG_FINGERPRINT_FPC_TEE=y \
-      CONFIG_SECURE_OS_BOOSTER_API=y; do
+      '# CONFIG_SECURE_OS_BOOSTER_API is not set'; do
       if ! grep -F -x -q "$required_fp_kernel_setting" \
           "$kernel_out/.config"; then
         printf 'The generated fingerprint kernel config omitted %s.\n' \
