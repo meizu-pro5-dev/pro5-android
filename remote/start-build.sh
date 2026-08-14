@@ -21,7 +21,7 @@ case "$target" in
 esac
 
 case "$product" in
-  lineage_m86 | lineage_m86_nfc_experiment) ;;
+  lineage_m86 | lineage_m86_nfc_experiment | lineage_m86_fingerprint_experiment) ;;
   *)
     printf 'Unsupported build product: %s\n' "$product" >&2
     exit 2

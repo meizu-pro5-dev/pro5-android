@@ -34,7 +34,7 @@ case "$target" in
 esac
 
 case "$product" in
-  lineage_m86 | lineage_m86_nfc_experiment) ;;
+  lineage_m86 | lineage_m86_nfc_experiment | lineage_m86_fingerprint_experiment) ;;
   *)
     printf 'Unsupported build product: %s\n' "$product" >&2
     exit 2
@@ -54,12 +54,16 @@ nfc_experiment=0
 if [[ "$product" == lineage_m86_nfc_experiment ]]; then
   nfc_experiment=1
 fi
+fingerprint_experiment=0
+if [[ "$product" == lineage_m86_fingerprint_experiment ]]; then
+  fingerprint_experiment=1
+fi
 ota_product_suffix="${product#lineage_}"
 if [[ "$target" == nfc ]] && (( !nfc_experiment )); then
   printf 'The nfc target is available only for lineage_m86_nfc_experiment.\n' >&2
   exit 2
 fi
-if [[ "$target" == bacon ]] && ((nfc_experiment)); then
+if [[ "$target" == bacon ]] && ((nfc_experiment || fingerprint_experiment)); then
   printf 'A release bacon build is available only for the default product.\n' >&2
   exit 2
 fi
@@ -282,9 +286,15 @@ lunch "$product-userdebug"
 actual_product="$(get_build_var TARGET_PRODUCT)"
 actual_kernel_config="$(get_build_var TARGET_KERNEL_CONFIG)"
 actual_fpc_backend="$(get_build_var M86_FPC_BACKEND)"
+expected_kernel_config=cm_pro5_defconfig
+expected_fpc_backend=raw-navigation
+if ((fingerprint_experiment)); then
+  expected_kernel_config=cm_pro5_fingerprint_experiment_defconfig
+  expected_fpc_backend=tee
+fi
 if [[ "$actual_product" != "$product" || \
-      "$actual_kernel_config" != cm_pro5_defconfig || \
-      "$actual_fpc_backend" != raw-navigation ]]; then
+      "$actual_kernel_config" != "$expected_kernel_config" || \
+      "$actual_fpc_backend" != "$expected_fpc_backend" ]]; then
   printf 'Selected product has an unsafe build graph: product=%s config=%s backend=%s\n' \
     "$actual_product" "$actual_kernel_config" \
     "$actual_fpc_backend" >&2
@@ -688,24 +698,45 @@ if ((!module_only_target)); then
     exit 1
   fi
   actual_dtb_hash="$(sha256sum "$release_dtb" | awk '{ print $1 }')"
-  if [[ "$actual_dtb_hash" != "$expected_dtb_hash" ]]; then
-    printf 'Installed m86 mBack DTB hash mismatch: %s\n' "$actual_dtb_hash" >&2
-    exit 1
-  fi
-  python3 "$source_root/device/meizu/m86/tools/build-mback-dtb.py" \
-    --stock "$source_root/device/meizu/m86/prebuilt/dtb.img" \
-    --verify "$release_dtb" | tee "$artifact_dir/M3-DTB.txt"
-  for required_mback_kernel_setting in \
-    CONFIG_FINGERPRINT_FPC_FPC1020_FAMILY=y \
-    '# CONFIG_FINGERPRINT_FPC_TEE is not set' \
-    '# CONFIG_SECURE_OS_BOOSTER_API is not set'; do
-    if ! grep -F -x -q "$required_mback_kernel_setting" \
-        "$kernel_out/.config"; then
-      printf 'The generated m86 kernel config omitted %s.\n' \
-        "$required_mback_kernel_setting" >&2
+  if ((fingerprint_experiment)); then
+    if ! cmp --quiet "$release_dtb" \
+        "$source_root/device/meizu/m86/prebuilt/dtb.img"; then
+      printf 'Installed fingerprint experiment DTB differs from the stock secure-mode DTB.\n' >&2
       exit 1
     fi
-  done
+    printf 'fingerprint_dtb=stock-secure-mode\n' \
+      | tee "$artifact_dir/M8-FP-DTB.txt"
+    for required_fp_kernel_setting in \
+      '# CONFIG_FINGERPRINT_FPC_FPC1020_FAMILY is not set' \
+      CONFIG_FINGERPRINT_FPC_TEE=y \
+      CONFIG_SECURE_OS_BOOSTER_API=y; do
+      if ! grep -F -x -q "$required_fp_kernel_setting" \
+          "$kernel_out/.config"; then
+        printf 'The generated fingerprint kernel config omitted %s.\n' \
+          "$required_fp_kernel_setting" >&2
+        exit 1
+      fi
+    done
+  else
+    if [[ "$actual_dtb_hash" != "$expected_dtb_hash" ]]; then
+      printf 'Installed m86 mBack DTB hash mismatch: %s\n' "$actual_dtb_hash" >&2
+      exit 1
+    fi
+    python3 "$source_root/device/meizu/m86/tools/build-mback-dtb.py" \
+      --stock "$source_root/device/meizu/m86/prebuilt/dtb.img" \
+      --verify "$release_dtb" | tee "$artifact_dir/M3-DTB.txt"
+    for required_mback_kernel_setting in \
+      CONFIG_FINGERPRINT_FPC_FPC1020_FAMILY=y \
+      '# CONFIG_FINGERPRINT_FPC_TEE is not set' \
+      '# CONFIG_SECURE_OS_BOOSTER_API is not set'; do
+      if ! grep -F -x -q "$required_mback_kernel_setting" \
+          "$kernel_out/.config"; then
+        printf 'The generated m86 kernel config omitted %s.\n' \
+          "$required_mback_kernel_setting" >&2
+        exit 1
+      fi
+    done
+  fi
   for required_exfat_setting in \
     CONFIG_EXFAT_FS=y \
     CONFIG_EXFAT_VIRTUAL_XATTR=y \
@@ -2073,31 +2104,38 @@ assert_m3_target_files() {
     exit 1
   fi
 
-  if ! cmp --quiet "$packaged_dtb" "$release_dtb"; then
-    printf 'Packaged M3 DTB differs from the verified mBack DTB.\n' >&2
-    exit 1
-  fi
-  python3 "$source_mback_dtb_tool" \
-    --stock "$source_stock_dtb" \
-    --verify "$packaged_dtb" >> "$artifact_dir/M3-DTB.txt"
-
-  for forbidden_fingerprint_output in \
-    SYSTEM/etc/permissions/android.hardware.fingerprint.xml \
-    SYSTEM/vendor/etc/permissions/android.hardware.fingerprint.xml \
-    SYSTEM/vendor/bin/hw/android.hardware.biometrics.fingerprint@2.1-service \
-    SYSTEM/vendor/etc/init/android.hardware.biometrics.fingerprint@2.1-service.rc \
-    SYSTEM/lib64/hw/fingerprint.m86.so \
-    SYSTEM/vendor/lib64/hw/fingerprint.m86.so; do
-    if [[ -e "$target_files_tree/$forbidden_fingerprint_output" ]]; then
-      printf 'Default M3 product packaged fingerprint userspace: %s\n' \
-        "$forbidden_fingerprint_output" >&2
+  if ((fingerprint_experiment)); then
+    if ! cmp --quiet "$packaged_dtb" "$source_stock_dtb"; then
+      printf 'Packaged fingerprint DTB differs from the stock secure-mode DTB.\n' >&2
       exit 1
     fi
-  done
-  if grep -F -q 'android.hardware.biometrics.fingerprint' \
-      "$target_files_tree/META/system_manifest.xml"; then
-    printf 'Default M3 product declared the fingerprint VINTF HAL.\n' >&2
-    exit 1
+  else
+    if ! cmp --quiet "$packaged_dtb" "$release_dtb"; then
+      printf 'Packaged M3 DTB differs from the verified mBack DTB.\n' >&2
+      exit 1
+    fi
+    python3 "$source_mback_dtb_tool" \
+      --stock "$source_stock_dtb" \
+      --verify "$packaged_dtb" >> "$artifact_dir/M3-DTB.txt"
+
+    for forbidden_fingerprint_output in \
+      SYSTEM/etc/permissions/android.hardware.fingerprint.xml \
+      SYSTEM/vendor/etc/permissions/android.hardware.fingerprint.xml \
+      SYSTEM/vendor/bin/hw/android.hardware.biometrics.fingerprint@2.1-service \
+      SYSTEM/vendor/etc/init/android.hardware.biometrics.fingerprint@2.1-service.rc \
+      SYSTEM/lib64/hw/fingerprint.m86.so \
+      SYSTEM/vendor/lib64/hw/fingerprint.m86.so; do
+      if [[ -e "$target_files_tree/$forbidden_fingerprint_output" ]]; then
+        printf 'Default M3 product packaged fingerprint userspace: %s\n' \
+          "$forbidden_fingerprint_output" >&2
+        exit 1
+      fi
+    done
+    if grep -F -q 'android.hardware.biometrics.fingerprint' \
+        "$target_files_tree/META/system_manifest.xml"; then
+      printf 'Default M3 product declared the fingerprint VINTF HAL.\n' >&2
+      exit 1
+    fi
   fi
 
   mapfile -t packaged_matches < <(
@@ -2197,12 +2235,18 @@ assert_m3_target_files() {
     printf 'm86parts_keyhandler=%s\n' "$m86parts_keyhandler_descriptor"
     printf 'm86parts_keyhandler_descriptor_count=%s\n' \
       "$m86parts_keyhandler_count"
-    printf 'mback_dtb=RADIO/dtb.img\n'
-    printf 'mback_dtb_sha256=%s\n' \
+    printf 'dtb=RADIO/dtb.img\n'
+    printf 'dtb_sha256=%s\n' \
       "$(sha256sum "$packaged_dtb" | awk '{ print $1 }')"
-    printf 'default_fingerprint_userspace=absent\n'
-    printf 'default_fingerprint_feature=absent\n'
-    printf 'default_fingerprint_vintf=absent\n'
+    if ((fingerprint_experiment)); then
+      printf 'fingerprint_userspace=present\n'
+      printf 'fingerprint_feature=present\n'
+      printf 'fingerprint_vintf=present\n'
+    else
+      printf 'default_fingerprint_userspace=absent\n'
+      printf 'default_fingerprint_feature=absent\n'
+      printf 'default_fingerprint_vintf=absent\n'
+    fi
     printf 'privapp_permissions=SYSTEM/etc/permissions/privapp-permissions-org.lineageos.settings.m86.xml\n'
     printf 'first_stage_fstab=BOOT/RAMDISK/fstab.m86\n'
     printf 'second_stage_fstab=ROOT/fstab.m86\n'
@@ -2672,12 +2716,21 @@ if ((full_zip_target)); then
     "$out_root" \
     "$product_out/system/lib/libm86camera_shim.so" |
     tee "$artifact_dir/CAMERA-ABI.txt"
-  "$local_root/tools/audit-fingerprint-output.sh" "$product_out" absent |
-    tee "$artifact_dir/FINGERPRINT-OUTPUT.txt"
+  if ((fingerprint_experiment)); then
+    "$local_root/tools/audit-fingerprint-output.sh" "$product_out" experiment |
+      tee "$artifact_dir/FINGERPRINT-OUTPUT.txt"
+  else
+    "$local_root/tools/audit-fingerprint-output.sh" "$product_out" absent |
+      tee "$artifact_dir/FINGERPRINT-OUTPUT.txt"
+  fi
   if ((nfc_experiment)); then
     bash "$local_root/tools/audit-nfc-experiment-output.sh" \
       "$product_out" product-out "$source_root" |
       tee "$artifact_dir/NFC-OUTPUT.txt"
+  elif ((fingerprint_experiment)); then
+    bash "$local_root/tools/audit-default-hidden-output.sh" \
+      "$product_out" fingerprint |
+      tee "$artifact_dir/DEFAULT-HIDDEN-OUTPUT.txt"
   else
     bash "$local_root/tools/audit-default-hidden-output.sh" "$product_out" |
       tee "$artifact_dir/DEFAULT-HIDDEN-OUTPUT.txt"
@@ -2685,8 +2738,11 @@ if ((full_zip_target)); then
 fi
 
 if ((!module_only_target)); then
-  copy_required \
-    "$source_root/kernel/meizu/m86/arch/arm64/configs/cm_pro5_defconfig"
+  kernel_config_ref="$source_root/kernel/meizu/m86/arch/arm64/configs/cm_pro5_defconfig"
+  if ((fingerprint_experiment)); then
+    kernel_config_ref="$source_root/kernel/meizu/m86/arch/arm64/configs/cm_pro5_fingerprint_experiment_defconfig"
+  fi
+  copy_required "$kernel_config_ref"
   cp -a "$kernel_out/.config" "$artifact_dir/kernel.config"
 fi
 copy_required "$local_root/locks/stock-flyme-8.0.5.0A.sha256"

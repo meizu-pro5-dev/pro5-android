@@ -852,7 +852,14 @@ validate_m3_storage_usb_input() {
   require_fixed 'rm -f -- "$product_out/system/usr/keylayout/' "$build_worker"
   require_fixed 'get_build_var TARGET_KERNEL_CONFIG' "$build_worker"
   require_fixed 'get_build_var M86_FPC_BACKEND' "$build_worker"
-  require_fixed 'actual_fpc_backend" != raw-navigation' "$build_worker"
+  require_fixed 'actual_fpc_backend" != "$expected_fpc_backend"' "$build_worker"
+  require_fixed 'expected_kernel_config=cm_pro5_fingerprint_experiment_defconfig' \
+    "$build_worker"
+  require_fixed 'expected_fpc_backend=tee' "$build_worker"
+  require_fixed 'fingerprint_dtb=stock-secure-mode' "$build_worker"
+  require_fixed 'CONFIG_SECURE_OS_BOOSTER_API=y' "$build_worker"
+  require_fixed 'audit-fingerprint-output.sh" "$product_out" experiment' \
+    "$build_worker"
   require_fixed 'Settings.Secure.getIntForUser' "$mback_contract"
   require_fixed 'Settings.Secure.putIntForUser' "$mback_contract"
   require_absent 'LineageSettings.System.MBACK_' "$mback_contract"
@@ -894,7 +901,7 @@ validate_m3_storage_usb_input() {
   require_fixed 'local packaged_dtb="$target_files_tree/RADIO/dtb.img"' \
     "$build_worker"
   require_fixed '--verify "$packaged_dtb"' "$build_worker"
-  require_fixed 'mback_dtb_sha256=%s' "$build_worker"
+  require_fixed 'dtb_sha256=%s' "$build_worker"
   require_fixed 'default_fingerprint_userspace=absent' "$build_worker"
   require_fixed 'default_fingerprint_feature=absent' "$build_worker"
   require_fixed 'default_fingerprint_vintf=absent' "$build_worker"
