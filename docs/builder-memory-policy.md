@@ -34,3 +34,11 @@ Each successful artifact directory includes `BUILD-MEMORY.txt`, and build
 metadata records requested versus effective jobs. A missing cgroup input, an
 unsafe budget, a cache-release error, or an invalid derived job count stops the
 build before compilation.
+
+For a non-release NFC experiment testzip, PRO5_FORCE_BOOT_DEXPREOPT=1 is an
+explicit verification mode: it removes only each generated boot.art primary
+output immediately before its normal serialized Ninja edge. The worker then
+requires the retained attempt log to contain dex2oat timing with threads: 1;
+a Ninja cache hit is not accepted as a dexpreopt test. It does not alter ART
+heap/filter settings, global kernel VM policy, source inputs, or release
+builds.

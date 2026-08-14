@@ -32,6 +32,7 @@ for forbidden_relative in \
   vendor/etc/init/init.m86.nfc-experiment.rc \
   vendor/etc/init/init.m86.fingerprint-experiment.rc \
   vendor/bin/hw/android.hardware.nfc@1.1-service \
+  vendor/bin/hw/android.hardware.nfc@1.2-service \
   vendor/bin/hw/android.hardware.biometrics.fingerprint@2.1-service; do
   if [[ -e "$system_root/$forbidden_relative" ]]; then
     printf 'Default product installed deferred experiment output: %s\n' \

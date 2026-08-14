@@ -17,8 +17,10 @@ android_makefile="$device_root/Android.mk"
 device_makefile="$device_root/device.mk"
 device_manifest="$device_root/manifest.xml"
 nfc_experiment_product="$device_root/experiments/nfc-product.mk"
+nfc_experiment_config="$device_root/nfc/libnfc-nxp.conf"
 fingerprint_experiment_product="$device_root/experiments/fingerprint-product.mk"
 nfc_experiment_init="$device_root/experiments/init.m86.nfc-experiment.rc"
+nfc_sepolicy="$device_root/sepolicy/hal_nfc_default.te"
 fingerprint_experiment_init="$device_root/experiments/init.m86.fingerprint-experiment.rc"
 experiment_nfc_manifest="$device_root/experiments/manifest-nfc.xml"
 experiment_fingerprint_manifest="$device_root/experiments/manifest-fingerprint.xml"
@@ -46,7 +48,9 @@ fingerprint_experiment_kernel_config="$kernel_root/arch/arm64/configs/cm_pro5_fi
 kernel_fpc_driver="$kernel_root/drivers/input/fingerprint/fpc/fpc1020_main.c"
 kernel_fpc_common="$kernel_root/drivers/input/fingerprint/fpc/fpc1020_common.c"
 kernel_dhd_linux="$kernel_root/drivers/net/wireless/bcmdhd/dhd_linux.c"
+kernel_nfc_driver="$kernel_root/drivers/misc/pn547_i2c_driver.c"
 patch_series="$project_root/patches/series.tsv"
+nfc_ese_patch="$project_root/patches/hardware-nxp-nfc/0001-reader-only-allow-disabling-ese-client-bridge.patch"
 ownership_ledger="$project_root/docs/module-ownership.tsv"
 debt_ledger="$project_root/docs/platform-debt.tsv"
 retired_debt_ledger="$project_root/docs/retired-platform-debt.tsv"
@@ -108,6 +112,8 @@ detached_worker="$project_root/remote/detached-worker.sh"
 dev_null_guard="$project_root/remote/assert-builder-dev-null.sh"
 patch_auditor="$project_root/tools/audit-reviewed-patch-state.sh"
 input_hasher="$project_root/tools/hash-authoritative-inputs.sh"
+nfc_output_audit="$project_root/tools/audit-nfc-experiment-output.sh"
+nfc_runtime_test="$project_root/tools/test-nfc-runtime.sh"
 stock_lock="$project_root/locks/stock-flyme-8.0.5.0A.sha256"
 
 fail() {
@@ -151,8 +157,10 @@ for required in \
   "$device_makefile" \
   "$device_manifest" \
   "$nfc_experiment_product" \
+  "$nfc_experiment_config" \
   "$fingerprint_experiment_product" \
   "$nfc_experiment_init" \
+  "$nfc_sepolicy" \
   "$fingerprint_experiment_init" \
   "$experiment_nfc_manifest" \
   "$experiment_fingerprint_manifest" \
@@ -184,7 +192,9 @@ for required in \
   "$kernel_fpc_driver" \
   "$kernel_fpc_common" \
   "$kernel_dhd_linux" \
+  "$kernel_nfc_driver" \
   "$patch_series" \
+  "$nfc_ese_patch" \
   "$ownership_ledger" \
   "$debt_ledger" \
   "$retired_debt_ledger" \
@@ -238,6 +248,8 @@ for required in \
   "$dev_null_guard" \
   "$patch_auditor" \
   "$input_hasher" \
+  "$nfc_output_audit" \
+  "$nfc_runtime_test" \
   "$stock_lock"; do
 require_file "$required"
 done
@@ -259,9 +271,9 @@ require_fixed 'Retired workspace tool is still present' "$apply_worker"
 # before either systemimage or bacon enters Ninja.
 require_fixed '[[ "$target" == systemimage ]] || ((full_zip_target))' \
   "$build_worker"
-require_fixed 'kernel | graphics | wifi | bluetooth | bootimage | recoveryimage | systemimage | testzip | bacon' \
+require_fixed 'kernel | graphics | wifi | bluetooth | nfc | bootimage | recoveryimage | systemimage | testzip | bacon' \
   "$build_worker"
-require_fixed 'kernel | graphics | wifi | bluetooth | bootimage | recoveryimage | systemimage | testzip | bacon' \
+require_fixed 'kernel | graphics | wifi | bluetooth | nfc | bootimage | recoveryimage | systemimage | testzip | bacon' \
   "$start_build"
 require_fixed 'android_build_target=bacon' "$build_worker"
 require_fixed '"outputs",' \
@@ -288,7 +300,8 @@ require_fixed 'release-build-cache.py' "$memory_preflight"
 require_fixed 'ART_BOOT_IMAGE_EXTRA_ARGS="-j$art_boot_image_jobs"' \
   "$build_worker"
 require_fixed 'art_boot_image_jobs=1' "$build_worker"
-require_fixed 'combined-lineage_m86.ninja' "$build_worker"
+  require_fixed 'combined-$product.ninja' "$build_worker"
+  require_fixed 'ota_product_suffix="${product#lineage_}"' "$build_worker"
 require_fixed 'for boot_arch in arm arm64' "$build_worker"
 require_fixed 'for boot_art_attempt in 1 2' "$build_worker"
 require_fixed 'record_boot_art_memory_snapshot "${boot_art_prefix}_before"' \
@@ -331,7 +344,7 @@ validate_m0_ledgers() {
       if (NF != 5 || $1 != "domain" || $5 != "status") exit 1
       next
     }
-    NF != 5 || $1 !~ /^M[2-7]$/ || $5 != "deferred" { exit 1 }
+    NF != 5 || $1 !~ /^M[2-8]$/ || $5 != "deferred" { exit 1 }
     END { if (NR < 2) exit 1 }
   ' "$debt_ledger" || fail "invalid platform debt ledger"
 
@@ -518,13 +531,14 @@ validate_m1_boot_and_ownership() {
   require_fixed 'Refusing a release bacon build from dirty source inputs.' \
     "$start_build"
   require_fixed 'authoritative_input_sha256=' "$build_worker"
-  require_fixed 'Dirty development artifact was not promoted to lineage-latest.' \
+  require_fixed 'Development or experiment artifact was not promoted to lineage-latest.' \
     "$build_worker"
   require_fixed 'audit-reviewed-patch-state.sh' \
     "$project_root/remote/apply-patches.sh"
   require_fixed 'Platform diff exceeds reviewed patch queue:' "$patch_auditor"
   require_fixed 'Required authoritative local tree is missing or empty:' \
     "$install_worker"
+  require_fixed 'Fingerprinting:' "$install_worker"
   require_absent 'Skipping empty local tree:' "$install_worker"
 
   stock_push_line="$(rg -n -F '"$script_dir/push-stock-blobs.sh"' \
@@ -1284,7 +1298,7 @@ validate_m5_hifi() {
     "$retired_debt_ledger"
   require_fixed 'patches/frameworks-base/0003-audio-restore-meizu-hifi-routing.patch' \
     "$retired_debt_ledger"
-  require_fixed 'patches/frameworks-base/0005-audio-hifi-global-settings.patch' \
+  require_fixed $'M5\tframeworks/base\t-\tM5 m86 audio wrapper ownership' \
     "$retired_debt_ledger"
   require_fixed \
     'patches/frameworks-av/0001-audioflinger-restore-meizu-headphone-volume.patch' \
@@ -1322,6 +1336,7 @@ validate_m8_default_hidden() {
     com.android.nfc_extras.xml \
     android.hardware.biometrics.fingerprint@2.1-service \
     android.hardware.nfc@1.1-service \
+    android.hardware.nfc@1.2-service \
     nfc_nci_nxp \
     libnfc-nxp.conf; do
     require_absent "$forbidden" "$device_makefile"
@@ -1355,9 +1370,30 @@ validate_m8_default_hidden() {
   require_fixed 'android.hardware.biometrics.fingerprint@2.1-service' \
     "$fingerprint_experiment_product"
   require_fixed 'ro.nfc.platform=nxppn547' "$nfc_experiment_product"
+  require_fixed 'libnfc-nci.conf' "$nfc_experiment_product"
+  require_fixed 'NXP_ESE_CLIENT_ENABLE=0x00' "$nfc_experiment_config"
+  require_fixed $'hardware/nxp/nfc\tpatches/hardware-nxp-nfc/0001-reader-only-allow-disabling-ese-client-bridge.patch' \
+    "$patch_series"
+  require_fixed 'NAME_NXP_ESE_CLIENT_ENABLE' "$nfc_ese_patch"
+  require_fixed 'eSE client bridge disabled by configuration' "$nfc_ese_patch"
   require_fixed 'service mobicore' "$fingerprint_experiment_init"
   require_absent 'mobicore' "$nfc_experiment_init"
   require_absent '/dev/pn544' "$fingerprint_experiment_init"
+  require_absent '/dev/p61' "$nfc_experiment_init"
+  require_fixed 'restorecon_recursive /data/nfc' "$nfc_experiment_init"
+  require_fixed 'restorecon_recursive /data/vendor/nfc' "$nfc_experiment_init"
+  require_fixed '/data/nfc(/.*)?' "$bluetooth_file_contexts"
+  require_fixed '/data/vendor/nfc(/.*)?' "$bluetooth_file_contexts"
+  require_fixed 'm86_nfc_vendor_data_file' "$bluetooth_file_contexts"
+  require_fixed 'type m86_nfc_vendor_data_file, file_type, data_file_type;' \
+    "$device_root/sepolicy/nfc_vendor_data.te"
+  require_fixed 'allow hal_nfc_default m86_nfc_vendor_data_file:dir rw_dir_perms;' \
+    "$nfc_sepolicy"
+  require_fixed 'allow hal_nfc_default m86_nfc_vendor_data_file:file create_file_perms;' \
+    "$nfc_sepolicy"
+  require_fixed 'bool irq_wake_enabled;' "$kernel_nfc_driver"
+  require_fixed 'pn544_enable_irq_wake(pn544_dev);' "$kernel_nfc_driver"
+  require_fixed 'pn544_disable_irq_wake(pn544_dev);' "$kernel_nfc_driver"
   require_fixed 'M86_ENABLE_LEGACY_RAW_FINGERPRINT' \
     "$device_root/fingerprint/Android.mk"
   require_fixed 'fingerprint output absence audit passed.' \
@@ -1365,6 +1401,27 @@ validate_m8_default_hidden() {
   require_fixed 'Default NFC/fingerprint output absence audit passed.' \
     "$project_root/tools/audit-default-hidden-output.sh"
   require_fixed 'audit-default-hidden-output.sh' "$build_worker"
+  require_fixed 'audit-nfc-experiment-output.sh' "$build_worker"
+  require_fixed 'PRO5_BUILD_PRODUCT' "$start_build"
+  require_fixed 'PRO5_FORCE_BOOT_DEXPREOPT' "$start_build"
+  require_fixed 'lineage_m86_nfc_experiment' "$build_worker"
+  require_fixed 'if [[ "$target" == nfc ]] && (( !nfc_experiment )); then' \
+    "$build_worker"
+  require_fixed 'forced_boot_dexpreopt=%s' "$build_worker"
+  require_fixed 'Forced %s boot ART did not execute single-threaded dex2oat.' \
+    "$build_worker"
+  require_fixed '$vendor_root/lib/nfc_nci_nxp.so' "$nfc_output_audit"
+  require_fixed '$vendor_root/lib64/nfc_nci_nxp.so' "$nfc_output_audit"
+  require_fixed 'NFC service does not link its NXP HAL library:' \
+    "$nfc_output_audit"
+  require_fixed 'NFC extras library declaration is missing:' \
+    "$nfc_output_audit"
+  require_fixed 'NFC init service owner is not unique.' \
+    "$nfc_output_audit"
+  require_fixed 'nfc_hidl=1.1/default' "$nfc_output_audit"
+  require_fixed 'secure_element=disabled' "$nfc_output_audit"
+  require_fixed 'vendor.nfc_hal_service' "$nfc_runtime_test"
+  require_fixed 'Unbalanced IRQ' "$nfc_runtime_test"
 }
 
 validate_vendor_mapping_owners() {
@@ -1423,8 +1480,14 @@ validate_vendor_mapping_owners() {
   )"
   [[ "$main_count" == 179 ]] || \
     fail "expected 179 default vendor mappings, got $main_count"
-  [[ "$nfc_experiment_count" == 1 ]] || \
-    fail "expected 1 NFC experiment vendor mapping, got $nfc_experiment_count"
+  [[ "$nfc_experiment_count" == 2 ]] || \
+    fail "expected 2 NFC experiment vendor mappings, got $nfc_experiment_count"
+  require_fixed \
+    'vendor/meizu/m86/proprietary/vendor/firmware/libpn547_fw.so:$(TARGET_COPY_OUT_VENDOR)/firmware/libpn547_fw.so' \
+    "$nfc_experiment_vendor_product"
+  require_fixed \
+    'vendor/meizu/m86/proprietary/vendor/firmware/libpn547_fw.so:$(TARGET_COPY_OUT_VENDOR)/lib64/libpn547_fw.so' \
+    "$nfc_experiment_vendor_product"
   [[ "$fingerprint_experiment_count" == 13 ]] || \
     fail "expected 13 fingerprint experiment vendor mappings, got $fingerprint_experiment_count"
 
@@ -1516,6 +1579,8 @@ validate_xml_and_python() {
     "$input_hasher" \
     "$start_build" \
     "$build_worker" \
+    "$nfc_output_audit" \
+    "$nfc_runtime_test" \
     "$kernel_build_worker" \
     "$twrp_build_worker" \
     "$memory_preflight" \

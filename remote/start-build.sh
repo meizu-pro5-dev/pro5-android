@@ -9,14 +9,47 @@ source "$script_dir/common.sh"
 
 target="${1:-${PRO5_BUILD_TARGET:-bootimage}}"
 jobs="${PRO5_BUILD_JOBS:-8}"
+product="${PRO5_BUILD_PRODUCT:-lineage_m86}"
+force_boot_dexpreopt="${PRO5_FORCE_BOOT_DEXPREOPT:-0}"
 
 case "$target" in
-  kernel | graphics | wifi | bluetooth | bootimage | recoveryimage | systemimage | testzip | bacon) ;;
+  kernel | graphics | wifi | bluetooth | nfc | bootimage | recoveryimage | systemimage | testzip | bacon) ;;
   *)
     printf 'Unsupported build target: %s\n' "$target" >&2
     exit 2
     ;;
 esac
+
+case "$product" in
+  lineage_m86 | lineage_m86_nfc_experiment) ;;
+  *)
+    printf 'Unsupported build product: %s\n' "$product" >&2
+    exit 2
+    ;;
+esac
+
+case "$force_boot_dexpreopt" in
+  0 | 1) ;;
+  *)
+    printf 'PRO5_FORCE_BOOT_DEXPREOPT must be 0 or 1: %s\n' \
+      "$force_boot_dexpreopt" >&2
+    exit 2
+    ;;
+esac
+
+if [[ "$target" == nfc && "$product" != lineage_m86_nfc_experiment ]]; then
+  printf 'The nfc target is available only for lineage_m86_nfc_experiment.\n' >&2
+  exit 2
+fi
+if [[ "$target" == bacon && "$product" != lineage_m86 ]]; then
+  printf 'A release bacon build is available only for the default product.\n' >&2
+  exit 2
+fi
+if [[ "$force_boot_dexpreopt" == 1 ]] && \
+    [[ "$product" != lineage_m86_nfc_experiment || "$target" != testzip ]]; then
+  printf 'Forced boot dexpreopt is available only for an NFC experiment testzip.\n' >&2
+  exit 2
+fi
 
 if [[ ! "$jobs" =~ ^[1-9][0-9]*$ ]] || ((jobs > 64)); then
   printf 'Invalid PRO5_BUILD_JOBS: %s\n' "$jobs" >&2
@@ -124,7 +157,7 @@ REMOTE
 "${pro5_ssh[@]}" bash -s -- \
   "$PRO5_REMOTE_ROOT" "$target" "$jobs" "$local_revision" \
   "$device_revision" "$kernel_revision" "$vendor_revision" \
-  "$local_input_hash" <<'REMOTE'
+  "$local_input_hash" "$product" "$force_boot_dexpreopt" <<'REMOTE'
 set -euo pipefail
 
 remote_root="$1"
@@ -135,6 +168,8 @@ device_revision="$5"
 kernel_revision="$6"
 vendor_revision="$7"
 local_input_hash="$8"
+product="$9"
+force_boot_dexpreopt="${10}"
 "$remote_root/local/remote/assert-builder-dev-null.sh"
 session_name="pro5-build"
 worker="$remote_root/local/remote/worker-build.sh"
@@ -142,7 +177,7 @@ launcher="$remote_root/local/remote/detached-worker.sh"
 run_root="$remote_root/run"
 build_stamp="$(date +%Y%m%d-%H%M%S)"
 status_file="$run_root/build-latest.status"
-log_file="$run_root/build-$build_stamp-$target.log"
+log_file="$run_root/build-$build_stamp-$product-$target.log"
 
 if [[ -x "$launcher" ]] && \
     "$launcher" running "$session_name" >/dev/null 2>&1; then
@@ -158,9 +193,9 @@ chmod 0755 "$worker" "$launcher"
 "$launcher" start "$session_name" \
   "$worker" "$target" "$jobs" "$status_file" "$log_file" "$build_stamp" \
   "$local_revision" "$device_revision" "$kernel_revision" "$vendor_revision" \
-  "$local_input_hash"
-printf 'Started detached worker %s: target=%s jobs=%s\n' \
-  "$session_name" "$target" "$jobs"
+  "$local_input_hash" "$product" "$force_boot_dexpreopt"
+printf 'Started detached worker %s: product=%s target=%s jobs=%s forced_boot_dexpreopt=%s\n' \
+  "$session_name" "$product" "$target" "$jobs" "$force_boot_dexpreopt"
 REMOTE
 
 "$script_dir/build-status.sh"

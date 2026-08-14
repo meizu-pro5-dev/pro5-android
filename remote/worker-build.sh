@@ -22,14 +22,52 @@ device_revision="${7:-unknown}"
 kernel_revision="${8:-unknown}"
 vendor_revision="${9:-unknown}"
 local_input_hash="${10:-unknown}"
+product="${11:-lineage_m86}"
+force_boot_dexpreopt="${12:-0}"
 
 case "$target" in
-  kernel | graphics | wifi | bluetooth | bootimage | recoveryimage | systemimage | testzip | bacon) ;;
+  kernel | graphics | wifi | bluetooth | nfc | bootimage | recoveryimage | systemimage | testzip | bacon) ;;
   *)
     printf 'Unsupported build target: %s\n' "$target" >&2
     exit 2
     ;;
 esac
+
+case "$product" in
+  lineage_m86 | lineage_m86_nfc_experiment) ;;
+  *)
+    printf 'Unsupported build product: %s\n' "$product" >&2
+    exit 2
+    ;;
+esac
+
+case "$force_boot_dexpreopt" in
+  0 | 1) ;;
+  *)
+    printf 'Forced boot dexpreopt must be 0 or 1: %s\n' \
+      "$force_boot_dexpreopt" >&2
+    exit 2
+    ;;
+esac
+
+nfc_experiment=0
+if [[ "$product" == lineage_m86_nfc_experiment ]]; then
+  nfc_experiment=1
+fi
+ota_product_suffix="${product#lineage_}"
+if [[ "$target" == nfc ]] && (( !nfc_experiment )); then
+  printf 'The nfc target is available only for lineage_m86_nfc_experiment.\n' >&2
+  exit 2
+fi
+if [[ "$target" == bacon ]] && ((nfc_experiment)); then
+  printf 'A release bacon build is available only for the default product.\n' >&2
+  exit 2
+fi
+if [[ "$force_boot_dexpreopt" == 1 ]] && \
+    { (( !nfc_experiment )) || [[ "$target" != testzip ]]; }; then
+  printf 'Forced boot dexpreopt is available only for an NFC experiment testzip.\n' >&2
+  exit 2
+fi
 
 full_zip_target=0
 android_build_target="$target"
@@ -39,7 +77,7 @@ if [[ "$target" == bacon || "$target" == testzip ]]; then
 fi
 module_only_target=0
 if [[ "$target" == graphics || "$target" == wifi || \
-      "$target" == bluetooth ]]; then
+      "$target" == bluetooth || "$target" == nfc ]]; then
   module_only_target=1
 fi
 
@@ -56,6 +94,7 @@ write_status() {
   local status_tmp="${status_file}.tmp"
 
   {
+    printf 'product=%s\n' "$product"
     printf 'target=%s\n' "$target"
     printf 'exit_code=%d\n' "$exit_code"
     printf 'finished_at=%s\n' "$(date --iso-8601=seconds)"
@@ -203,8 +242,8 @@ ccache --max-size=25G
 ccache --zero-stats
 
 printf 'Build started at %s\n' "$(date --iso-8601=seconds)"
-printf 'Source: %s\nTarget: %s\nRequested jobs: %s\nJobs: %s\nOutput: %s\n' \
-  "$source_root" "$target" "$requested_jobs" "$jobs" "$out_root"
+printf 'Source: %s\nProduct: %s\nTarget: %s\nRequested jobs: %s\nJobs: %s\nOutput: %s\n' \
+  "$source_root" "$product" "$target" "$requested_jobs" "$jobs" "$out_root"
 printf 'Workspace: %s\nDevice: %s\nKernel: %s\nVendor: %s\n' \
   "$local_revision" "$device_revision" "$kernel_revision" "$vendor_revision"
 printf 'Authoritative input snapshot: %s\n' "$local_input_hash"
@@ -239,13 +278,16 @@ cd "$source_root"
 # Android's envsetup and shell functions are not nounset-safe.
 # shellcheck disable=SC1091
 source build/envsetup.sh
-lunch lineage_m86-userdebug
+lunch "$product-userdebug"
+actual_product="$(get_build_var TARGET_PRODUCT)"
 actual_kernel_config="$(get_build_var TARGET_KERNEL_CONFIG)"
 actual_fpc_backend="$(get_build_var M86_FPC_BACKEND)"
-if [[ "$actual_kernel_config" != cm_pro5_defconfig || \
+if [[ "$actual_product" != "$product" || \
+      "$actual_kernel_config" != cm_pro5_defconfig || \
       "$actual_fpc_backend" != raw-navigation ]]; then
-  printf 'Default product selected an unsafe FPC build graph: config=%s backend=%s\n' \
-    "$actual_kernel_config" "$actual_fpc_backend" >&2
+  printf 'Selected product has an unsafe build graph: product=%s config=%s backend=%s\n' \
+    "$actual_product" "$actual_kernel_config" \
+    "$actual_fpc_backend" >&2
   exit 1
 fi
 
@@ -273,7 +315,7 @@ fi
 boot_art_logs=()
 if [[ "$target" == systemimage ]] || ((full_zip_target)); then
   mka nothing -j1
-  combined_ninja="$out_root/combined-lineage_m86.ninja"
+  combined_ninja="$out_root/combined-$product.ninja"
   ninja_binary="$source_root/prebuilts/build-tools/linux-x86/bin/ninja"
 
   record_boot_art_memory_snapshot() {
@@ -307,6 +349,14 @@ if [[ "$target" == systemimage ]] || ((full_zip_target)); then
 
   for boot_arch in arm arm64; do
     boot_art="$out_root/soong/m86/dex_bootjars/system/framework/$boot_arch/boot.art"
+    if ((force_boot_dexpreopt)); then
+      # This is a generated Ninja output, never a source input. Removing this
+      # sole primary output forces its normal edge to execute so the retained
+      # attempt log proves a real dex2oat run rather than a cache hit.
+      rm -f -- "$boot_art"
+      printf 'boot_%s_forced_regeneration=1\n' "$boot_arch" >> \
+        "$memory_plan_file"
+    fi
     boot_art_succeeded=0
     for boot_art_attempt in 1 2; do
       boot_art_prefix="boot_${boot_arch}_attempt_${boot_art_attempt}"
@@ -333,6 +383,12 @@ if [[ "$target" == systemimage ]] || ((full_zip_target)); then
         exit 1
       fi
       if [[ "$boot_art_status" == 0 ]]; then
+        if ((force_boot_dexpreopt)) && \
+            ! grep -E -q 'dex2oat took .*\(threads: 1\)' "$boot_art_log"; then
+          printf 'Forced %s boot ART did not execute single-threaded dex2oat.\n' \
+            "$boot_arch" >&2
+          exit 1
+        fi
         boot_art_succeeded=1
         break
       fi
@@ -527,11 +583,11 @@ if [[ "$target" == systemimage ]] || ((full_zip_target)); then
   rm -f -- "$product_out/system/lib64/hw/audio.primary.m86.so"
 fi
 if ((full_zip_target)) && [[ -d "$product_out" ]]; then
-  # bacon leaves dated release ZIPs from earlier runs in PRODUCT_OUT. Remove
-  # only those generated m86 release packages so the retained artifact cannot
-  # be confused with a stale build; Ninja recreates the current output below.
+  # bacon leaves dated packages from earlier runs in PRODUCT_OUT. Keep default
+  # and experiment products isolated so a stale package cannot be mistaken for
+  # the current selected product; Ninja recreates the current output below.
   find "$product_out" -maxdepth 1 -type f \
-    -name 'lineage-17.1-*-m86.zip' -delete
+    -name "lineage-17.1-*-$ota_product_suffix.zip" -delete
 fi
 if [[ "$target" == graphics ]]; then
   build_targets=(
@@ -580,6 +636,13 @@ elif [[ "$target" == wifi ]]; then
     hostapd
     wpa_supplicant
   )
+elif [[ "$target" == nfc ]]; then
+  build_targets=(
+    android.hardware.nfc@1.1-service
+    nfc_nci_nxp
+    NfcNci
+    Tag
+  )
 else
   build_targets=("$android_build_target" m86-dtbimage)
   if [[ "$target" == systemimage ]]; then
@@ -590,7 +653,7 @@ mback_policy_log="$run_root/build-$build_stamp-mback-key-policy.txt"
 "$local_root/tools/test-mback-key-policy.sh" | tee "$mback_policy_log"
 mka "${build_targets[@]}" -j"$jobs"
 
-artifact_dir="$artifact_root/$build_stamp-$target"
+artifact_dir="$artifact_root/$build_stamp-$product-$target"
 mkdir -p "$artifact_dir"
 if [[ "$target" == systemimage ]]; then
   audio_wrapper="$product_out/system/lib/hw/audio.primary.m86.so"
@@ -729,7 +792,7 @@ graphics_interface_relative_paths=(
 
 assert_single_ninja_owner() {
   local installed_file="$1"
-  local ninja_file="$out_root/build-lineage_m86.ninja"
+  local ninja_file="$out_root/build-$product.ninja"
   local ninja_output="${installed_file#"$out_root/"}"
   local producer_count
 
@@ -2225,6 +2288,19 @@ case "$target" in
     done
     write_source_graphics_report "$artifact_dir/GRAPHICS-MODULES.txt"
     ;;
+  nfc)
+    {
+      printf 'product=%s\n' "$product"
+      printf 'module_target=android.hardware.nfc@1.1-service\n'
+      printf 'module_target=nfc_nci_nxp\n'
+      printf 'module_target=NfcNci\n'
+      printf 'module_target=Tag\n'
+      find "$product_out" -type f \
+        \( -name 'android.hardware.nfc@1.1-service' -o \
+           -name 'libnfc_nci_nxp.so' -o -name 'NfcNci.apk' -o \
+           -name 'Tag.apk' \) -print 2>/dev/null | LC_ALL=C sort
+    } > "$artifact_dir/NFC-MODULES.txt"
+    ;;
   bootimage)
     copy_required "$product_out/boot.img"
     ;;
@@ -2242,7 +2318,7 @@ case "$target" in
 
     mapfile -t target_files_packages < <(
       find "$product_out/obj/PACKAGING/target_files_intermediates" \
-        -maxdepth 1 -type f -name '*-target_files-*.zip' -print 2>/dev/null |
+        -maxdepth 1 -type f -name "$product-target_files-*.zip" -print 2>/dev/null |
         LC_ALL=C sort
     )
     if [[ "${#target_files_packages[@]}" -ne 1 ]]; then
@@ -2261,7 +2337,8 @@ case "$target" in
 
     mapfile -t ota_packages < <(
       find "$product_out" -maxdepth 1 -type f \
-        -name 'lineage-17.1-*.zip' -print | LC_ALL=C sort
+        -name "lineage-17.1-*-$ota_product_suffix.zip" -print |
+        LC_ALL=C sort
     )
     if [[ "${#ota_packages[@]}" -ne 1 ]]; then
       printf 'Expected one LineageOS OTA ZIP, found %s.\n' \
@@ -2327,6 +2404,11 @@ if ((full_zip_target)); then
   assert_m5_audio_baseline_target_files "$target_files_tree"
   assert_m5_hifi_target_files "$target_files_tree"
   assert_m3_target_files "$target_files_tree"
+  if ((nfc_experiment)); then
+    bash "$local_root/tools/audit-nfc-experiment-output.sh" \
+      "$target_files_tree" target-files "$source_root" |
+      tee "$artifact_dir/NFC-TARGET-FILES.txt"
+  fi
   source_fstab="$source_root/device/meizu/m86/storage/rootdir/etc/fstab.m86"
   for packaged_fstab in \
     "$target_files_tree/BOOT/RAMDISK/fstab.m86" \
@@ -2373,9 +2455,13 @@ if ((full_zip_target)); then
 
   # Twenty-four graphics destinations are source-built, two dead HWC-service
   # blobs, two legacy radio helpers, and the unused 64-bit primary audio input
-  # are deferred; fourteen NFC/Trustonic inputs are split between experiments.
+  # are deferred. The NFC experiment restores one separately audited firmware
+  # input while the remaining NFC/Trustonic inputs stay in their own scopes.
   # The 32-bit Flyme primary input is renamed to .flyme.so and audited below.
   installed_vendor_blob_count="$((vendor_blob_count - 43))"
+  if ((nfc_experiment)); then
+    installed_vendor_blob_count="$((vendor_blob_count - 42))"
+  fi
   if ! (
     cd "$product_out/system"
     awk '$2 != "./lib/hw/gralloc.exynos5.so" &&
@@ -2427,6 +2513,14 @@ if ((full_zip_target)); then
   ); then
     printf 'Installed system tree differs from the %s selected Flyme inputs.\n' \
       "$installed_vendor_blob_count" >&2
+    exit 1
+  fi
+  if ((nfc_experiment)) && ! (
+    cd "$product_out/system"
+    awk '$2 == "./vendor/firmware/libpn547_fw.so"' "$vendor_blob_lock" |
+      sha256sum --quiet -c -
+  ); then
+    printf 'NFC experiment firmware differs from the locked Flyme input.\n' >&2
     exit 1
   fi
 
@@ -2580,8 +2674,14 @@ if ((full_zip_target)); then
     tee "$artifact_dir/CAMERA-ABI.txt"
   "$local_root/tools/audit-fingerprint-output.sh" "$product_out" absent |
     tee "$artifact_dir/FINGERPRINT-OUTPUT.txt"
-  bash "$local_root/tools/audit-default-hidden-output.sh" "$product_out" |
-    tee "$artifact_dir/DEFAULT-HIDDEN-OUTPUT.txt"
+  if ((nfc_experiment)); then
+    bash "$local_root/tools/audit-nfc-experiment-output.sh" \
+      "$product_out" product-out "$source_root" |
+      tee "$artifact_dir/NFC-OUTPUT.txt"
+  else
+    bash "$local_root/tools/audit-default-hidden-output.sh" "$product_out" |
+      tee "$artifact_dir/DEFAULT-HIDDEN-OUTPUT.txt"
+  fi
 fi
 
 if ((!module_only_target)); then
@@ -2602,7 +2702,9 @@ repo manifest -r -o "$artifact_dir/lineage-17.1-m86-lock.xml"
 
 {
   printf 'built_at=%s\n' "$(date --iso-8601=seconds)"
-  printf 'target=lineage_m86-userdebug %s\n' "$target"
+  printf 'target=%s-userdebug %s\n' "$product" "$target"
+  printf 'product=%s\n' "$product"
+  printf 'nfc_experiment=%s\n' "$nfc_experiment"
   printf 'local_revision=%s\n' "$local_revision"
   printf 'device_revision=%s\n' "$device_revision"
   printf 'kernel_revision=%s\n' "$kernel_revision"
@@ -2613,6 +2715,7 @@ repo manifest -r -o "$artifact_dir/lineage-17.1-m86-lock.xml"
   printf 'jobs=%s\n' "$jobs"
   printf 'requested_jobs=%s\n' "$requested_jobs"
   printf 'art_boot_image_jobs=%s\n' "$art_boot_image_jobs"
+  printf 'forced_boot_dexpreopt=%s\n' "$force_boot_dexpreopt"
   if [[ "$target" == systemimage ]] || ((full_zip_target)); then
     printf 'boot_dexpreopt=serialized arm then arm64\n'
   fi
@@ -2650,12 +2753,12 @@ cp -a "$log_file" "$artifact_dir/"
     LC_ALL=C sort -z |
     xargs -0 sha256sum
 ) > "$artifact_dir/SHA256SUMS"
-if [[ "$target" != testzip ]] && \
+if [[ "$target" != testzip ]] && (( !nfc_experiment )) && \
     [[ "$local_revision" != *-dirty ]] && \
     [[ "$device_revision" != *-dirty ]] && \
     [[ "$kernel_revision" != *-dirty ]] && \
     [[ "$vendor_revision" != *-dirty ]]; then
   ln -sfn "$(basename "$artifact_dir")" "$artifact_root/lineage-latest"
 else
-  printf 'Dirty development artifact was not promoted to lineage-latest.\n'
+  printf 'Development or experiment artifact was not promoted to lineage-latest.\n'
 fi
