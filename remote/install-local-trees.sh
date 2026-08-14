@@ -48,6 +48,33 @@ tree_fingerprint() {
   ) | sha256sum | awk '{ print $1 }'
 }
 
+fingerprint_tree() {
+  local tree_root="$1"
+  local exclude_proprietary="$2"
+  local heartbeat_pid
+  local fingerprint
+
+  # The kernel tree has tens of thousands of files. Keep the SSH stream active
+  # while hashing it so an idle gateway cannot abort an otherwise valid,
+  # fail-closed tree comparison.
+  (
+    while :; do
+      sleep 10
+      printf 'Fingerprinting: %s\n' "$tree_root" >&2
+    done
+  ) &
+  heartbeat_pid=$!
+
+  if ! fingerprint="$(tree_fingerprint "$tree_root" "$exclude_proprietary")"; then
+    kill "$heartbeat_pid" 2>/dev/null || true
+    wait "$heartbeat_pid" 2>/dev/null || true
+    return 1
+  fi
+  kill "$heartbeat_pid" 2>/dev/null || true
+  wait "$heartbeat_pid" 2>/dev/null || true
+  printf '%s\n' "$fingerprint"
+}
+
 for relative_path in \
   device/meizu/m86 \
   hardware/meizu/m86 \
@@ -80,9 +107,9 @@ for relative_path in \
   if [[ "$relative_path" == vendor/meizu/m86 ]]; then
     exclude_proprietary=true
   fi
-  local_fingerprint="$(tree_fingerprint \
+  local_fingerprint="$(fingerprint_tree \
     "$local_tree" "$exclude_proprietary")"
-  installed_fingerprint="$(tree_fingerprint \
+  installed_fingerprint="$(fingerprint_tree \
     "$build_tree" "$exclude_proprietary")"
   if [[ "$local_fingerprint" != "$installed_fingerprint" ]]; then
     printf 'Installed tree fingerprint mismatch: %s\n' "$relative_path" >&2

@@ -25,6 +25,14 @@ retired_ledger="$local_root/docs/retired-platform-debt.tsv"
 while IFS=$'\t' read -r domain repository patch_path _; do
   [[ "$domain" == domain ]] && continue
   [[ -n "$repository" && -n "$patch_path" ]] || continue
+  if [[ "$patch_path" == "-" ]]; then
+    # This row records a retired change whose original patch artifact was not
+    # retained in the workspace. It is provenance-only; do not turn it into a
+    # missing-file failure for every otherwise reproducible build.
+    printf 'Retired patch has no retained artifact: %s/%s\n' \
+      "$domain" "$repository"
+    continue
+  fi
   case "$repository" in
     workspace\ tooling)
       # Workspace tools are not patches against an Android source project.

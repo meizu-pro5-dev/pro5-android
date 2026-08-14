@@ -12,7 +12,7 @@ M5	frameworks/av	patches/frameworks-av/0002-audioflinger-route-meizu-hifi-state-
 M5	frameworks/av	patches/frameworks-av/0001-audioflinger-restore-meizu-headphone-volume.patch	M5 m86 audio wrapper ownership	hardware/meizu/m86/audio normalizes the Flyme headphone scalar to unity before forwarding stream volume; AudioFlinger has no vendor volume hook
 M5	hardware/interfaces	patches/hardware-interfaces/0004-audio-call-meizu-headphone-volume-hook.patch	M5 m86 audio wrapper ownership	hardware/meizu/m86/audio calls the private Flyme callback directly; the HIDL boundary has no vendor headphone-volume dispatch
 M5	packages/apps/Settings	patches/packages-apps-settings/0001-system-add-meizu-hifi-sound.patch	M5 M86Parts ownership	M86Parts owns the HiFi page and Settings.Global contract; Settings no longer carries an m86 page
-M5	frameworks/base	patches/frameworks-base/0005-audio-hifi-global-settings.patch	M5 m86 audio wrapper ownership	Temporary Settings.Global migration is retired with the AudioService HiFi policy
+M5	frameworks/base	-	M5 m86 audio wrapper ownership	Temporary Settings.Global migration is retired with the AudioService HiFi policy; original patch artifact was not retained
 M5	frameworks/base	patches/frameworks-base/0003-audio-restore-meizu-hifi-routing.patch	M5 m86 audio wrapper ownership	M86Parts writes Settings.Global and directly notifies the wrapper; AudioService HiFi policy is removed
 M8	external/glib	patches/external-glib/0001-build-libglib-for-m86-vendor.patch	M8 default fingerprint hide	raw libfprint is not in the default or Trustonic experiment queue
 M8	external/glib	patches/external-glib/0003-clang-port-legacy-android-stubs.patch	M8 default fingerprint hide	raw libfprint is not in the default or Trustonic experiment queue
