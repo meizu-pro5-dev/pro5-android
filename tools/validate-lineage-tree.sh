@@ -1495,8 +1495,8 @@ validate_vendor_mapping_owners() {
   require_fixed \
     'vendor/meizu/m86/proprietary/vendor/firmware/libpn547_fw.so:$(TARGET_COPY_OUT_VENDOR)/lib64/libpn547_fw.so' \
     "$nfc_experiment_vendor_product"
-  [[ "$fingerprint_experiment_count" == 13 ]] || \
-    fail "expected 13 fingerprint experiment vendor mappings, got $fingerprint_experiment_count"
+  [[ "$fingerprint_experiment_count" == 15 ]] || \
+    fail "expected 15 fingerprint experiment vendor mappings, got $fingerprint_experiment_count"
 
   while IFS= read -r relative_path; do
     source_owned=false
