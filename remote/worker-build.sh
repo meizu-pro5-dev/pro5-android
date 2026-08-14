@@ -2501,10 +2501,11 @@ if ((full_zip_target)); then
   # blobs, two legacy radio helpers, and the unused 64-bit primary audio input
   # are deferred. The NFC experiment restores one separately audited firmware
   # input while the remaining NFC/Trustonic inputs stay in their own scopes.
-  # The 32-bit Flyme primary input is renamed to .flyme.so and audited below.
-  installed_vendor_blob_count="$((vendor_blob_count - 43))"
+  # The 32-bit Flyme primary input is renamed to .flyme.so and audited below;
+  # both gatekeeper inputs are renamed to gatekeeper.m86.so and audited below.
+  installed_vendor_blob_count="$((vendor_blob_count - 45))"
   if ((nfc_experiment)); then
-    installed_vendor_blob_count="$((vendor_blob_count - 42))"
+    installed_vendor_blob_count="$((vendor_blob_count - 44))"
   fi
   if ! (
     cd "$product_out/system"
@@ -2545,6 +2546,8 @@ if ((full_zip_target)); then
          $2 != "./bin/radiooptions_exynos" &&
          $2 != "./lib/hw/audio.primary.m86.so" &&
          $2 != "./lib64/hw/audio.primary.m86.so" &&
+         $2 != "./lib/hw/gatekeeper.exynos7420.so" &&
+         $2 != "./lib64/hw/gatekeeper.exynos7420.so" &&
          $2 != "./lib64/hw/fingerprint.m86.so" &&
          $2 != "./lib64/lib_fpc_tac_shared.so" &&
          $2 != "./vendor/firmware/libpn547_fw.so" &&
@@ -2578,6 +2581,18 @@ if ((full_zip_target)); then
     printf 'M5 audio wrapper/input ownership is incomplete in the installed tree.\n' >&2
     exit 1
   fi
+
+  for gatekeeper_input in lib lib64; do
+    gatekeeper_installed="$product_out/system/$gatekeeper_input/hw/gatekeeper.m86.so"
+    gatekeeper_source="$source_root/vendor/meizu/m86/proprietary/$gatekeeper_input/hw/gatekeeper.exynos7420.so"
+    if [[ ! -s "$gatekeeper_installed" ]] || \
+        ! cmp --quiet "$gatekeeper_installed" "$gatekeeper_source" || \
+        [[ -e "$product_out/system/$gatekeeper_input/hw/gatekeeper.exynos7420.so" ]]; then
+      printf 'Fingerprint experiment gatekeeper HAL ownership is incomplete: %s\n' \
+        "$gatekeeper_installed" >&2
+      exit 1
+    fi
+  done
 
   source_gralloc_32="$product_out/obj_arm/SHARED_LIBRARIES/gralloc.m86_intermediates/gralloc.m86.so"
   source_gralloc_64="$product_out/obj/SHARED_LIBRARIES/gralloc.m86_intermediates/gralloc.m86.so"

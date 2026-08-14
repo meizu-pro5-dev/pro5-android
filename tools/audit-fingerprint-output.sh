@@ -21,6 +21,11 @@ fingerprint_rc="$vendor_out/etc/init/android.hardware.biometrics.fingerprint@2.1
 vendor_manifest="$vendor_out/etc/vintf/manifest.xml"
 fingerprint_permission="$vendor_out/etc/permissions/android.hardware.fingerprint.xml"
 shadow_fingerprint_hal="$vendor_out/lib64/hw/fingerprint.m86.so"
+gatekeeper_hal32="$system_out/lib/hw/gatekeeper.m86.so"
+gatekeeper_hal64="$system_out/lib64/hw/gatekeeper.m86.so"
+gatekeeper_service="$vendor_out/bin/hw/android.hardware.gatekeeper@1.0-service"
+gatekeeper_service_rc="$vendor_out/etc/init/android.hardware.gatekeeper@1.0-service.rc"
+gatekeeper_impl="$vendor_out/lib64/hw/android.hardware.gatekeeper@1.0-impl.so"
 
 case "$mode" in
   absent)
@@ -33,7 +38,12 @@ case "$mode" in
       "$fingerprint_service" \
       "$fingerprint_rc" \
       "$fingerprint_permission" \
-      "$shadow_fingerprint_hal"; do
+      "$shadow_fingerprint_hal" \
+      "$gatekeeper_hal32" \
+      "$gatekeeper_hal64" \
+      "$gatekeeper_service" \
+      "$gatekeeper_service_rc" \
+      "$gatekeeper_impl"; do
       if [[ -e "$forbidden_output" ]]; then
         printf 'Default product exposes deferred fingerprint output: %s\n' \
           "$forbidden_output" >&2
@@ -72,7 +82,12 @@ for required_output in \
   "$fingerprint_service" \
   "$fingerprint_rc" \
   "$vendor_manifest" \
-  "$fingerprint_permission"; do
+  "$fingerprint_permission" \
+  "$gatekeeper_hal32" \
+  "$gatekeeper_hal64" \
+  "$gatekeeper_service" \
+  "$gatekeeper_service_rc" \
+  "$gatekeeper_impl"; do
   if [[ ! -s "$required_output" ]]; then
     printf 'Missing fingerprint output: %s\n' "$required_output" >&2
     exit 1
@@ -80,7 +95,8 @@ for required_output in \
 done
 
 for elf_file in "$fingerprint_hal" "$fingerprint_tac" "$mc_daemon" \
-  "$fingerprint_service"; do
+  "$fingerprint_service" "$gatekeeper_hal64" "$gatekeeper_service" \
+  "$gatekeeper_impl"; do
   if ! readelf -h "$elf_file" | \
       grep -Eq 'Class:[[:space:]]+ELF64'; then
     printf 'Fingerprint output is not ELF64: %s\n' "$elf_file" >&2
@@ -143,6 +159,38 @@ fi
 if ! grep -F -q '<feature name="android.hardware.fingerprint"' \
     "$fingerprint_permission"; then
   printf 'Fingerprint feature permission is missing.\n' >&2
+  exit 1
+fi
+
+for gatekeeper_contract in \
+  '<name>android.hardware.gatekeeper</name>' \
+  '<version>1.0</version>' \
+  '<name>IGatekeeper</name>'; do
+  if ! grep -F -q "$gatekeeper_contract" "$vendor_manifest"; then
+    printf 'Vendor manifest omits gatekeeper contract: %s\n' \
+      "$gatekeeper_contract" >&2
+    exit 1
+  fi
+done
+if ! grep -F -q \
+    'service vendor.gatekeeper-1-0 /vendor/bin/hw/android.hardware.gatekeeper@1.0-service' \
+    "$gatekeeper_service_rc"; then
+  printf 'Gatekeeper service rc has an unexpected service command.\n' >&2
+  exit 1
+fi
+require_needed "$gatekeeper_hal64" libMcClient.so
+require_needed "$gatekeeper_hal64" libgatekeeper.so
+require_needed "$gatekeeper_impl" libhardware.so
+
+printf 'gatekeeper_hal32_sha256=%s\n' \
+  "$(sha256sum "$gatekeeper_hal32" | awk '{ print $1 }')"
+printf 'gatekeeper_hal64_sha256=%s\n' \
+  "$(sha256sum "$gatekeeper_hal64" | awk '{ print $1 }')"
+if [[ "$(sha256sum "$gatekeeper_hal32" | awk '{ print $1 }')" != \
+    "651cc8076212f7f151fb40bd2006b5bb044cb1cd839a6ccbd7aa63aa94f06bf2" ]] || \
+   [[ "$(sha256sum "$gatekeeper_hal64" | awk '{ print $1 }')" != \
+    "c7c34c727ce0a5b219873c8092c9b497a264ef92f71cc90062e5a4da9079467b" ]]; then
+  printf 'Gatekeeper HAL does not match Flyme 8.0.5.0A.\n' >&2
   exit 1
 fi
 

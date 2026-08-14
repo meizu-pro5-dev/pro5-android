@@ -1143,10 +1143,14 @@ validate_m4_connectivity_radio() {
   require_fixed 'deferred_radiooptions_exynos=absent' "$build_worker"
   require_fixed '$2 != "./bin/rild_exynos"' "$build_worker"
   require_fixed '$2 != "./bin/radiooptions_exynos"' "$build_worker"
-  require_fixed 'installed_vendor_blob_count="$((vendor_blob_count - 43))"' \
+  require_fixed 'installed_vendor_blob_count="$((vendor_blob_count - 45))"' \
     "$build_worker"
   require_fixed '$2 != "./lib/hw/audio.primary.m86.so"' "$build_worker"
   require_fixed '$2 != "./lib64/hw/audio.primary.m86.so"' "$build_worker"
+  require_fixed '$2 != "./lib/hw/gatekeeper.exynos7420.so"' "$build_worker"
+  require_fixed '$2 != "./lib64/hw/gatekeeper.exynos7420.so"' "$build_worker"
+  require_fixed 'Fingerprint experiment gatekeeper HAL ownership is incomplete' \
+    "$build_worker"
 }
 
 validate_m5_audio() {
@@ -1404,6 +1408,12 @@ validate_m8_default_hidden() {
   require_fixed 'M86_ENABLE_LEGACY_RAW_FINGERPRINT' \
     "$device_root/fingerprint/Android.mk"
   require_fixed 'fingerprint output absence audit passed.' \
+    "$project_root/tools/audit-fingerprint-output.sh"
+  require_fixed 'Gatekeeper HAL does not match Flyme 8.0.5.0A.' \
+    "$project_root/tools/audit-fingerprint-output.sh"
+  require_fixed 'Gatekeeper service rc has an unexpected service command.' \
+    "$project_root/tools/audit-fingerprint-output.sh"
+  require_fixed 'Vendor manifest omits gatekeeper contract:' \
     "$project_root/tools/audit-fingerprint-output.sh"
   require_fixed 'Default NFC/fingerprint output absence audit passed.' \
     "$project_root/tools/audit-default-hidden-output.sh"
