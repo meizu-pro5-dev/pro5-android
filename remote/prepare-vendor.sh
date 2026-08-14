@@ -112,6 +112,8 @@ fingerprint_experiment_copy_paths=(
   app/mcRegistry/07060000000000000000000000000000.tlbin
   app/mcRegistry/07061000000000000000000000000000.tlbin
   bin/mcDriverDaemon
+  lib/hw/gatekeeper.exynos7420.so
+  lib64/hw/gatekeeper.exynos7420.so
   lib64/hw/fingerprint.m86.so
   lib64/lib_fpc_tac_shared.so
   vendor/lib/libMcClient.so
@@ -202,6 +204,15 @@ write_experiment_makefile \
   "$fingerprint_experiment_makefile" \
   lineage_m86_fingerprint_experiment \
   "${fingerprint_experiment_copy_paths[@]}"
+
+# The Trustonic gatekeeper HAL is loaded through the ro.hardware class name
+# (gatekeeper.m86.so), not its stock exynos7420 file name. Rename only the
+# destination so the fingerprint experiment registers the TEE-signed
+# hw_auth_token producer under the name gatekeeperd will look up.
+sed -i 's|lib64/hw/gatekeeper.exynos7420.so:$(TARGET_COPY_OUT_SYSTEM)/lib64/hw/gatekeeper.exynos7420.so|lib64/hw/gatekeeper.exynos7420.so:$(TARGET_COPY_OUT_SYSTEM)/lib64/hw/gatekeeper.m86.so|' \
+  "$fingerprint_experiment_makefile"
+sed -i 's|lib/hw/gatekeeper.exynos7420.so:$(TARGET_COPY_OUT_SYSTEM)/lib/hw/gatekeeper.exynos7420.so|lib/hw/gatekeeper.exynos7420.so:$(TARGET_COPY_OUT_SYSTEM)/lib/hw/gatekeeper.m86.so|' \
+  "$fingerprint_experiment_makefile"
 
 copy_rule_count="$(
   grep -c '^    vendor/meizu/m86/proprietary/' "$vendor_makefile"
