@@ -30,7 +30,10 @@ artifacts are deliberately not versioned in this repository.
 
 ## Builder
 
-The default builder is `REDACTED_BUILDER_ENDPOINT`. Persistent
+The default builder is `REDACTED_BUILDER_ENDPOINT`, registered
+in the local SSH config as the alias `rom-builder`; host, port, and remote root
+can be overridden with `PRO5_BUILDER_HOST`, `PRO5_BUILDER_PORT`, and
+`PRO5_REMOTE_ROOT`. Persistent
 state is kept below `/root/autodl-tmp/pro5-android10`; the small root overlay is
 never used for Android source or build output. `/etc/network_turbo` is sourced
 on the builder when available, without printing its contents. LineageOS Git
@@ -99,9 +102,6 @@ the verified Flyme contract. The resulting artifact directory contains a
 pinned upstream manifest, source revision, stock-base lock, generated kernel
 config, reproducibility record, hashes, and an explicit flashing boundary. A
 successful build does not authorize a phone write.
-
-Environment variables can override the non-secret connection defaults:
-`PRO5_BUILDER_HOST`, `PRO5_BUILDER_PORT`, and `PRO5_REMOTE_ROOT`.
 
 ## Initial target
 
