@@ -280,6 +280,10 @@ while IFS= read -r relative_path; do
     output_path="\$(TARGET_COPY_OUT_VENDOR)/${relative_path#vendor/}"
   elif [[ "$relative_path" == lib/hw/audio.primary.m86.so ]]; then
     output_path="\$(TARGET_COPY_OUT_SYSTEM)/lib/hw/audio.primary.m86.flyme.so"
+  elif [[ "$relative_path" == lib/hw/gatekeeper.exynos7420.so ]]; then
+    output_path="\$(TARGET_COPY_OUT_SYSTEM)/lib/hw/gatekeeper.m86.so"
+  elif [[ "$relative_path" == lib64/hw/gatekeeper.exynos7420.so ]]; then
+    output_path="\$(TARGET_COPY_OUT_SYSTEM)/lib64/hw/gatekeeper.m86.so"
   else
     output_path="\$(TARGET_COPY_OUT_SYSTEM)/$relative_path"
   fi
