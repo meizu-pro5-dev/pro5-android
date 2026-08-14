@@ -265,8 +265,8 @@ if ((full_zip_target)); then
   done
 
   vendor_blob_count="$(wc -l < "$vendor_blob_lock" | tr -d ' ')"
-  if [[ "$vendor_blob_count" != "222" ]]; then
-    printf 'Expected 222 locked m86 blobs, found %s.\n' \
+  if [[ "$vendor_blob_count" != "224" ]]; then
+    printf 'Expected 224 locked m86 blobs, found %s.\n' \
       "$vendor_blob_count" >&2
     exit 1
   fi

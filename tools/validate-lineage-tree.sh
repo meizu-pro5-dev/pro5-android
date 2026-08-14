@@ -1435,8 +1435,8 @@ validate_vendor_mapping_owners() {
   expected_blob_count="$(
     awk 'NF && $1 !~ /^#/ { count++ } END { print count + 0 }' "$blob_list"
   )"
-  [[ "$expected_blob_count" == 222 ]] || \
-    fail "expected 222 locked proprietary inputs, got $expected_blob_count"
+  [[ "$expected_blob_count" == 224 ]] || \
+    fail "expected 224 locked proprietary inputs, got $expected_blob_count"
 
   source_owned_paths=(
     lib/hw/gralloc.exynos5.so
