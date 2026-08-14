@@ -1,0 +1,47 @@
+From 6a4f3b9e2c7d8e1f0a9b8c7d6e5f4a3b2c1d0e9f Mon Sep 17 00:00:00 2001
+From: Codex <codex@openai.com>
+Date: Fri, 14 Aug 2026 21:30:00 +0800
+Subject: [PATCH] gatekeeperd: compute a real HMAC in the soft fallback
+
+The legacy gatekeeperd software fallback (SoftGateKeeper) zeroes the
+hw_auth_token HMAC and uses an all-zero auth key, unlike the real
+keymaster-backed gatekeeper which computes HMAC-SHA256. Devices without a
+gatekeeper HAL module therefore mint tokens whose HMAC is all zeros.
+
+The FPC1020 Trustonic TA rejects such tokens with FPC_ERROR_INPUT (its
+enroll authorization and final template synthesis require a non-trivial
+HMAC), which blocks fingerprint enrollment on m86. Compute a proper
+HMAC-SHA256 over the token header in the fallback so the TA accepts it,
+matching the behavior of the keymaster-backed implementation.
+---
+ gatekeeperd/SoftGateKeeper.h | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/gatekeeperd/SoftGateKeeper.h b/gatekeeperd/SoftGateKeeper.h
+index 0be2555..1a7b3c9 100644
+--- a/gatekeeperd/SoftGateKeeper.h
++++ b/gatekeeperd/SoftGateKeeper.h
+@@ -22,6 +22,7 @@
+ extern "C" {
+ #include <openssl/rand.h>
+ #include <openssl/sha.h>
++#include <openssl/hmac.h>
+ 
+ #include <crypto_scrypt.h>
+ }
+@@ -84,9 +85,11 @@ public:
+     }
+ 
+     virtual void ComputeSignature(uint8_t *signature, uint32_t signature_length,
+-            const uint8_t *, uint32_t, const uint8_t *, const uint32_t) const {
++            const uint8_t *key, uint32_t key_length, const uint8_t *message,
++            const uint32_t message_length) const {
+         if (signature == NULL) return;
+-        memset(signature, 0, signature_length);
++        HMAC(EVP_sha256(), key, key_length, message, message_length, signature,
++                NULL);
+     }
+ 
+     virtual uint64_t GetMillisecondsSinceBoot() const {
+-- 
+2.39.2 (Apple Git-143)

@@ -9,3 +9,4 @@ hardware/interfaces	patches/hardware-interfaces/0003-camera-provider-use-framewo
 hardware/nxp/nfc	patches/hardware-nxp-nfc/0001-reader-only-allow-disabling-ese-client-bridge.patch
 hardware/nxp/nfc	patches/hardware-nxp-nfc/0002-fw-download-pn547c2-container.patch
 system/nfc	patches/system-nfc/0001-dm-skip-unsupported-discovery-entries.patch
+system/core	patches/system-core/0003-gatekeeperd-compute-real-auth-token-hmac.patch
