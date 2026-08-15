@@ -50,6 +50,7 @@ if [[ "$mode" == absent ]]; then
     app/mcRegistry/07061000000000000000000000000000.tlbin \
     bin/mcDriverDaemon \
     lib64/hw/fingerprint.m86.so \
+    lib64/hw/fingerprint.m86.flyme.so \
     lib64/lib_fpc_tac_shared.so \
     vendor/lib/libMcClient.so \
     vendor/lib/libMcRegistry.so \
@@ -57,6 +58,8 @@ if [[ "$mode" == absent ]]; then
     vendor/lib64/libMcRegistry.so \
     vendor/etc/permissions/android.hardware.fingerprint.xml \
     vendor/etc/init/init.m86.fingerprint-experiment.rc \
+    vendor/etc/init/android.hardware.gatekeeper@1.0-service.m86.rc \
+    vendor/bin/hw/android.hardware.gatekeeper@1.0-service.m86 \
     vendor/bin/hw/android.hardware.biometrics.fingerprint@2.1-service; do
     if [[ -e "$system_root/$forbidden_fingerprint_relative" ]]; then
       printf 'Default product installed deferred fingerprint experiment output: %s\n' \

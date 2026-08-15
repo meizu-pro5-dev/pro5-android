@@ -13,7 +13,7 @@ product="${PRO5_BUILD_PRODUCT:-lineage_m86}"
 force_boot_dexpreopt="${PRO5_FORCE_BOOT_DEXPREOPT:-0}"
 
 case "$target" in
-  kernel | graphics | wifi | bluetooth | nfc | bootimage | recoveryimage | systemimage | testzip | bacon) ;;
+  kernel | graphics | wifi | bluetooth | nfc | gatekeeper | fingerprint | bootimage | recoveryimage | systemimage | testzip | bacon) ;;
   *)
     printf 'Unsupported build target: %s\n' "$target" >&2
     exit 2
@@ -37,8 +37,19 @@ case "$force_boot_dexpreopt" in
     ;;
 esac
 
-if [[ "$target" == nfc && "$product" != lineage_m86_nfc_experiment ]]; then
-  printf 'The nfc target is available only for lineage_m86_nfc_experiment.\n' >&2
+if [[ "$target" == nfc && \
+      "$product" == lineage_m86_fingerprint_experiment ]]; then
+  printf 'The nfc target requires NFC in the selected product.\n' >&2
+  exit 2
+fi
+if [[ "$target" == gatekeeper && \
+      "$product" == lineage_m86_nfc_experiment ]]; then
+  printf 'The gatekeeper target requires fingerprint in the selected product.\n' >&2
+  exit 2
+fi
+if [[ "$target" == fingerprint && \
+      "$product" == lineage_m86_nfc_experiment ]]; then
+  printf 'The fingerprint target requires fingerprint in the selected product.\n' >&2
   exit 2
 fi
 if [[ "$target" == bacon && "$product" != lineage_m86 ]]; then

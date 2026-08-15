@@ -12,6 +12,7 @@ hardware_bluetooth_root="$project_root/hardware/meizu/m86/bluetooth"
 hardware_audio_root="$project_root/hardware/meizu/m86/audio"
 
 board_config="$device_root/BoardConfig.mk"
+main_product="$device_root/lineage_m86.mk"
 platform_config="$device_root/BoardConfigPlatform.mk"
 android_makefile="$device_root/Android.mk"
 device_makefile="$device_root/device.mk"
@@ -19,6 +20,12 @@ device_manifest="$device_root/manifest.xml"
 nfc_experiment_product="$device_root/experiments/nfc-product.mk"
 nfc_experiment_config="$device_root/nfc/libnfc-nxp.conf"
 fingerprint_experiment_product="$device_root/experiments/fingerprint-product.mk"
+fingerprint_compat_build="$device_root/fingerprint/Android.mk"
+fingerprint_compat_source="$device_root/fingerprint/FingerprintCompat.c"
+gatekeeper_service_build="$device_root/gatekeeper/Android.bp"
+gatekeeper_service_source="$device_root/gatekeeper/service.cpp"
+gatekeeper_service_rc="$device_root/gatekeeper/android.hardware.gatekeeper@1.0-service.m86.rc"
+gatekeeper_sepolicy="$device_root/sepolicy/hal_gatekeeper_default.te"
 nfc_experiment_init="$device_root/experiments/init.m86.nfc-experiment.rc"
 nfc_sepolicy="$device_root/sepolicy/hal_nfc_default.te"
 fingerprint_experiment_init="$device_root/experiments/init.m86.fingerprint-experiment.rc"
@@ -159,6 +166,10 @@ for required in \
   "$nfc_experiment_product" \
   "$nfc_experiment_config" \
   "$fingerprint_experiment_product" \
+  "$gatekeeper_service_build" \
+  "$gatekeeper_service_source" \
+  "$gatekeeper_service_rc" \
+  "$gatekeeper_sepolicy" \
   "$nfc_experiment_init" \
   "$nfc_sepolicy" \
   "$fingerprint_experiment_init" \
@@ -271,9 +282,9 @@ require_fixed 'Retired workspace tool is still present' "$apply_worker"
 # before either systemimage or bacon enters Ninja.
 require_fixed '[[ "$target" == systemimage ]] || ((full_zip_target))' \
   "$build_worker"
-require_fixed 'kernel | graphics | wifi | bluetooth | nfc | bootimage | recoveryimage | systemimage | testzip | bacon' \
+require_fixed 'kernel | graphics | wifi | bluetooth | nfc | gatekeeper | fingerprint | bootimage | recoveryimage | systemimage | testzip | bacon' \
   "$build_worker"
-require_fixed 'kernel | graphics | wifi | bluetooth | nfc | bootimage | recoveryimage | systemimage | testzip | bacon' \
+require_fixed 'kernel | graphics | wifi | bluetooth | nfc | gatekeeper | fingerprint | bootimage | recoveryimage | systemimage | testzip | bacon' \
   "$start_build"
 require_fixed 'android_build_target=bacon' "$build_worker"
 require_fixed '"outputs",' \
@@ -450,8 +461,8 @@ validate_m1_boot_and_ownership() {
   require_fixed 'M86_FPC_BACKEND := raw-navigation' "$board_config"
   require_fixed 'M86_FPC_BACKEND := tee' "$board_config"
   require_fixed 'TARGET_KERNEL_CONFIG := cm_pro5_defconfig' "$board_config"
-  require_fixed 'M86_ENABLE_FINGERPRINT_EXPERIMENT ?= false' \
-    "$device_root/lineage_m86.mk"
+  require_fixed 'M86_ENABLE_NFC_EXPERIMENT ?= true' "$main_product"
+  require_fixed 'M86_ENABLE_FINGERPRINT_EXPERIMENT ?= true' "$main_product"
   require_fixed 'M86_ENABLE_FINGERPRINT_EXPERIMENT := true' \
     "$device_root/lineage_m86_fingerprint_experiment.mk"
   require_fixed \
@@ -824,9 +835,7 @@ validate_m3_storage_usb_input() {
   require_fixed 'case 190:' "$mback_policy"
   require_fixed 'case 191:' "$mback_policy"
   require_fixed 'keyCode == KEYCODE_HOME && scanCode == 102' "$mback_policy"
-  for scan_code in 305; do
-    require_fixed "scanCode == $scan_code" "$mback_policy"
-  done
+  require_fixed 'keyCode == KEYCODE_F9 && scanCode == 305' "$mback_policy"
   for raw_scan_code in 139 158 190 191; do
     require_fixed "case $raw_scan_code:" "$mback_policy"
   done
@@ -1339,7 +1348,7 @@ validate_m7_media_camera() {
   require_fixed 'audit-camera-abi.sh' "$build_worker"
 }
 
-validate_m8_default_hidden() {
+validate_m8_integrated_hardware() {
   for forbidden in \
     android.hardware.fingerprint.xml \
     android.hardware.nfc.hce.xml \
@@ -1373,13 +1382,40 @@ validate_m8_default_hidden() {
   require_absent 'ro.nfc.port=' "$device_root/system.prop"
   require_fixed 'M86_ENABLE_NFC_EXPERIMENT := true' \
     "$device_root/lineage_m86_nfc_experiment.mk"
+  require_fixed 'M86_ENABLE_FINGERPRINT_EXPERIMENT := false' \
+    "$device_root/lineage_m86_nfc_experiment.mk"
+  require_fixed 'M86_ENABLE_NFC_EXPERIMENT := false' \
+    "$device_root/lineage_m86_fingerprint_experiment.mk"
   require_fixed 'M86_ENABLE_FINGERPRINT_EXPERIMENT := true' \
     "$device_root/lineage_m86_fingerprint_experiment.mk"
+  require_fixed \
+    'inherit-product, device/meizu/m86/experiments/nfc-product.mk' \
+    "$main_product"
+  require_fixed \
+    'inherit-product, device/meizu/m86/experiments/fingerprint-product.mk' \
+    "$main_product"
   require_absent 'lineage_m86_experiments' \
     "$device_root/AndroidProducts.mk"
   require_fixed 'android.hardware.nfc@1.1-service' "$nfc_experiment_product"
   require_fixed 'android.hardware.biometrics.fingerprint@2.1-service' \
     "$fingerprint_experiment_product"
+  require_fixed 'm86_gatekeeper_service' "$fingerprint_experiment_product"
+  require_fixed 'name: "m86_gatekeeper_service"' "$gatekeeper_service_build"
+  require_fixed 'stem: "android.hardware.gatekeeper@1.0-service.m86"' \
+    "$gatekeeper_service_build"
+  require_fixed 'chdir(kGatekeeperDataDirectory)' "$gatekeeper_service_source"
+  require_fixed '"/data/misc/gatekeeper"' "$gatekeeper_service_source"
+  require_fixed \
+    'service vendor.gatekeeper-1-0 /vendor/bin/hw/android.hardware.gatekeeper@1.0-service.m86' \
+    "$gatekeeper_service_rc"
+  require_fixed 'android\.hardware\.gatekeeper@1\.0-service\.m86' \
+    "$bluetooth_file_contexts"
+  require_fixed \
+    'allow hal_gatekeeper_default gatekeeper_data_file:dir rw_dir_perms;' \
+    "$gatekeeper_sepolicy"
+  require_fixed \
+    'allow hal_gatekeeper_default gatekeeper_data_file:file create_file_perms;' \
+    "$gatekeeper_sepolicy"
   require_fixed 'ro.nfc.platform=nxppn547' "$nfc_experiment_product"
   require_fixed 'libnfc-nci.conf' "$nfc_experiment_product"
   require_fixed 'NXP_ESE_CLIENT_ENABLE=0x00' "$nfc_experiment_config"
@@ -1407,11 +1443,38 @@ validate_m8_default_hidden() {
   require_fixed 'pn544_disable_irq_wake(pn544_dev);' "$kernel_nfc_driver"
   require_fixed 'M86_ENABLE_LEGACY_RAW_FINGERPRINT' \
     "$device_root/fingerprint/Android.mk"
+  require_fixed 'LOCAL_SRC_FILES := FingerprintCompat.c' \
+    "$fingerprint_compat_build"
+  require_fixed 'fingerprint.m86' "$fingerprint_experiment_product"
+  require_fixed 'fingerprint.m86.flyme.so' \
+    "$fingerprint_experiment_vendor_product"
+  require_fixed 'offsetof(fingerprint_device_t, set_active_group) == 0xc0' \
+    "$fingerprint_compat_source"
+  require_fixed 'offsetof(struct flyme_fingerprint_device, set_active_group) ==' \
+    "$fingerprint_compat_source"
+  require_fixed '0xe0' "$fingerprint_compat_source"
+  require_fixed '/system/lib64/hw/fingerprint.m86.flyme.so' \
+    "$fingerprint_compat_source"
+  require_fixed 'Remapped Flyme fingerprint callbacks to the AOSP 2.1 ABI' \
+    "$fingerprint_compat_source"
+  require_fixed 'fingerprint_compat_set_notify' "$fingerprint_compat_source"
+  require_fixed 'fingerprint_compat_cancel' "$fingerprint_compat_source"
+  require_fixed 'FINGERPRINT_ERROR_CANCELED' "$fingerprint_compat_source"
+  require_fixed 'Synthesized missing FINGERPRINT_ERROR_CANCELED callback' \
+    "$fingerprint_compat_source"
   require_fixed 'fingerprint output absence audit passed.' \
+    "$project_root/tools/audit-fingerprint-output.sh"
+  require_fixed 'Fingerprint provider does not match Flyme 8.0.5.0A.' \
+    "$project_root/tools/audit-fingerprint-output.sh"
+  require_fixed 'Fingerprint compatibility HAL omits its ABI remap marker.' \
     "$project_root/tools/audit-fingerprint-output.sh"
   require_fixed 'Gatekeeper HAL does not match Flyme 8.0.5.0A.' \
     "$project_root/tools/audit-fingerprint-output.sh"
   require_fixed 'Gatekeeper service rc has an unexpected service command.' \
+    "$project_root/tools/audit-fingerprint-output.sh"
+  require_fixed 'Gatekeeper service does not enter the legacy retry-record directory.' \
+    "$project_root/tools/audit-fingerprint-output.sh"
+  require_fixed 'Generic Gatekeeper output competes with the m86 service:' \
     "$project_root/tools/audit-fingerprint-output.sh"
   require_fixed 'Vendor manifest omits gatekeeper contract:' \
     "$project_root/tools/audit-fingerprint-output.sh"
@@ -1422,8 +1485,20 @@ validate_m8_default_hidden() {
   require_fixed 'PRO5_BUILD_PRODUCT' "$start_build"
   require_fixed 'PRO5_FORCE_BOOT_DEXPREOPT' "$start_build"
   require_fixed 'lineage_m86_nfc_experiment' "$build_worker"
-  require_fixed 'if [[ "$target" == nfc ]] && (( !nfc_experiment )); then' \
+  require_fixed 'The gatekeeper target requires fingerprint in the selected product.' \
+    "$start_build"
+  require_fixed 'The fingerprint target requires fingerprint in the selected product.' \
+    "$start_build"
+  require_fixed 'module_target=m86_gatekeeper_service' "$build_worker"
+  require_fixed 'module_target=fingerprint.m86' "$build_worker"
+  require_fixed 'cancel_callback_bridge=FINGERPRINT_ERROR_CANCELED' \
     "$build_worker"
+  require_fixed 'Built Gatekeeper service omits the legacy retry-record directory.' \
+    "$build_worker"
+  require_fixed 'if [[ "$target" == nfc ]] && (( !nfc_enabled )); then' \
+    "$build_worker"
+  require_fixed 'nfc_enabled=1' "$build_worker"
+  require_fixed 'fingerprint_enabled=1' "$build_worker"
   require_fixed 'forced_boot_dexpreopt=%s' "$build_worker"
   require_fixed 'Forced %s boot ART did not execute single-threaded dex2oat.' \
     "$build_worker"
@@ -1557,6 +1632,8 @@ validate_vendor_mapping_owners() {
       output_path="\$(TARGET_COPY_OUT_SYSTEM)/lib/hw/gatekeeper.m86.so"
     elif [[ "$relative_path" == lib64/hw/gatekeeper.exynos7420.so ]]; then
       output_path="\$(TARGET_COPY_OUT_SYSTEM)/lib64/hw/gatekeeper.m86.so"
+    elif [[ "$relative_path" == lib64/hw/fingerprint.m86.so ]]; then
+      output_path="\$(TARGET_COPY_OUT_SYSTEM)/lib64/hw/fingerprint.m86.flyme.so"
     else
       output_path="\$(TARGET_COPY_OUT_SYSTEM)/$relative_path"
     fi
@@ -1620,7 +1697,7 @@ validate_m5_audio
 validate_m5_hifi
 validate_m6_small_domains
 validate_m7_media_camera
-validate_m8_default_hidden
+validate_m8_integrated_hardware
 validate_vendor_mapping_owners
 validate_xml_and_python
 

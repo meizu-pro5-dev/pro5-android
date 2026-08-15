@@ -12,6 +12,7 @@ mode="${2:-absent}"
 vendor_out="$product_out/system/vendor"
 system_out="$product_out/system"
 fingerprint_hal="$system_out/lib64/hw/fingerprint.m86.so"
+fingerprint_flyme_hal="$system_out/lib64/hw/fingerprint.m86.flyme.so"
 fingerprint_tac="$system_out/lib64/lib_fpc_tac_shared.so"
 mc_daemon="$system_out/bin/mcDriverDaemon"
 mc_driver="$system_out/app/020a0000000000000000000000000000.drbin"
@@ -23,14 +24,17 @@ fingerprint_permission="$vendor_out/etc/permissions/android.hardware.fingerprint
 shadow_fingerprint_hal="$vendor_out/lib64/hw/fingerprint.m86.so"
 gatekeeper_hal32="$system_out/lib/hw/gatekeeper.m86.so"
 gatekeeper_hal64="$system_out/lib64/hw/gatekeeper.m86.so"
-gatekeeper_service="$vendor_out/bin/hw/android.hardware.gatekeeper@1.0-service"
-gatekeeper_service_rc="$vendor_out/etc/init/android.hardware.gatekeeper@1.0-service.rc"
+gatekeeper_service="$vendor_out/bin/hw/android.hardware.gatekeeper@1.0-service.m86"
+gatekeeper_service_rc="$vendor_out/etc/init/android.hardware.gatekeeper@1.0-service.m86.rc"
 gatekeeper_impl="$vendor_out/lib64/hw/android.hardware.gatekeeper@1.0-impl.so"
+generic_gatekeeper_service="$vendor_out/bin/hw/android.hardware.gatekeeper@1.0-service"
+generic_gatekeeper_service_rc="$vendor_out/etc/init/android.hardware.gatekeeper@1.0-service.rc"
 
 case "$mode" in
   absent)
     for forbidden_output in \
       "$fingerprint_hal" \
+      "$fingerprint_flyme_hal" \
       "$fingerprint_tac" \
       "$mc_daemon" \
       "$mc_driver" \
@@ -43,6 +47,8 @@ case "$mode" in
       "$gatekeeper_hal64" \
       "$gatekeeper_service" \
       "$gatekeeper_service_rc" \
+      "$generic_gatekeeper_service" \
+      "$generic_gatekeeper_service_rc" \
       "$gatekeeper_impl"; do
       if [[ -e "$forbidden_output" ]]; then
         printf 'Default product exposes deferred fingerprint output: %s\n' \
@@ -73,8 +79,19 @@ if [[ -e "$shadow_fingerprint_hal" ]]; then
   exit 1
 fi
 
+for retired_gatekeeper_output in \
+  "$generic_gatekeeper_service" \
+  "$generic_gatekeeper_service_rc"; do
+  if [[ -e "$retired_gatekeeper_output" ]]; then
+    printf 'Generic Gatekeeper output competes with the m86 service: %s\n' \
+      "$retired_gatekeeper_output" >&2
+    exit 1
+  fi
+done
+
 for required_output in \
   "$fingerprint_hal" \
+  "$fingerprint_flyme_hal" \
   "$fingerprint_tac" \
   "$mc_daemon" \
   "$mc_driver" \
@@ -94,7 +111,8 @@ for required_output in \
   fi
 done
 
-for elf_file in "$fingerprint_hal" "$fingerprint_tac" "$mc_daemon" \
+for elf_file in "$fingerprint_hal" "$fingerprint_flyme_hal" \
+  "$fingerprint_tac" "$mc_daemon" \
   "$fingerprint_service" "$gatekeeper_hal64" "$gatekeeper_service" \
   "$gatekeeper_impl"; do
   if ! readelf -h "$elf_file" | \
@@ -109,11 +127,14 @@ for elf_file in "$fingerprint_hal" "$fingerprint_tac" "$mc_daemon" \
   fi
 done
 
-if ! nm -D --defined-only "$fingerprint_hal" |
-    awk '$NF == "HMI" { found=1 } END { exit !found }'; then
-  printf 'The m86 fingerprint HAL does not export HMI.\n' >&2
-  exit 1
-fi
+for fingerprint_module in "$fingerprint_hal" "$fingerprint_flyme_hal"; do
+  if ! nm -D --defined-only "$fingerprint_module" |
+      awk '$NF == "HMI" { found=1 } END { exit !found }'; then
+    printf 'The m86 fingerprint HAL does not export HMI: %s\n' \
+      "$fingerprint_module" >&2
+    exit 1
+  fi
+done
 
 require_needed() {
   local elf_file="$1"
@@ -127,14 +148,25 @@ require_needed() {
   fi
 }
 
-require_needed "$fingerprint_hal" lib_fpc_tac_shared.so
+require_needed "$fingerprint_hal" libdl.so
+require_needed "$fingerprint_flyme_hal" lib_fpc_tac_shared.so
 require_needed "$fingerprint_tac" libMcClient.so
 require_needed "$fingerprint_service" \
   android.hardware.biometrics.fingerprint@2.1.so
 require_needed "$fingerprint_service" libhardware.so
 
-if strings "$fingerprint_hal" | grep -F -q '/dev/fpc1020'; then
+if strings "$fingerprint_flyme_hal" | grep -F -q '/dev/fpc1020'; then
   printf 'The active fingerprint HAL still contains the raw FPC1020 backend.\n' >&2
+  exit 1
+fi
+if ! strings "$fingerprint_hal" | \
+    grep -F -q '/system/lib64/hw/fingerprint.m86.flyme.so'; then
+  printf 'Fingerprint compatibility HAL omits its locked Flyme provider.\n' >&2
+  exit 1
+fi
+if ! strings "$fingerprint_hal" | \
+    grep -F -q 'Remapped Flyme fingerprint callbacks to the AOSP 2.1 ABI'; then
+  printf 'Fingerprint compatibility HAL omits its ABI remap marker.\n' >&2
   exit 1
 fi
 
@@ -173,9 +205,14 @@ for gatekeeper_contract in \
   fi
 done
 if ! grep -F -q \
-    'service vendor.gatekeeper-1-0 /vendor/bin/hw/android.hardware.gatekeeper@1.0-service' \
+    'service vendor.gatekeeper-1-0 /vendor/bin/hw/android.hardware.gatekeeper@1.0-service.m86' \
     "$gatekeeper_service_rc"; then
   printf 'Gatekeeper service rc has an unexpected service command.\n' >&2
+  exit 1
+fi
+if ! strings "$gatekeeper_service" | \
+    grep -F -q '/data/misc/gatekeeper'; then
+  printf 'Gatekeeper service does not enter the legacy retry-record directory.\n' >&2
   exit 1
 fi
 require_needed "$gatekeeper_hal64" libMcClient.so
@@ -196,9 +233,11 @@ fi
 
 printf 'fingerprint_hal_sha256=%s\n' \
   "$(sha256sum "$fingerprint_hal" | awk '{ print $1 }')"
-if [[ "$(sha256sum "$fingerprint_hal" | awk '{ print $1 }')" != \
+printf 'fingerprint_flyme_hal_sha256=%s\n' \
+  "$(sha256sum "$fingerprint_flyme_hal" | awk '{ print $1 }')"
+if [[ "$(sha256sum "$fingerprint_flyme_hal" | awk '{ print $1 }')" != \
     "aff55391dbc02df8657257d917ed83a56f6a19fe6a9a8834eba5e54d8df58fbe" ]]; then
-  printf 'Fingerprint HAL does not match Flyme 8.0.5.0A.\n' >&2
+  printf 'Fingerprint provider does not match Flyme 8.0.5.0A.\n' >&2
   exit 1
 fi
 if [[ "$(sha256sum "$fingerprint_tac" | awk '{ print $1 }')" != \
@@ -217,7 +256,11 @@ printf 'fingerprint_ta_sha256=%s\n' \
   "$(sha256sum "$fingerprint_ta" | awk '{ print $1 }')"
 printf 'fingerprint_service_sha256=%s\n' \
   "$(sha256sum "$fingerprint_service" | awk '{ print $1 }')"
+printf 'gatekeeper_service_sha256=%s\n' \
+  "$(sha256sum "$gatekeeper_service" | awk '{ print $1 }')"
+printf 'gatekeeper_retry_record_directory=/data/misc/gatekeeper\n'
 printf 'fingerprint_abi=ELF64 AArch64\n'
+printf 'fingerprint_legacy_abi=Flyme callbacks remapped to AOSP 2.1\n'
 printf 'fingerprint_hidl=2.1/default\n'
 printf 'fingerprint_backend=Flyme8 FPC Trustonic secure world\n'
 printf 'fingerprint output audit passed.\n'

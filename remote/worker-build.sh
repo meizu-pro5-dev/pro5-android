@@ -26,7 +26,7 @@ product="${11:-lineage_m86}"
 force_boot_dexpreopt="${12:-0}"
 
 case "$target" in
-  kernel | graphics | wifi | bluetooth | nfc | bootimage | recoveryimage | systemimage | testzip | bacon) ;;
+  kernel | graphics | wifi | bluetooth | nfc | gatekeeper | fingerprint | bootimage | recoveryimage | systemimage | testzip | bacon) ;;
   *)
     printf 'Unsupported build target: %s\n' "$target" >&2
     exit 2
@@ -58,9 +58,31 @@ fingerprint_experiment=0
 if [[ "$product" == lineage_m86_fingerprint_experiment ]]; then
   fingerprint_experiment=1
 fi
+nfc_enabled=0
+fingerprint_enabled=0
+case "$product" in
+  lineage_m86)
+    nfc_enabled=1
+    fingerprint_enabled=1
+    ;;
+  lineage_m86_nfc_experiment)
+    nfc_enabled=1
+    ;;
+  lineage_m86_fingerprint_experiment)
+    fingerprint_enabled=1
+    ;;
+esac
 ota_product_suffix="${product#lineage_}"
-if [[ "$target" == nfc ]] && (( !nfc_experiment )); then
-  printf 'The nfc target is available only for lineage_m86_nfc_experiment.\n' >&2
+if [[ "$target" == nfc ]] && (( !nfc_enabled )); then
+  printf 'The nfc target requires NFC in the selected product.\n' >&2
+  exit 2
+fi
+if [[ "$target" == gatekeeper ]] && (( !fingerprint_enabled )); then
+  printf 'The gatekeeper target requires fingerprint in the selected product.\n' >&2
+  exit 2
+fi
+if [[ "$target" == fingerprint ]] && (( !fingerprint_enabled )); then
+  printf 'The fingerprint target requires fingerprint in the selected product.\n' >&2
   exit 2
 fi
 if [[ "$target" == bacon ]] && ((nfc_experiment || fingerprint_experiment)); then
@@ -81,7 +103,8 @@ if [[ "$target" == bacon || "$target" == testzip ]]; then
 fi
 module_only_target=0
 if [[ "$target" == graphics || "$target" == wifi || \
-      "$target" == bluetooth || "$target" == nfc ]]; then
+      "$target" == bluetooth || "$target" == nfc || \
+      "$target" == gatekeeper || "$target" == fingerprint ]]; then
   module_only_target=1
 fi
 
@@ -288,7 +311,7 @@ actual_kernel_config="$(get_build_var TARGET_KERNEL_CONFIG)"
 actual_fpc_backend="$(get_build_var M86_FPC_BACKEND)"
 expected_kernel_config=cm_pro5_defconfig
 expected_fpc_backend=raw-navigation
-if ((fingerprint_experiment)); then
+if ((fingerprint_enabled)); then
   expected_kernel_config=cm_pro5_fingerprint_experiment_defconfig
   expected_fpc_backend=tee
 fi
@@ -302,6 +325,17 @@ if [[ "$actual_product" != "$product" || \
 fi
 
 product_out="$out_root/target/product/m86"
+if [[ "$target" == gatekeeper ]]; then
+  # The first m86 prototype reused the generic service stem. Remove only those
+  # known installed outputs so a module-only rebuild proves the unique .m86
+  # owner without inheriting stale bytes from that prototype.
+  for stale_gatekeeper_output in \
+    "$product_out/system/vendor/bin/hw/android.hardware.gatekeeper@1.0-service" \
+    "$product_out/system/vendor/etc/init/android.hardware.gatekeeper@1.0-service.rc" \
+    "$product_out/symbols/system/vendor/bin/hw/android.hardware.gatekeeper@1.0-service"; do
+    rm -f -- "$stale_gatekeeper_output"
+  done
+fi
 if ((full_zip_target)); then
   # Product ownership changed: remove only installed/generated outputs before
   # packaging so deferred experiment files cannot survive an incremental run.
@@ -653,6 +687,15 @@ elif [[ "$target" == nfc ]]; then
     NfcNci
     Tag
   )
+elif [[ "$target" == gatekeeper ]]; then
+  build_targets=(
+    m86_gatekeeper_service
+    android.hardware.gatekeeper@1.0-impl
+  )
+elif [[ "$target" == fingerprint ]]; then
+  build_targets=(
+    fingerprint.m86
+  )
 else
   build_targets=("$android_build_target" m86-dtbimage)
   if [[ "$target" == systemimage ]]; then
@@ -698,7 +741,7 @@ if ((!module_only_target)); then
     exit 1
   fi
   actual_dtb_hash="$(sha256sum "$release_dtb" | awk '{ print $1 }')"
-  if ((fingerprint_experiment)); then
+  if ((fingerprint_enabled)); then
     if ! cmp --quiet "$release_dtb" \
         "$source_root/device/meizu/m86/prebuilt/dtb.img"; then
       printf 'Installed fingerprint experiment DTB differs from the stock secure-mode DTB.\n' >&2
@@ -2104,7 +2147,7 @@ assert_m3_target_files() {
     exit 1
   fi
 
-  if ((fingerprint_experiment)); then
+  if ((fingerprint_enabled)); then
     if ! cmp --quiet "$packaged_dtb" "$source_stock_dtb"; then
       printf 'Packaged fingerprint DTB differs from the stock secure-mode DTB.\n' >&2
       exit 1
@@ -2124,6 +2167,7 @@ assert_m3_target_files() {
       SYSTEM/vendor/bin/hw/android.hardware.biometrics.fingerprint@2.1-service \
       SYSTEM/vendor/etc/init/android.hardware.biometrics.fingerprint@2.1-service.rc \
       SYSTEM/lib64/hw/fingerprint.m86.so \
+      SYSTEM/lib64/hw/fingerprint.m86.flyme.so \
       SYSTEM/vendor/lib64/hw/fingerprint.m86.so; do
       if [[ -e "$target_files_tree/$forbidden_fingerprint_output" ]]; then
         printf 'Default M3 product packaged fingerprint userspace: %s\n' \
@@ -2238,7 +2282,7 @@ assert_m3_target_files() {
     printf 'dtb=RADIO/dtb.img\n'
     printf 'dtb_sha256=%s\n' \
       "$(sha256sum "$packaged_dtb" | awk '{ print $1 }')"
-    if ((fingerprint_experiment)); then
+    if ((fingerprint_enabled)); then
       printf 'fingerprint_userspace=present\n'
       printf 'fingerprint_feature=present\n'
       printf 'fingerprint_vintf=present\n'
@@ -2345,6 +2389,82 @@ case "$target" in
            -name 'Tag.apk' \) -print 2>/dev/null | LC_ALL=C sort
     } > "$artifact_dir/NFC-MODULES.txt"
     ;;
+  gatekeeper)
+    gatekeeper_service="$product_out/system/vendor/bin/hw/android.hardware.gatekeeper@1.0-service.m86"
+    gatekeeper_rc="$product_out/system/vendor/etc/init/android.hardware.gatekeeper@1.0-service.m86.rc"
+    gatekeeper_impl="$product_out/system/vendor/lib64/hw/android.hardware.gatekeeper@1.0-impl.so"
+    for gatekeeper_output in \
+      "$gatekeeper_service" \
+      "$gatekeeper_rc" \
+      "$gatekeeper_impl"; do
+      if [[ ! -s "$gatekeeper_output" ]]; then
+        printf 'Required Gatekeeper module output is missing: %s\n' \
+          "$gatekeeper_output" >&2
+        exit 1
+      fi
+    done
+    if ! strings "$gatekeeper_service" | \
+        grep -F -q '/data/misc/gatekeeper'; then
+      printf 'Built Gatekeeper service omits the legacy retry-record directory.\n' >&2
+      exit 1
+    fi
+    mkdir -p \
+      "$artifact_dir/system/vendor/bin/hw" \
+      "$artifact_dir/system/vendor/etc/init" \
+      "$artifact_dir/system/vendor/lib64/hw"
+    cp -a "$gatekeeper_service" \
+      "$artifact_dir/system/vendor/bin/hw/android.hardware.gatekeeper@1.0-service.m86"
+    cp -a "$gatekeeper_rc" \
+      "$artifact_dir/system/vendor/etc/init/android.hardware.gatekeeper@1.0-service.m86.rc"
+    cp -a "$gatekeeper_impl" \
+      "$artifact_dir/system/vendor/lib64/hw/android.hardware.gatekeeper@1.0-impl.so"
+    {
+      printf 'product=%s\n' "$product"
+      printf 'module_target=m86_gatekeeper_service\n'
+      printf 'module_target=android.hardware.gatekeeper@1.0-impl\n'
+      printf 'retry_record_directory=/data/misc/gatekeeper\n'
+      sha256sum "$gatekeeper_service" "$gatekeeper_rc" "$gatekeeper_impl"
+    } > "$artifact_dir/GATEKEEPER-MODULES.txt"
+    ;;
+  fingerprint)
+    fingerprint_compat="$product_out/system/lib64/hw/fingerprint.m86.so"
+    if [[ ! -s "$fingerprint_compat" ]]; then
+      printf 'Required fingerprint compatibility HAL is missing: %s\n' \
+        "$fingerprint_compat" >&2
+      exit 1
+    fi
+    if ! nm -D --defined-only "$fingerprint_compat" |
+        awk '$NF == "HMI" { found=1 } END { exit !found }'; then
+      printf 'Fingerprint compatibility HAL does not export HMI.\n' >&2
+      exit 1
+    fi
+    if ! strings "$fingerprint_compat" | \
+        grep -F -q '/system/lib64/hw/fingerprint.m86.flyme.so'; then
+      printf 'Fingerprint compatibility HAL omits its Flyme provider path.\n' >&2
+      exit 1
+    fi
+    if ! strings "$fingerprint_compat" | \
+        grep -F -q 'Remapped Flyme fingerprint callbacks to the AOSP 2.1 ABI'; then
+      printf 'Fingerprint compatibility HAL omits its ABI remap marker.\n' >&2
+      exit 1
+    fi
+    if ! strings "$fingerprint_compat" | \
+        grep -F -q 'Synthesized missing FINGERPRINT_ERROR_CANCELED callback'; then
+      printf 'Fingerprint compatibility HAL omits its cancel callback bridge.\n' >&2
+      exit 1
+    fi
+    mkdir -p "$artifact_dir/system/lib64/hw"
+    cp -a "$fingerprint_compat" \
+      "$artifact_dir/system/lib64/hw/fingerprint.m86.so"
+    {
+      printf 'product=%s\n' "$product"
+      printf 'module_target=fingerprint.m86\n'
+      printf 'legacy_provider=/system/lib64/hw/fingerprint.m86.flyme.so\n'
+      printf 'abi_remap=AOSP_0xc0_to_Flyme_0xe0\n'
+      printf 'cancel_callback_bridge=FINGERPRINT_ERROR_CANCELED\n'
+      sha256sum "$fingerprint_compat"
+    } > "$artifact_dir/FINGERPRINT-MODULE.txt"
+    ;;
   bootimage)
     copy_required "$product_out/boot.img"
     ;;
@@ -2448,7 +2568,7 @@ if ((full_zip_target)); then
   assert_m5_audio_baseline_target_files "$target_files_tree"
   assert_m5_hifi_target_files "$target_files_tree"
   assert_m3_target_files "$target_files_tree"
-  if ((nfc_experiment)); then
+  if ((nfc_enabled)); then
     bash "$local_root/tools/audit-nfc-experiment-output.sh" \
       "$target_files_tree" target-files "$source_root" |
       tee "$artifact_dir/NFC-TARGET-FILES.txt"
@@ -2504,7 +2624,7 @@ if ((full_zip_target)); then
   # The 32-bit Flyme primary input is renamed to .flyme.so and audited below;
   # both gatekeeper inputs are renamed to gatekeeper.m86.so and audited below.
   installed_vendor_blob_count="$((vendor_blob_count - 45))"
-  if ((nfc_experiment)); then
+  if ((nfc_enabled)); then
     installed_vendor_blob_count="$((vendor_blob_count - 44))"
   fi
   if ! (
@@ -2562,7 +2682,7 @@ if ((full_zip_target)); then
       "$installed_vendor_blob_count" >&2
     exit 1
   fi
-  if ((nfc_experiment)) && ! (
+  if ((nfc_enabled)) && ! (
     cd "$product_out/system"
     awk '$2 == "./vendor/firmware/libpn547_fw.so"' "$vendor_blob_lock" |
       sha256sum --quiet -c -
@@ -2731,18 +2851,18 @@ if ((full_zip_target)); then
     "$out_root" \
     "$product_out/system/lib/libm86camera_shim.so" |
     tee "$artifact_dir/CAMERA-ABI.txt"
-  if ((fingerprint_experiment)); then
+  if ((fingerprint_enabled)); then
     "$local_root/tools/audit-fingerprint-output.sh" "$product_out" experiment |
       tee "$artifact_dir/FINGERPRINT-OUTPUT.txt"
   else
     "$local_root/tools/audit-fingerprint-output.sh" "$product_out" absent |
       tee "$artifact_dir/FINGERPRINT-OUTPUT.txt"
   fi
-  if ((nfc_experiment)); then
+  if ((nfc_enabled)); then
     bash "$local_root/tools/audit-nfc-experiment-output.sh" \
       "$product_out" product-out "$source_root" |
       tee "$artifact_dir/NFC-OUTPUT.txt"
-  elif ((fingerprint_experiment)); then
+  elif ((fingerprint_enabled)); then
     bash "$local_root/tools/audit-default-hidden-output.sh" \
       "$product_out" fingerprint |
       tee "$artifact_dir/DEFAULT-HIDDEN-OUTPUT.txt"
@@ -2754,7 +2874,7 @@ fi
 
 if ((!module_only_target)); then
   kernel_config_ref="$source_root/kernel/meizu/m86/arch/arm64/configs/cm_pro5_defconfig"
-  if ((fingerprint_experiment)); then
+  if ((fingerprint_enabled)); then
     kernel_config_ref="$source_root/kernel/meizu/m86/arch/arm64/configs/cm_pro5_fingerprint_experiment_defconfig"
   fi
   copy_required "$kernel_config_ref"
@@ -2776,6 +2896,8 @@ repo manifest -r -o "$artifact_dir/lineage-17.1-m86-lock.xml"
   printf 'target=%s-userdebug %s\n' "$product" "$target"
   printf 'product=%s\n' "$product"
   printf 'nfc_experiment=%s\n' "$nfc_experiment"
+  printf 'nfc_enabled=%s\n' "$nfc_enabled"
+  printf 'fingerprint_enabled=%s\n' "$fingerprint_enabled"
   printf 'local_revision=%s\n' "$local_revision"
   printf 'device_revision=%s\n' "$device_revision"
   printf 'kernel_revision=%s\n' "$kernel_revision"

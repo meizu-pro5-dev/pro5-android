@@ -173,7 +173,7 @@ write_experiment_makefile() {
       '# Copyright (C) 2026 The LineageOS Project' \
       '# SPDX-License-Identifier: Apache-2.0' \
       '' \
-      "# Inert by default. Only $product_name inherits this file."
+      "# Selected by the integrated default product and $product_name."
     printf 'PRODUCT_COPY_FILES += \\\n'
     for index in "${!experiment_paths[@]}"; do
       relative_path="${experiment_paths[$index]}"
@@ -194,8 +194,9 @@ write_experiment_makefile() {
   } > "$output_makefile"
 }
 
-# Keep NFC and Trustonic bytes in the verified inventory, but give each
-# experiment an independent product, init owner, blob group, and rollback.
+# Keep NFC and Trustonic bytes in the verified inventory and isolated mapping
+# fragments. The default product selects both fragments; the single-domain
+# products select only one for rollback diagnostics.
 write_experiment_makefile \
   "$nfc_experiment_makefile" \
   lineage_m86_nfc_experiment \
@@ -206,7 +207,7 @@ write_experiment_makefile \
 # /vendor/lib/libpn547_fw.so; the 64-bit linker resolves that under
 # /vendor/lib64, so ship the container at both names plus the original
 # /vendor/firmware location that stays audited by the output checks.
-sed -i 's|^# Inert by default. Only lineage_m86_nfc_experiment inherits this file\.$|# Inert by default. Only lineage_m86_nfc_experiment inherits this file.\n# The Flyme firmware blob is an ELF64 container exporting the classic\n# gphDnldNfc_DlSeq/DlSeqSz download symbols.  The NXP HAL dlopens it from\n# /vendor/lib/libpn547_fw.so; the 64-bit linker resolves that under\n# /vendor/lib64, so ship the container at both names plus the original\n# /vendor/firmware location that stays audited by the output checks.|' \
+sed -i 's|^# Selected by the integrated default product and lineage_m86_nfc_experiment\.$|# Selected by the integrated default product and lineage_m86_nfc_experiment.\n# The Flyme firmware blob is an ELF64 container exporting the classic\n# gphDnldNfc_DlSeq/DlSeqSz download symbols.  The NXP HAL dlopens it from\n# /vendor/lib/libpn547_fw.so; the 64-bit linker resolves that under\n# /vendor/lib64, so ship the container at both names plus the original\n# /vendor/firmware location that stays audited by the output checks.|' \
   "$nfc_experiment_makefile"
 sed -i 's|vendor/meizu/m86/proprietary/vendor/firmware/libpn547_fw.so:$(TARGET_COPY_OUT_VENDOR)/firmware/libpn547_fw.so|vendor/meizu/m86/proprietary/vendor/firmware/libpn547_fw.so:$(TARGET_COPY_OUT_VENDOR)/firmware/libpn547_fw.so \\\n    vendor/meizu/m86/proprietary/vendor/firmware/libpn547_fw.so:$(TARGET_COPY_OUT_VENDOR)/lib64/libpn547_fw.so|' \
   "$nfc_experiment_makefile"
@@ -222,6 +223,12 @@ write_experiment_makefile \
 sed -i 's|lib64/hw/gatekeeper.exynos7420.so:$(TARGET_COPY_OUT_SYSTEM)/lib64/hw/gatekeeper.exynos7420.so|lib64/hw/gatekeeper.exynos7420.so:$(TARGET_COPY_OUT_SYSTEM)/lib64/hw/gatekeeper.m86.so|' \
   "$fingerprint_experiment_makefile"
 sed -i 's|lib/hw/gatekeeper.exynos7420.so:$(TARGET_COPY_OUT_SYSTEM)/lib/hw/gatekeeper.exynos7420.so|lib/hw/gatekeeper.exynos7420.so:$(TARGET_COPY_OUT_SYSTEM)/lib/hw/gatekeeper.m86.so|' \
+  "$fingerprint_experiment_makefile"
+
+# The source-built AOSP-ABI compatibility HAL owns fingerprint.m86.so. Keep
+# the stock Flyme provider under its private .flyme.so name so the
+# two modules can never race for the same installed path.
+sed -i 's|lib64/hw/fingerprint.m86.so:$(TARGET_COPY_OUT_SYSTEM)/lib64/hw/fingerprint.m86.so|lib64/hw/fingerprint.m86.so:$(TARGET_COPY_OUT_SYSTEM)/lib64/hw/fingerprint.m86.flyme.so|' \
   "$fingerprint_experiment_makefile"
 
 copy_rule_count="$(
@@ -294,6 +301,8 @@ while IFS= read -r relative_path; do
     output_path="\$(TARGET_COPY_OUT_SYSTEM)/lib/hw/gatekeeper.m86.so"
   elif [[ "$relative_path" == lib64/hw/gatekeeper.exynos7420.so ]]; then
     output_path="\$(TARGET_COPY_OUT_SYSTEM)/lib64/hw/gatekeeper.m86.so"
+  elif [[ "$relative_path" == lib64/hw/fingerprint.m86.so ]]; then
+    output_path="\$(TARGET_COPY_OUT_SYSTEM)/lib64/hw/fingerprint.m86.flyme.so"
   else
     output_path="\$(TARGET_COPY_OUT_SYSTEM)/$relative_path"
   fi
