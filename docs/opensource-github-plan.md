@@ -19,8 +19,10 @@
 - [x] A1：提交 device camera 工作与父仓库全部 dirty 改动，工作树 clean
 - [x] A2：脱敏实现为默认使用本地 SSH alias `rom-builder`（`PRO5_BUILDER_PORT` 可选），比“空默认值”更易用且同样不泄露云端端点
 - [x] A3：补齐 LICENSE/NOTICE/LICENSING、CC-BY-SA-4.0、GPL 目录例外、双语 README、CONTRIBUTING/SECURITY/CODE_OF_CONDUCT 与 PR/Issue 模板
-- [ ] A4：最终预检（待执行）
-- [ ] B0–B3：创建 GitHub 仓库、推送与克隆验证（GitHub SSH 认证已可用；`gh` CLI token 已失效，需要重新登录或用网页建仓）
+- [x] A4：最终预检通过（Bash 语法、凭据、vendor 二进制边界、工作树与 `git fsck --strict`）
+- [x] B0–B3：使用账号 `404698-FDU` 创建 4 个公开仓库，按 device → kernel → vendor → 父仓库顺序 SSH 推送，设置默认分支并完成递归克隆验证
+- [x] GitHub 元数据：4 个仓库均设置 `meizu-pro5`、`m86`、`exynos7420`、`lineageos`、`android10` topics，README API 均可读取
+- [ ] C3：发布公告（需要仓库所有者选择 XDA、个人博客或 GitHub Discussions 渠道）
 
 ---
 
@@ -209,12 +211,18 @@ cd /Users/kophapro/Projects/Android/pro5-android10
 # 1) 语法
 bash -n remote/*.sh tools/*.sh
 
-# 2) 敏感信息
-git grep -n -I -E '(BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|github_pat_|api[_-]?key[[:space:]]*=)' -- . || true
-git grep -n -I '<your-old-builder-hostname>\|<your-old-builder-port>' -- . || true   # 预期无输出
+# 2) 敏感信息；排除包含本检查表达式的规划文档，避免自匹配
+credential_pattern='(-----BEGIN ([A-Z ]+ )?PRIVATE KEY-----|github_pat_[A-Za-z0-9_]+|gh[pousr]_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{30,})'
+git grep -n -I -E "$credential_pattern" -- . \
+  ':(exclude)docs/opensource-github-plan.md' || true
+for repo in device/meizu/m86 kernel/meizu/m86 vendor/meizu/m86; do
+  git -C "$repo" grep -n -I -E "$credential_pattern" HEAD -- . || true
+done
+git grep -n -I '<your-old-builder-hostname>\|<your-old-builder-port>' -- . \
+  ':(exclude)docs/opensource-github-plan.md' || true   # 预期无输出
 
 # 3) 确认没有入库的厂商二进制
-git ls-files | grep -E '\.(so|apk|img|bin|zip|tar\.gz|mbn|dtb|dex)$' || true
+git -C vendor/meizu/m86 ls-files | grep -E '\.(so|apk|img|bin|zip|tar\.gz|mbn|dtb|dex)$' || true
 # 允许出现：kernel 官方树内的 .img/.dat/.fw.ihex；不应出现：vendor 专有 blob、stock 固件
 
 # 4) 工作树封版
@@ -222,8 +230,8 @@ git status --short --branch
 git submodule foreach 'git status --short --branch'
 
 # 5) 历史完整性
-git fsck --strict
-git submodule foreach 'git fsck --strict'
+git fsck --strict --no-dangling
+git submodule foreach 'git fsck --strict --no-dangling'
 ```
 
 ---
@@ -311,7 +319,7 @@ git status --short --branch   # 期望 clean
 
 验证 GitHub 页面：
 
-- 4 个仓库均识别出正确 License（kernel 显示 GPL-2.0，其余显示 Apache-2.0）。
+- 父仓库、device 与 vendor 显示 Apache-2.0。Kernel 保留与 Torvalds Linux v3.10 字节完全相同的 `COPYING`；GitHub License API 对两者都显示 `Other/NOASSERTION`，不应为改变 UI 标签而替换上游许可证文本。
 - `pro5-android10` 的 README 首页正常渲染中英文。
 - 无任何文件显示为 “Binary file not shown” 中的厂商 blob。
 
@@ -360,21 +368,21 @@ git status --short --branch   # 期望 clean
 
 ## 8. 执行清单（Checklist）
 
-- [ ] 确认 `gh auth status` 的账号名
-- [ ] 提交 device 子模块 camera 工作并更新父仓库子模块指针
-- [ ] 提交父仓库其余 dirty 文件，工作树 clean
-- [ ] 处理 L3：决定作者邮箱是否接受公开
-- [ ] 处理 A2：移除 `common.sh`/README 中的 AutoDL 端点
-- [ ] 处理 L1/L2：legacy 与 audio firmware txt 的发布决定
-- [ ] 新增 §4 全部 LICENSE/NOTICE/LICENSING 文件
-- [ ] 重写 README（双语、UNOFFICIAL、Build、License）
-- [ ] 新增 CONTRIBUTING/SECURITY/CODE_OF_CONDUCT
-- [ ] 通过 §A4 全部预检命令
-- [ ] `gh repo create` × 4（public）
-- [ ] 推送 device → kernel → vendor → 父仓库
-- [ ] 设置 3 个子模块仓库默认分支为 `lineage-17.1`
-- [ ] 全新 clone `--recurse-submodules` 验证
-- [ ] 检查 GitHub License 识别与 README 渲染
+- [x] 确认 `gh auth status` 的账号名
+- [x] 提交 device 子模块 camera 工作并更新父仓库子模块指针
+- [x] 提交父仓库其余 dirty 文件，工作树 clean
+- [x] 处理 L3：决定作者邮箱是否接受公开
+- [x] 处理 A2：移除 `common.sh`/README 中的 AutoDL 端点
+- [x] 处理 L1/L2：legacy 与 audio firmware txt 的发布决定
+- [x] 新增 §4 全部 LICENSE/NOTICE/LICENSING 文件
+- [x] 重写 README（双语、UNOFFICIAL、Build、License）
+- [x] 新增 CONTRIBUTING/SECURITY/CODE_OF_CONDUCT
+- [x] 通过 §A4 全部预检命令
+- [x] `gh repo create` × 4（public）
+- [x] 推送 device → kernel → vendor → 父仓库
+- [x] 设置 3 个子模块仓库默认分支为 `lineage-17.1`
+- [x] 全新 clone `--recurse-submodules` 验证
+- [x] 检查 GitHub License 识别与 README 渲染
 - [ ] 发布公告（XDA / 个人博客 / GitHub Discussion）并声明 UNOFFICIAL
 
 ---
