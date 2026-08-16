@@ -58,7 +58,7 @@
 - 所有 shell 脚本通过 `bash -n` 检查。
 - 厂商 blobs 全部处于 `.gitignore` 排除状态：`vendor/meizu/m86/proprietary/`、`evidence/*`、`artifacts/`、`outputs/`、`backups/`、`work/` 不会进入仓库。
 - ⚠️ 两个发布前必须处理的“环境暴露”点：
-  1. `remote/common.sh` 与 `README.md` 中硬编码了 AutoDL 构建机地址 `REDACTED_BUILDER_ENDPOINT`。
+  1. `remote/common.sh` 与 `README.md` 中曾硬编码 AutoDL 构建机地址（已脱敏，此处不记录具体值）。
   2. Git 作者邮箱 `24302010006@m.fudan.edu.cn` 会随完整历史公开。
 
 ### 2.3 许可与来源盘点
