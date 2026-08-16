@@ -9,6 +9,19 @@
 - 许可证组合：按组件合规组合（kernel GPL-2.0；device/vendor/hardware/TWRP/patches Apache-2.0；docs CC-BY-SA-4.0）
 - 本文档语言：中文为主，文末附英文项目说明与快速开始（README 按同一标准双语改写）
 
+## 执行状态（2026-08-16 更新）
+
+已完成：
+
+- [x] L1：保留 `legacy/`，新增 `LEGAL-NOTE.md`，不重新许可
+- [x] L2：保留 audio firmware txt，新增来源 README
+- [x] L3：历史邮箱保持；**新提交改用 GitHub noreply**（`228693120+404698-FDU@users.noreply.github.com`）
+- [x] A1：提交 device camera 工作与父仓库全部 dirty 改动，工作树 clean
+- [x] A2：脱敏实现为默认使用本地 SSH alias `rom-builder`（`PRO5_BUILDER_PORT` 可选），比“空默认值”更易用且同样不泄露云端端点
+- [x] A3：补齐 LICENSE/NOTICE/LICENSING、CC-BY-SA-4.0、GPL 目录例外、双语 README、CONTRIBUTING/SECURITY/CODE_OF_CONDUCT 与 PR/Issue 模板
+- [ ] A4：最终预检（待执行）
+- [ ] B0–B3：创建 GitHub 仓库、推送与克隆验证（GitHub SSH 认证已可用；`gh` CLI token 已失效，需要重新登录或用网页建仓）
+
 ---
 
 ## 1. 已确认的决策
@@ -162,21 +175,22 @@ git commit -m "tools: add Exynos codec ABI probes"   # 若决定保留；否则�
 
 ### A2. 脱敏构建机默认地址
 
-`remote/common.sh` 的默认值不要带真实 AutoDL 端点。推荐改为“未配置即拒绝运行”：
+`remote/common.sh` 的默认值不要带真实 AutoDL 端点。已实现为：默认使用本地
+SSH alias `rom-builder`，`PRO5_BUILDER_PORT` 可选（alias 自带端口时不传
+`-p`），需要直连时再用 `PRO5_BUILDER_HOST` / `PRO5_BUILDER_PORT` 覆盖：
 
 ```bash
-PRO5_BUILDER_HOST="${PRO5_BUILDER_HOST:-}"
+PRO5_BUILDER_HOST="${PRO5_BUILDER_HOST:-rom-builder}"
 PRO5_BUILDER_PORT="${PRO5_BUILDER_PORT:-}"
-# 在脚本入口增加：
-# [[ -n "$PRO5_BUILDER_HOST" && -n "$PRO5_BUILDER_PORT" ]] ||
-#   { echo "set PRO5_BUILDER_HOST/PORT (see README)" >&2; exit 2; }
 ```
 
-同时把 `README.md` 中的默认 builder 段落改为：
+`README.md` 同时改为：
 
-> Builder is selected through `PRO5_BUILDER_HOST` / `PRO5_BUILDER_PORT` (or the SSH alias `rom-builder`). No cloud endpoint is hard-coded in this public tree.
+> Configure the alias in your local `~/.ssh/config`; no cloud endpoint is
+> hard-coded in this public tree.
 
-这样既保留工作流，又不公开你的云容器地址。
+这样本机工作流不中断（本机 `~/.ssh/config` 已有 `rom-builder`），又不公开
+云容器地址。
 
 ### A3. 补齐许可证与公开文档
 
