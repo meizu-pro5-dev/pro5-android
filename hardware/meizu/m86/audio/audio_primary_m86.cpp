@@ -1181,7 +1181,10 @@ static int m86_module_open(const hw_module_t* module, const char* id,
     wrapper->public_device.set_mode = m86_set_mode;
     wrapper->public_device.set_mic_mute = m86_set_mic_mute;
     wrapper->public_device.get_mic_mute = m86_get_mic_mute;
-    wrapper->public_device.set_headphone_volume = m86_set_headphone_volume;
+    // The Flyme headphone-volume callback is a private ABI slot at offset 104
+    // in the legacy device layout. The public audio_hw_device has no such
+    // field; expose it through set_parameters("vendor.meizu.set_headphone_volume=1")
+    // and apply it after output open/route transitions instead.
     wrapper->public_device.set_parameters = m86_set_parameters;
     wrapper->public_device.get_parameters = m86_get_parameters;
     wrapper->public_device.get_input_buffer_size = m86_get_input_buffer_size;

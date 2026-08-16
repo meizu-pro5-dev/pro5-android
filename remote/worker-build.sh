@@ -1890,9 +1890,10 @@ assert_m5_audio_baseline_target_files() {
   local source_flyme32="$source_root/vendor/meizu/m86/proprietary/lib/hw/audio.primary.m86.so"
   local wrapper_object="$product_out/obj_arm/SHARED_LIBRARIES/audio.primary.m86_intermediates/audio.primary.m86.so"
 
+  # The Flyme headphone-volume callback is private ABI and is reached through
+  # set_parameters("vendor.meizu.set_headphone_volume=1"), not a public slot.
   for audio_wrapper_callback in \
     get_microphones \
-    set_headphone_volume \
     set_master_mute \
     get_master_mute \
     create_audio_patch \
