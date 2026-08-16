@@ -975,6 +975,8 @@ validate_m4_connectivity_radio() {
   require_fixed 'int dtim_suspended = CUSTOM_SUSPEND_BCN_LI_DTIM;' \
     "$kernel_dhd_linux"
   require_absent 'int dtim_suspended = 0;' "$kernel_dhd_linux"
+  require_fixed 'int wifi_pm_suspended = PM_FAST;' "$kernel_dhd_linux"
+  require_absent 'int wifi_pm_suspended = PM_MAX;' "$kernel_dhd_linux"
   require_count 1 'DEVICE_MANIFEST_FILE += $(M86_PATH)/wifi/manifest.xml' \
     "$wifi_board_config"
   for wifi_hal in \
