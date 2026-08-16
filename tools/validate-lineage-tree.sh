@@ -1212,12 +1212,13 @@ validate_m5_audio() {
   require_absent 'parameter_result' "$hardware_audio_root/audio_primary_m86.cpp"
   require_fixed 'return 0;' \
     "$hardware_audio_root/audio_primary_m86.cpp"
-  # Every optional audio_hw_device slot is explicitly populated. The wrapper
-  # advertises API 2.0, so the normal Android 10 path does not call
+  # Every optional public audio_hw_device slot is explicitly populated. The
+  # wrapper advertises API 2.0, so the normal Android 10 path does not call
   # create_audio_patch; the defensive slot is still non-NULL for direct users.
+  # The Flyme headphone-volume callback is private ABI and is reached through
+  # set_parameters("vendor.meizu.set_headphone_volume=1"), not a public slot.
   for audio_wrapper_callback in \
     get_microphones \
-    set_headphone_volume \
     set_master_mute \
     get_master_mute \
     create_audio_patch \
