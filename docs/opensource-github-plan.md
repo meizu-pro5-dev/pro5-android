@@ -21,7 +21,7 @@
 - [x] A3：补齐 LICENSE/NOTICE/LICENSING、CC-BY-SA-4.0、GPL 目录例外、双语 README、CONTRIBUTING/SECURITY/CODE_OF_CONDUCT 与 PR/Issue 模板
 - [x] A4：最终预检通过（Bash 语法、凭据、vendor 二进制边界、工作树与 `git fsck --strict`）
 - [x] B0–B3：使用账号 `404698-FDU` 创建 4 个公开仓库，按 device → kernel → vendor → 父仓库顺序 SSH 推送，设置默认分支并完成递归克隆验证
-- [x] GitHub 元数据：4 个仓库均设置 `meizu-pro5`、`m86`、`exynos7420`、`lineageos`、`android10` topics，README API 均可读取
+- [x] GitHub 元数据：4 个仓库均设置 `meizu-pro5`、`m86`、`exynos7420`、`lineageos`、`android10` topics，README API 均可读取；父仓库、device、vendor 识别为 Apache-2.0，kernel 识别为 GPL-2.0
 - [ ] C3：发布公告（需要仓库所有者选择 XDA、个人博客或 GitHub Discussions 渠道）
 
 ---
@@ -319,7 +319,7 @@ git status --short --branch   # 期望 clean
 
 验证 GitHub 页面：
 
-- 父仓库、device 与 vendor 显示 Apache-2.0。Kernel 保留与 Torvalds Linux v3.10 字节完全相同的 `COPYING`；GitHub License API 对两者都显示 `Other/NOASSERTION`，不应为改变 UI 标签而替换上游许可证文本。
+- 父仓库、device 与 vendor 显示 Apache-2.0。Kernel 保留与 Torvalds Linux v3.10 字节完全相同的 `COPYING`，并用单独的标准 GPL-2.0 `LICENSE` 帮助 GitHub 识别；License API 最终返回 `GPL-2.0`，`COPYING` 与内核来源说明不被替换。
 - `pro5-android10` 的 README 首页正常渲染中英文。
 - 无任何文件显示为 “Binary file not shown” 中的厂商 blob。
 
