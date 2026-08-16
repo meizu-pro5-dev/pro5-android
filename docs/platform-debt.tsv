@@ -1,12 +1,5 @@
 domain	repository	patch	exit_condition	status
-M4	device/samsung/universal7420-common	patches/device-samsung-universal7420-common/0001-target-add-meizu-m86.patch	m86 owns the last common Android.mk module and no TARGET_DEVICE_IS_M86 route remains	deferred
-M4	device/samsung/universal7420-common	patches/device-samsung-universal7420-common/0003-rild-use-platform-daemon-for-m86.patch	m86 radio modules have unique names and common rild is not scanned	deferred
 M3	frameworks/base	patches/frameworks-base/0001-storage-respect-device-isolated-storage-default.patch	product policy passes the storage matrix without a framework change	deferred
-M5	hardware/libhardware	patches/hardware-libhardware/0001-audio-reserve-meizu-legacy-device-slots.patch	private m86 audio ABI replaces global struct slots	deferred
-M5	hardware/interfaces	patches/hardware-interfaces/0001-audio-ignore-invalid-legacy-metadata-callback.patch	m86 audio wrapper validates metadata callbacks	deferred
-M5	hardware/interfaces	patches/hardware-interfaces/0002-audio-guard-missing-legacy-dump-hook.patch	m86 audio wrapper owns the dump boundary	deferred
-M7	hardware/interfaces	patches/hardware-interfaces/0003-camera-provider-use-framework-binder-for-legacy-hal.patch	m86 camera provider owns its binder driver	deferred
 M8	hardware/nxp/nfc	patches/hardware-nxp-nfc/0001-reader-only-allow-disabling-ese-client-bridge.patch	reader/HCE stability passes without the undeclared NXP eSE service request	deferred
 M8	hardware/nxp/nfc	patches/hardware-nxp-nfc/0002-fw-download-pn547c2-container.patch	pn65T ROM hw-version 0x01 selects the PN547C2 firmware container instead of the PN80T default	deferred
 M8	system/nfc	patches/system-nfc/0001-dm-skip-unsupported-discovery-entries.patch	RF_DISCOVER completes on the PN547 NCI 1.0 firmware without the rejected KOVIO/B-prime discovery entries	deferred
-M8	system/core	patches/system-core/0003-gatekeeperd-compute-real-auth-token-hmac.patch	fingerprint enrollment completes with a non-trivial fallback auth-token HMAC	deferred

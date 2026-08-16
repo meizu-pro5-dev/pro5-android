@@ -1,12 +1,5 @@
 # repository path	patch path
-device/samsung/universal7420-common	patches/device-samsung-universal7420-common/0001-target-add-meizu-m86.patch
-device/samsung/universal7420-common	patches/device-samsung-universal7420-common/0003-rild-use-platform-daemon-for-m86.patch
 frameworks/base	patches/frameworks-base/0001-storage-respect-device-isolated-storage-default.patch
-hardware/libhardware	patches/hardware-libhardware/0001-audio-reserve-meizu-legacy-device-slots.patch
-hardware/interfaces	patches/hardware-interfaces/0001-audio-ignore-invalid-legacy-metadata-callback.patch
-hardware/interfaces	patches/hardware-interfaces/0002-audio-guard-missing-legacy-dump-hook.patch
-hardware/interfaces	patches/hardware-interfaces/0003-camera-provider-use-framework-binder-for-legacy-hal.patch
 hardware/nxp/nfc	patches/hardware-nxp-nfc/0001-reader-only-allow-disabling-ese-client-bridge.patch
 hardware/nxp/nfc	patches/hardware-nxp-nfc/0002-fw-download-pn547c2-container.patch
 system/nfc	patches/system-nfc/0001-dm-skip-unsupported-discovery-entries.patch
-system/core	patches/system-core/0003-gatekeeperd-compute-real-auth-token-hmac.patch

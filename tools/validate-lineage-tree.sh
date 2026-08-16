@@ -364,7 +364,7 @@ validate_m0_ledgers() {
       if (NF != 5 || $1 != "domain" || $4 != "retired_by") exit 1
       next
     }
-    NF != 5 || $1 !~ /^M(1|2|3|4|5|8)$/ { exit 1 }
+    NF != 5 || $1 !~ /^M(1|2|3|4|5|7|8)$/ { exit 1 }
     END { if (NR < 9) exit 1 }
   ' "$retired_debt_ledger" || fail "invalid retired platform debt ledger"
 
@@ -410,8 +410,16 @@ validate_m0_ledgers() {
     patches/system-core/0002-adbd-enter-native-android-usb-without-functionfs.patch \
     patches/external-glib/0001-build-libglib-for-m86-vendor.patch \
     patches/external-glib/0003-clang-port-legacy-android-stubs.patch \
-    patches/legacy-m86-libfprint/0001-port-m86-fpc-to-android10.patch; do
+    patches/legacy-m86-libfprint/0001-port-m86-fpc-to-android10.patch \
+    patches/device-samsung-universal7420-common/0001-target-add-meizu-m86.patch \
+    patches/device-samsung-universal7420-common/0003-rild-use-platform-daemon-for-m86.patch \
+    patches/hardware-libhardware/0001-audio-reserve-meizu-legacy-device-slots.patch \
+    patches/hardware-interfaces/0001-audio-ignore-invalid-legacy-metadata-callback.patch \
+    patches/hardware-interfaces/0002-audio-guard-missing-legacy-dump-hook.patch \
+    patches/hardware-interfaces/0003-camera-provider-use-framework-binder-for-legacy-hal.patch \
+    patches/system-core/0003-gatekeeperd-compute-real-auth-token-hmac.patch; do
     require_absent "$retired_patch" "$patch_series"
+    require_fixed "$retired_patch" "$retired_debt_ledger"
   done
 
   require_fixed 'capture_repo workspace' \
@@ -427,8 +435,7 @@ validate_m1_boot_and_ownership() {
   require_fixed 'include $(M86_PATH)/BoardConfigPlatform.mk' "$board_config"
   require_fixed 'TARGET_USES_64_BIT_BINDER := true' "$platform_config"
   require_fixed 'TARGET_SLSI_VARIANT := bsp' "$platform_config"
-  require_fixed 'TARGET_DEVICE_IS_M86 := true' "$platform_config"
-  require_fixed 'Temporary A10 compatibility route' "$platform_config"
+  require_absent 'TARGET_DEVICE_IS_M86' "$platform_config"
 
   for setting in \
     'BOARD_KERNEL_BASE := 0x40000000' \
