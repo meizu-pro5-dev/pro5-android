@@ -17,7 +17,7 @@ M6	vibrator	pending	pending	build/static baseline only	blocked	blocked	-	pending
 M6	power	pending	pending	build/static baseline only	blocked	blocked	-	pending
 M6	sensors	pending	pending	build/static baseline only	blocked	blocked	-	pending
 M6	gnss	pending	pending	build/static baseline only	blocked	blocked	-	pending
-M7	media-omx	pending	pending	build/static baseline only	blocked	blocked	-	pending
+M7	media-omx	pending	blocked	evidence/m7-codec-device-20260813/README.md; ByteBuffer encode/decode, 4K, and 16-instance tests pass, but Exynos Surface decode renders zero frames	blocked	blocked	-	pending
 M7	camera	pending	pending	build/static baseline only	blocked	blocked	-	pending
 M8	nfc-experiment	pending	pending	evidence/nfc-routing-debug-20260814/README.md; integrated default build/tag/suspend matrix pending	blocked	blocked	-	pending
 M8	fingerprint-experiment	pending	passed	work/fp-cancel-callback-20260815-132502; enrollment and unlock authenticated through the Trustonic path	blocked	blocked	-	pending
