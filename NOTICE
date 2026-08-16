@@ -1,0 +1,42 @@
+Meizu PRO 5 (m86) Android 10 bring-up
+Copyright (C) 2026 404698-FDU
+
+This product includes software developed as part of the LineageOS Project
+(https://lineageos.org) and the Android Open Source Project
+(https://source.android.com), used under the Apache License 2.0.
+
+Third-party material retained in this repository:
+
+- legacy/device-meizu-m86-cm14 is imported unchanged from
+  https://github.com/meizu-m86/android_device_meizu_m86
+  branch `cm-14.1-latest`, commit
+  `26c45279376f4a55dcef8f32a3640f522012df0a`.
+  The upstream repository does not declare a LICENSE file. This project does
+  not assert a new license for those files; see
+  legacy/device-meizu-m86-cm14/UPSTREAM.md and LEGAL-NOTE.md.
+
+- kernel/meizu/m86 is the Meizu-released m86 Linux 3.10.61 kernel source,
+  based on https://github.com/meizu-m86/android_kernel_meizu_m86
+  branch `cm-14.1`, commit
+  `67699d9442a9557eca24ba7a489ffa1b0601e806`, licensed GPL-2.0-only.
+  Android 10 donor references are pinned in docs/kernel-port.md.
+
+- twrp/device/meizu/m86 builds against the TeamWin / Omni minimal TWRP
+  manifest. Upstream revisions are pinned in docs/twrp.md:
+  minimal-manifest-twrp/platform_manifest_twrp_omni `twrp-9.0` @
+  `f3f57994a2aa2c92303df24bb01caff6850f7463`, TeamWin
+  android_bootable_recovery `android-9.0` @
+  `90e5d9559065cfa8b2b9a5dbb1c5cb7a88f034fa`.
+
+- hardware/meizu/m86/graphics/gralloc/framebuffer.cpp is derived from
+  hardware/samsung_slsi/exynos/gralloc/framebuffer.cpp at commit
+  `6dce0ba9f592d75ca5747464f09669cd76c8c81e` under Apache-2.0.
+
+- overlays/kernel-meizu-m86-case-sensitive contains byte-identical kernel
+  source files from the Meizu m86 kernel commit above and remains
+  GPL-2.0-only. See the COPYING file in that directory.
+
+- patches/twrp-kernel-m86 contains kernel patches and remains GPL-2.0-only.
+  See the COPYING file in that directory.
+
+No proprietary binaries, stock firmware, or device evidence are included.
