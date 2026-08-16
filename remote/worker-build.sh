@@ -2618,14 +2618,16 @@ if ((full_zip_target)); then
     tee "$artifact_dir/OTA-AUDIT.txt"
 
   # Twenty-four graphics destinations are source-built, two dead HWC-service
-  # blobs, two legacy radio helpers, and the unused 64-bit primary audio input
-  # are deferred. The NFC experiment restores one separately audited firmware
-  # input while the remaining NFC/Trustonic inputs stay in their own scopes.
-  # The 32-bit Flyme primary input is renamed to .flyme.so and audited below;
-  # both gatekeeper inputs are renamed to gatekeeper.m86.so and audited below.
-  installed_vendor_blob_count="$((vendor_blob_count - 45))"
+  # blobs, two legacy radio helpers, the unused 64-bit primary audio input,
+  # and the 28 Flyme OMX/core/resourcemanager/csc/stagefright codec blobs are
+  # deferred in favour of source-built OpenMAX outputs. The NFC experiment
+  # restores one separately audited firmware input while the remaining
+  # NFC/Trustonic inputs stay in their own scopes. The 32-bit Flyme primary
+  # input is renamed to .flyme.so and audited below; both gatekeeper inputs
+  # are renamed to gatekeeper.m86.so and audited below.
+  installed_vendor_blob_count="$((vendor_blob_count - 73))"
   if ((nfc_enabled)); then
-    installed_vendor_blob_count="$((vendor_blob_count - 44))"
+    installed_vendor_blob_count="$((vendor_blob_count - 72))"
   fi
   if ! (
     cd "$product_out/system"
@@ -2653,6 +2655,34 @@ if ((full_zip_target)); then
          $2 != "./lib64/libhwcutils.so" &&
          $2 != "./lib/libmpp.so" &&
          $2 != "./lib64/libmpp.so" &&
+         $2 != "./lib/libExynosOMX_Core.so" &&
+         $2 != "./lib/libExynosOMX_Resourcemanager.so" &&
+         $2 != "./lib/libcsc.so" &&
+         $2 != "./lib/libstagefrighthw.so" &&
+         $2 != "./lib/omx/libOMX.Exynos.AVC.Decoder.so" &&
+         $2 != "./lib/omx/libOMX.Exynos.AVC.Encoder.so" &&
+         $2 != "./lib/omx/libOMX.Exynos.HEVC.Decoder.so" &&
+         $2 != "./lib/omx/libOMX.Exynos.HEVC.Encoder.so" &&
+         $2 != "./lib/omx/libOMX.Exynos.MPEG4.Decoder.so" &&
+         $2 != "./lib/omx/libOMX.Exynos.MPEG4.Encoder.so" &&
+         $2 != "./lib/omx/libOMX.Exynos.VP8.Decoder.so" &&
+         $2 != "./lib/omx/libOMX.Exynos.VP8.Encoder.so" &&
+         $2 != "./lib/omx/libOMX.Exynos.VP9.Decoder.so" &&
+         $2 != "./lib/omx/libOMX.Exynos.WMV.Decoder.so" &&
+         $2 != "./lib64/libExynosOMX_Core.so" &&
+         $2 != "./lib64/libExynosOMX_Resourcemanager.so" &&
+         $2 != "./lib64/libcsc.so" &&
+         $2 != "./lib64/libstagefrighthw.so" &&
+         $2 != "./lib64/omx/libOMX.Exynos.AVC.Decoder.so" &&
+         $2 != "./lib64/omx/libOMX.Exynos.AVC.Encoder.so" &&
+         $2 != "./lib64/omx/libOMX.Exynos.HEVC.Decoder.so" &&
+         $2 != "./lib64/omx/libOMX.Exynos.HEVC.Encoder.so" &&
+         $2 != "./lib64/omx/libOMX.Exynos.MPEG4.Decoder.so" &&
+         $2 != "./lib64/omx/libOMX.Exynos.MPEG4.Encoder.so" &&
+         $2 != "./lib64/omx/libOMX.Exynos.VP8.Decoder.so" &&
+         $2 != "./lib64/omx/libOMX.Exynos.VP8.Encoder.so" &&
+         $2 != "./lib64/omx/libOMX.Exynos.VP9.Decoder.so" &&
+         $2 != "./lib64/omx/libOMX.Exynos.WMV.Decoder.so" &&
          $2 != "./lib/libExynosHWCService.so" &&
          $2 != "./lib64/libExynosHWCService.so" &&
          $2 != "./app/020a0000000000000000000000000000.drbin" &&

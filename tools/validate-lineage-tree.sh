@@ -1152,7 +1152,7 @@ validate_m4_connectivity_radio() {
   require_fixed 'deferred_radiooptions_exynos=absent' "$build_worker"
   require_fixed '$2 != "./bin/rild_exynos"' "$build_worker"
   require_fixed '$2 != "./bin/radiooptions_exynos"' "$build_worker"
-  require_fixed 'installed_vendor_blob_count="$((vendor_blob_count - 45))"' \
+  require_fixed 'installed_vendor_blob_count="$((vendor_blob_count - 73))"' \
     "$build_worker"
   require_fixed '$2 != "./lib/hw/audio.primary.m86.so"' "$build_worker"
   require_fixed '$2 != "./lib64/hw/audio.primary.m86.so"' "$build_worker"
@@ -1341,9 +1341,16 @@ validate_m6_small_domains() {
 }
 
 validate_m7_media_camera() {
-  require_fixed 'libm86omx_shim' "$device_makefile"
+  require_fixed 'hardware/meizu/m86/media/product.mk' "$device_makefile"
+  require_fixed 'libExynosOMX_Core' \
+    "$project_root/hardware/meizu/m86/media/product.mk"
+  require_fixed 'libOMX.Exynos.AVC.Decoder' \
+    "$project_root/hardware/meizu/m86/media/product.mk"
+  require_fixed 'libOMX.Exynos.HEVC.Decoder' \
+    "$project_root/hardware/meizu/m86/media/product.mk"
+  require_fixed 'libOMX.Exynos.VP9.Decoder' \
+    "$project_root/hardware/meizu/m86/media/product.mk"
   require_fixed 'libm86camera_shim' "$device_makefile"
-  require_fixed 'compile_multilib: "32"' "$device_root/media/Android.bp"
   require_fixed 'compile_multilib: "32"' "$device_root/camera/Android.bp"
   require_fixed 'audit-camera-abi.sh' "$build_worker"
 }
@@ -1520,8 +1527,8 @@ validate_vendor_mapping_owners() {
   expected_blob_count="$(
     awk 'NF && $1 !~ /^#/ { count++ } END { print count + 0 }' "$blob_list"
   )"
-  [[ "$expected_blob_count" == 224 ]] || \
-    fail "expected 224 locked proprietary inputs, got $expected_blob_count"
+  [[ "$expected_blob_count" == 196 ]] || \
+    fail "expected 196 locked proprietary inputs, got $expected_blob_count"
 
   source_owned_paths=(
     lib/hw/gralloc.exynos5.so
@@ -1570,8 +1577,8 @@ validate_vendor_mapping_owners() {
     rg -c '^    vendor/meizu/m86/proprietary/' \
       "$fingerprint_experiment_vendor_product"
   )"
-  [[ "$main_count" == 179 ]] || \
-    fail "expected 179 default vendor mappings, got $main_count"
+  [[ "$main_count" == 151 ]] || \
+    fail "expected 151 default vendor mappings, got $main_count"
   [[ "$nfc_experiment_count" == 2 ]] || \
     fail "expected 2 NFC experiment vendor mappings, got $nfc_experiment_count"
   require_fixed \
