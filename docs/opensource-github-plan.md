@@ -211,7 +211,7 @@ bash -n remote/*.sh tools/*.sh
 
 # 2) 敏感信息
 git grep -n -I -E '(BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|github_pat_|api[_-]?key[[:space:]]*=)' -- . || true
-git grep -n -I 'connect\.westb\.seetacloud\|50658' -- . || true   # 预期无输出
+git grep -n -I '<your-old-builder-hostname>\|<your-old-builder-port>' -- . || true   # 预期无输出
 
 # 3) 确认没有入库的厂商二进制
 git ls-files | grep -E '\.(so|apk|img|bin|zip|tar\.gz|mbn|dtb|dex)$' || true
