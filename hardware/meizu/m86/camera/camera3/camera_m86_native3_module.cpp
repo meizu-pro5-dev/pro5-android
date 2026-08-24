@@ -21,9 +21,11 @@
 
 #include "ExynosCamera3.h"
 #include "ExynosCameraMetadataConverter.h"
+#include "ExynosCamera3StreamRouterM86.h"
 
 using android::ExynosCamera3;
 using android::ExynosCamera3MetadataConverter;
+using android::ExynosCamera3StreamRouterM86;
 using android::CameraMetadata;
 using android::NO_ERROR;
 
@@ -31,8 +33,6 @@ namespace {
 
 constexpr int kCameraCount = 1;
 constexpr int kRearCameraId = 0;
-constexpr uint32_t kPreviewWidth = 1920;
-constexpr uint32_t kPreviewHeight = 1080;
 
 pthread_mutex_t gLock = PTHREAD_MUTEX_INITIALIZER;
 camera3_device_t *gDevice = nullptr;
@@ -172,36 +172,6 @@ bool parseRearId(const char *id)
     return id != nullptr && strcmp(id, "0") == 0;
 }
 
-int validateSinglePreviewConfiguration(
-        const camera3_stream_configuration_t *config)
-{
-    if (config == nullptr || config->streams == nullptr || config->num_streams != 1) {
-        ALOGE("M86_NATIVE3_GRAPH reject stream count=%u",
-              config == nullptr ? 0 : config->num_streams);
-        return -EINVAL;
-    }
-
-    const camera3_stream_t *stream = config->streams[0];
-    if (stream == nullptr || stream->stream_type != CAMERA3_STREAM_OUTPUT) {
-        ALOGE("M86_NATIVE3_GRAPH reject null/non-output stream");
-        return -EINVAL;
-    }
-    if (stream->width != kPreviewWidth || stream->height != kPreviewHeight) {
-        ALOGE("M86_NATIVE3_GRAPH reject size=%ux%u", stream->width, stream->height);
-        return -EINVAL;
-    }
-    if (stream->format != HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED &&
-        stream->format != HAL_PIXEL_FORMAT_YCbCr_420_888) {
-        ALOGE("M86_NATIVE3_GRAPH reject format=0x%x", stream->format);
-        return -EINVAL;
-    }
-
-    ALOGI("M86_NATIVE3_GRAPH accept rear single stream %ux%u format=0x%x usage=0x%" PRIx64,
-          stream->width, stream->height, stream->format,
-          static_cast<uint64_t>(stream->usage));
-    return 0;
-}
-
 int closeDevice(hw_device_t *device)
 {
     if (device == nullptr) {
@@ -253,7 +223,7 @@ int configureStreams(const camera3_device_t *dev,
     if (camera == nullptr) {
         return -EINVAL;
     }
-    const int validation = validateSinglePreviewConfiguration(config);
+    const int validation = ExynosCamera3StreamRouterM86::validateConfiguration(config);
     if (validation != 0) {
         return validation;
     }
@@ -287,8 +257,7 @@ int processCaptureRequest(const camera3_device_t *dev,
                           camera3_capture_request_t *request)
 {
     ExynosCamera3 *camera = engine(dev);
-    if (camera == nullptr || request == nullptr || request->num_output_buffers != 1 ||
-        request->output_buffers == nullptr) {
+    if (camera == nullptr || ExynosCamera3StreamRouterM86::validateRequest(request) != 0) {
         ALOGE("M86_NATIVE3_REQUEST reject generation=%" PRIu64, gOpenGeneration);
         return -EINVAL;
     }

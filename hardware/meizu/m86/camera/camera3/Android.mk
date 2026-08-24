@@ -14,7 +14,9 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_MULTILIB := 32
 
 ifeq ($(M86_USE_NATIVE_EXYNOS_HAL3),true)
-LOCAL_SRC_FILES := camera_m86_native3_module.cpp
+LOCAL_SRC_FILES := \
+    camera_m86_native3_module.cpp \
+    ExynosCamera3StreamRouterM86.cpp
 LOCAL_C_INCLUDES += \
     $(LOCAL_PATH)/../libexynoscamera3_m86 \
     $(TOP)/hardware/samsung_slsi-linaro/exynos/libcamera/34xx/hal3 \
