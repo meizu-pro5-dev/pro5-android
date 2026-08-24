@@ -24,6 +24,23 @@ public:
     virtual ~ExynosCamera3FrameFactoryPreviewM86() = default;
 
     virtual status_t create(bool active = true) override;
+    virtual ExynosCameraFrame *createNewFrame(void) override;
+    virtual ExynosCameraFrame *createNewFrame(uint32_t frameCount = 0) override;
+    virtual status_t initPipes(void) override;
+    virtual status_t preparePipes(void) override;
+    virtual status_t startPipes(void) override;
+    virtual status_t startInitialThreads(void) override;
+    virtual status_t setStopFlag(void) override;
+    virtual status_t stopPipes(void) override;
+
+protected:
+    virtual status_t m_fillNodeGroupInfo(ExynosCameraFrame *frame) override;
+    virtual status_t m_setupConfig(void) override;
+    virtual status_t m_setDeviceInfo(void) override;
+    virtual status_t m_initPipes(void) override;
+
+private:
+    int resolveLeaderPipe(int pipeId) const;
 };
 
 } // namespace android
