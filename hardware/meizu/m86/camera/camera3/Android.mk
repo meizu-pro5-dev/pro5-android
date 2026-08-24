@@ -1,8 +1,8 @@
 # Copyright (C) 2026 The LineageOS Project
 # SPDX-License-Identifier: Apache-2.0
 #
-# m86-owned source HAL3 module. Enumerates rear IMX230 and front OV5670 as
-# camera.device@3.4 and drives the source-built ExynosCamera engine.
+# m86-owned Camera3 module. The product variable selects either the verified
+# legacy-engine wrapper or the native common_v2/libcamera3 engine.
 
 LOCAL_PATH := $(call my-dir)
 
@@ -13,7 +13,20 @@ LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_MODULE_TAGS := optional
 LOCAL_MULTILIB := 32
 
+ifeq ($(M86_USE_NATIVE_EXYNOS_HAL3),true)
+LOCAL_SRC_FILES := camera_m86_native3_module.cpp
+LOCAL_C_INCLUDES += \
+    $(LOCAL_PATH)/../libexynoscamera3_m86 \
+    $(TOP)/hardware/samsung_slsi-linaro/exynos/libcamera/34xx/hal3 \
+    $(TOP)/hardware/samsung_slsi-linaro/exynos/libcamera/common_v2 \
+    $(TOP)/hardware/samsung_slsi-linaro/exynos/libcamera/common_v2/SensorInfos
+LOCAL_CFLAGS += \
+    -DM86_NATIVE_HAL3 \
+    -DM86_NATIVE_HAL3_NO_VRA \
+    -DM86_NATIVE_HAL3_REAR_ONLY
+else
 LOCAL_SRC_FILES := camera_m86_module.cpp
+endif
 
 LOCAL_SHARED_LIBRARIES := \
     liblog \
@@ -26,7 +39,9 @@ LOCAL_SHARED_LIBRARIES := \
     libui \
     libsync
 
-ifeq ($(M86_STOCK_ENGINE),true)
+ifeq ($(M86_USE_NATIVE_EXYNOS_HAL3),true)
+LOCAL_SHARED_LIBRARIES += libexynoscamera3_m86 libbinder
+else ifeq ($(M86_STOCK_ENGINE),true)
 # Plan-3 experiment: link the HAL3 shell against the Flyme stock
 # libexynoscamera.so (recorded as DT_NEEDED libexynoscamera.so) instead of
 # the source-built engine. The device image already ships the stock engine.
