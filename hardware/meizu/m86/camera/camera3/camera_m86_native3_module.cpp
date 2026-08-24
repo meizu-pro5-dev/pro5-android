@@ -13,6 +13,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <camera/CameraMetadata.h>
 #include <hardware/camera.h>
 #include <hardware/camera3.h>
 #include <log/log.h>
@@ -23,6 +24,7 @@
 
 using android::ExynosCamera3;
 using android::ExynosCamera3MetadataConverter;
+using android::CameraMetadata;
 using android::NO_ERROR;
 
 namespace {
@@ -34,10 +36,131 @@ constexpr uint32_t kPreviewHeight = 1080;
 
 pthread_mutex_t gLock = PTHREAD_MUTEX_INITIALIZER;
 camera3_device_t *gDevice = nullptr;
-camera_metadata_t *gStaticInfo = nullptr;
+camera_metadata_t *gEngineStaticInfo = nullptr;
+camera_metadata_t *gPublicStaticInfo = nullptr;
 const camera_module_callbacks_t *gCallbacks = nullptr;
 uint64_t gGeneration = 0;
 uint64_t gOpenGeneration = 0;
+
+int buildConservativeStaticInfo()
+{
+    if (gPublicStaticInfo != nullptr) {
+        return 0;
+    }
+    if (gEngineStaticInfo == nullptr &&
+        ExynosCamera3MetadataConverter::constructStaticInfo(
+                kRearCameraId, &gEngineStaticInfo) != NO_ERROR) {
+        return -EINVAL;
+    }
+
+    CameraMetadata metadata;
+    metadata = gEngineStaticInfo;
+
+    const int32_t streamConfigs[] = {
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1920, 1080,
+        ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 1920, 1080,
+        ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
+    };
+    const int64_t minFrameDurations[] = {
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1920, 1080, 33333333LL,
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 1920, 1080, 33333333LL,
+    };
+    const int64_t stallDurations[] = {
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1920, 1080, 0,
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 1920, 1080, 0,
+    };
+    const uint8_t capabilities[] = {
+        ANDROID_REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE,
+    };
+    const int32_t maxOutputStreams[] = {0, 1, 0};
+    const int32_t maxInputStreams = 0;
+    const int32_t partialResultCount = 1;
+    const uint8_t pipelineDepth = 4;
+    const uint8_t hardwareLevel = ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY;
+    const uint8_t flashAvailable = ANDROID_FLASH_INFO_AVAILABLE_FALSE;
+    const float maxDigitalZoom = 1.0f;
+    const int32_t maxRegions[] = {0, 0, 0};
+    const uint8_t aeModes[] = {ANDROID_CONTROL_AE_MODE_ON};
+    const uint8_t afModes[] = {ANDROID_CONTROL_AF_MODE_OFF};
+    const uint8_t awbModes[] = {ANDROID_CONTROL_AWB_MODE_AUTO};
+    const uint8_t controlModes[] = {ANDROID_CONTROL_MODE_AUTO};
+    const uint8_t effectModes[] = {ANDROID_CONTROL_EFFECT_MODE_OFF};
+    const uint8_t sceneModes[] = {ANDROID_CONTROL_SCENE_MODE_DISABLED};
+    const uint8_t stabilizationModes[] = {
+        ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_OFF,
+    };
+    const uint8_t faceDetectModes[] = {ANDROID_STATISTICS_FACE_DETECT_MODE_OFF};
+    const int32_t maxFaceCount = 0;
+    const int32_t thumbnailSizes[] = {0, 0};
+
+    const int32_t requestKeys[] = {
+        ANDROID_CONTROL_AE_MODE,
+        ANDROID_CONTROL_AE_TARGET_FPS_RANGE,
+        ANDROID_CONTROL_AF_MODE,
+        ANDROID_CONTROL_AWB_MODE,
+        ANDROID_CONTROL_CAPTURE_INTENT,
+        ANDROID_CONTROL_EFFECT_MODE,
+        ANDROID_CONTROL_MODE,
+        ANDROID_CONTROL_SCENE_MODE,
+        ANDROID_CONTROL_VIDEO_STABILIZATION_MODE,
+        ANDROID_SCALER_CROP_REGION,
+        ANDROID_STATISTICS_FACE_DETECT_MODE,
+    };
+    const int32_t resultKeys[] = {
+        ANDROID_CONTROL_AE_MODE,
+        ANDROID_CONTROL_AE_STATE,
+        ANDROID_CONTROL_AF_MODE,
+        ANDROID_CONTROL_AF_STATE,
+        ANDROID_CONTROL_AWB_MODE,
+        ANDROID_CONTROL_AWB_STATE,
+        ANDROID_CONTROL_MODE,
+        ANDROID_LENS_FOCAL_LENGTH,
+        ANDROID_REQUEST_PIPELINE_DEPTH,
+        ANDROID_SCALER_CROP_REGION,
+        ANDROID_SENSOR_TIMESTAMP,
+        ANDROID_STATISTICS_FACE_DETECT_MODE,
+    };
+
+    metadata.update(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS,
+                    streamConfigs, sizeof(streamConfigs) / sizeof(streamConfigs[0]));
+    metadata.update(ANDROID_SCALER_AVAILABLE_MIN_FRAME_DURATIONS,
+                    minFrameDurations,
+                    sizeof(minFrameDurations) / sizeof(minFrameDurations[0]));
+    metadata.update(ANDROID_SCALER_AVAILABLE_STALL_DURATIONS,
+                    stallDurations, sizeof(stallDurations) / sizeof(stallDurations[0]));
+    metadata.update(ANDROID_REQUEST_AVAILABLE_CAPABILITIES,
+                    capabilities, sizeof(capabilities));
+    metadata.update(ANDROID_REQUEST_MAX_NUM_OUTPUT_STREAMS,
+                    maxOutputStreams,
+                    sizeof(maxOutputStreams) / sizeof(maxOutputStreams[0]));
+    metadata.update(ANDROID_REQUEST_MAX_NUM_INPUT_STREAMS, &maxInputStreams, 1);
+    metadata.update(ANDROID_REQUEST_PARTIAL_RESULT_COUNT, &partialResultCount, 1);
+    metadata.update(ANDROID_REQUEST_PIPELINE_MAX_DEPTH, &pipelineDepth, 1);
+    metadata.update(ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL, &hardwareLevel, 1);
+    metadata.update(ANDROID_FLASH_INFO_AVAILABLE, &flashAvailable, 1);
+    metadata.update(ANDROID_SCALER_AVAILABLE_MAX_DIGITAL_ZOOM, &maxDigitalZoom, 1);
+    metadata.update(ANDROID_CONTROL_MAX_REGIONS, maxRegions, 3);
+    metadata.update(ANDROID_CONTROL_AE_AVAILABLE_MODES, aeModes, sizeof(aeModes));
+    metadata.update(ANDROID_CONTROL_AF_AVAILABLE_MODES, afModes, sizeof(afModes));
+    metadata.update(ANDROID_CONTROL_AWB_AVAILABLE_MODES, awbModes, sizeof(awbModes));
+    metadata.update(ANDROID_CONTROL_AVAILABLE_MODES, controlModes, sizeof(controlModes));
+    metadata.update(ANDROID_CONTROL_AVAILABLE_EFFECTS, effectModes, sizeof(effectModes));
+    metadata.update(ANDROID_CONTROL_AVAILABLE_SCENE_MODES, sceneModes, sizeof(sceneModes));
+    metadata.update(ANDROID_CONTROL_AVAILABLE_VIDEO_STABILIZATION_MODES,
+                    stabilizationModes, sizeof(stabilizationModes));
+    metadata.update(ANDROID_STATISTICS_INFO_AVAILABLE_FACE_DETECT_MODES,
+                    faceDetectModes, sizeof(faceDetectModes));
+    metadata.update(ANDROID_STATISTICS_INFO_MAX_FACE_COUNT, &maxFaceCount, 1);
+    metadata.update(ANDROID_JPEG_AVAILABLE_THUMBNAIL_SIZES, thumbnailSizes, 2);
+    metadata.update(ANDROID_REQUEST_AVAILABLE_REQUEST_KEYS,
+                    requestKeys, sizeof(requestKeys) / sizeof(requestKeys[0]));
+    metadata.update(ANDROID_REQUEST_AVAILABLE_RESULT_KEYS,
+                    resultKeys, sizeof(resultKeys) / sizeof(resultKeys[0]));
+    metadata.sort();
+    gPublicStaticInfo = metadata.release();
+    return gPublicStaticInfo == nullptr ? -ENOMEM : 0;
+}
 
 ExynosCamera3 *engine(const camera3_device_t *dev)
 {
@@ -244,7 +367,8 @@ int openDevice(const hw_module_t *module, const char *id, hw_device_t **device)
     cameraDevice->common.module = const_cast<hw_module_t *>(module);
     cameraDevice->common.close = closeDevice;
     cameraDevice->ops = &gDeviceOps;
-    cameraDevice->priv = new (std::nothrow) ExynosCamera3(kRearCameraId, &gStaticInfo);
+    cameraDevice->priv =
+            new (std::nothrow) ExynosCamera3(kRearCameraId, &gEngineStaticInfo);
     if (cameraDevice->priv == nullptr) {
         free(cameraDevice);
         pthread_mutex_unlock(&gLock);
@@ -270,15 +394,14 @@ int getCameraInfo(int cameraId, camera_info *info)
     if (cameraId != kRearCameraId || info == nullptr) {
         return -EINVAL;
     }
-    if (gStaticInfo == nullptr &&
-        ExynosCamera3MetadataConverter::constructStaticInfo(cameraId, &gStaticInfo) != NO_ERROR) {
+    if (buildConservativeStaticInfo() != 0) {
         return -EINVAL;
     }
     memset(info, 0, sizeof(*info));
     info->facing = CAMERA_FACING_BACK;
     info->orientation = 90;
     info->device_version = CAMERA_DEVICE_API_VERSION_3_2;
-    info->static_camera_characteristics = gStaticInfo;
+    info->static_camera_characteristics = gPublicStaticInfo;
     info->resource_cost = 100;
     return 0;
 }
