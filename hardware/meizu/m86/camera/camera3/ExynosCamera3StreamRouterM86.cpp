@@ -22,12 +22,19 @@ constexpr uint32_t kPreviewHeight = 1080;
 bool ExynosCamera3StreamRouterM86::isStage1Output(
         const camera3_stream_t *stream)
 {
-    return stream != nullptr &&
-           stream->stream_type == CAMERA3_STREAM_OUTPUT &&
-           stream->width == kPreviewWidth &&
-           stream->height == kPreviewHeight &&
-           (stream->format == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED ||
-            stream->format == HAL_PIXEL_FORMAT_YCbCr_420_888);
+    if (stream == nullptr || stream->stream_type != CAMERA3_STREAM_OUTPUT ||
+        stream->width != kPreviewWidth || stream->height != kPreviewHeight ||
+        (stream->usage & GRALLOC_USAGE_HW_VIDEO_ENCODER) != 0) {
+        return false;
+    }
+
+    const uint64_t previewUsage = GRALLOC_USAGE_HW_TEXTURE |
+                                  GRALLOC_USAGE_HW_COMPOSER;
+    if ((stream->usage & previewUsage) == 0)
+        return false;
+
+    return stream->format == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED ||
+           stream->format == HAL_PIXEL_FORMAT_YCbCr_420_888;
 }
 
 int ExynosCamera3StreamRouterM86::validateConfiguration(
@@ -42,11 +49,12 @@ int ExynosCamera3StreamRouterM86::validateConfiguration(
 
     const camera3_stream_t *stream = configuration->streams[0];
     if (!isStage1Output(stream)) {
-        ALOGE("reject type=%d size=%ux%u format=0x%x",
+        ALOGE("reject type=%d size=%ux%u format=0x%x usage=0x%" PRIx64,
               stream == nullptr ? -1 : stream->stream_type,
               stream == nullptr ? 0 : stream->width,
               stream == nullptr ? 0 : stream->height,
-              stream == nullptr ? 0 : stream->format);
+              stream == nullptr ? 0 : stream->format,
+              stream == nullptr ? 0 : static_cast<uint64_t>(stream->usage));
         return -EINVAL;
     }
 
