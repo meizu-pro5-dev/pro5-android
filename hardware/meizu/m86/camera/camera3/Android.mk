@@ -13,7 +13,10 @@ LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_MODULE_TAGS := optional
 LOCAL_MULTILIB := 32
 
-ifeq ($(M86_USE_NATIVE_EXYNOS_HAL3),true)
+ifeq ($(M86_USE_PREBUILT_EXYNOS_HAL3),true)
+LOCAL_SRC_FILES := camera_m86_prebuilt3_wrapper.cpp
+LOCAL_PROPRIETARY_MODULE := true
+else ifeq ($(M86_USE_NATIVE_EXYNOS_HAL3),true)
 LOCAL_SRC_FILES := \
     camera_m86_native3_module.cpp \
     ExynosCamera3StreamRouterM86.cpp
@@ -41,7 +44,9 @@ LOCAL_SHARED_LIBRARIES := \
     libui \
     libsync
 
-ifeq ($(M86_USE_NATIVE_EXYNOS_HAL3),true)
+ifeq ($(M86_USE_PREBUILT_EXYNOS_HAL3),true)
+LOCAL_SHARED_LIBRARIES += libm86camera3_routea libbinder libdl
+else ifeq ($(M86_USE_NATIVE_EXYNOS_HAL3),true)
 LOCAL_SHARED_LIBRARIES += libexynoscamera3_m86 libbinder
 else ifeq ($(M86_STOCK_ENGINE),true)
 # Plan-3 experiment: link the HAL3 shell against the Flyme stock
