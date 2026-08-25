@@ -32,6 +32,7 @@ public:
     virtual status_t startInitialThreads(void) override;
     virtual status_t setStopFlag(void) override;
     virtual status_t stopPipes(void) override;
+    virtual enum NODE_TYPE getNodeType(uint32_t pipeId) override;
 
 protected:
     virtual status_t m_fillNodeGroupInfo(ExynosCameraFrame *frame) override;
