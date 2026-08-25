@@ -19,6 +19,7 @@ namespace {
 // state absent from the closest published header.
 constexpr size_t kDonorSensorInfoSize = 1216;
 constexpr uintptr_t kPatchedFactoryReturnOffset = 0x000bce40;
+constexpr char kDonorCamera3Soname[] = "libexynoscamera3.so";
 
 constexpr int kRearSensorId = 108;  // IMX230 reported by the M86 kernel
 constexpr int kFrontSensorId = 204; // OV5670 reported by the M86 kernel
@@ -28,8 +29,7 @@ using CtorWithoutId = void (*)(void *);
 
 static void *createSensorInfo(int cameraId)
 {
-    void *handle = dlopen(
-            "libexynoscamera3_routea.so", RTLD_NOW | RTLD_NOLOAD);
+    void *handle = dlopen("libexynoscamera3.so", RTLD_NOW | RTLD_NOLOAD);
     if (handle == nullptr) {
         ALOGE("donor libexynoscamera3 is not loaded: %s", dlerror());
         return nullptr;
@@ -93,9 +93,25 @@ static bool isPatchedFactoryCall(void *returnAddress)
     const uintptr_t returnOffset =
             reinterpret_cast<uintptr_t>(returnAddress) -
             reinterpret_cast<uintptr_t>(info.dli_fbase);
-    return strstr(info.dli_fname, "libexynoscamera3.so") != nullptr &&
-            (returnOffset & ~static_cast<uintptr_t>(1)) ==
-                    kPatchedFactoryReturnOffset;
+    const uintptr_t normalizedOffset =
+            returnOffset & ~static_cast<uintptr_t>(1);
+    const char *callerSoname = strrchr(info.dli_fname, '/');
+    callerSoname = callerSoname == nullptr ? info.dli_fname : callerSoname + 1;
+
+    const bool sonameMatches =
+            strcmp(callerSoname, kDonorCamera3Soname) == 0;
+    const bool factoryMatches = sonameMatches &&
+            normalizedOffset == kPatchedFactoryReturnOffset;
+
+    if (strstr(info.dli_fname, "libexynoscamera3") != nullptr) {
+        ALOGI("factory dispatch caller=%s returnOffset=0x%08lx "
+              "expected=0x%08lx sonameMatch=%d factoryMatch=%d",
+              info.dli_fname, static_cast<unsigned long>(normalizedOffset),
+              static_cast<unsigned long>(kPatchedFactoryReturnOffset),
+              sonameMatches, factoryMatches);
+    }
+
+    return factoryMatches;
 }
 
 using SecNativeGetInstance = void *(*)();
@@ -103,7 +119,7 @@ using SecNativeGetInstance = void *(*)();
 static void *forwardSecNativeGetInstance()
 {
     static void *handle = dlopen(
-            "libsecnativefeature_routea.so", RTLD_NOW | RTLD_NOLOAD);
+            "libsecnativefeature.so", RTLD_NOW | RTLD_NOLOAD);
     static auto original = handle == nullptr ? nullptr
             : reinterpret_cast<SecNativeGetInstance>(dlsym(
                     handle, "_ZN16SecNativeFeature11getInstanceEv"));

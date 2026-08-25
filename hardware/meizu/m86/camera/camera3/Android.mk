@@ -45,7 +45,7 @@ LOCAL_SHARED_LIBRARIES := \
     libsync
 
 ifeq ($(M86_USE_PREBUILT_EXYNOS_HAL3),true)
-LOCAL_SHARED_LIBRARIES += libm86camera3_routea libbinder libdl
+LOCAL_SHARED_LIBRARIES += libm86camera3_bridge libbinder libdl
 else ifeq ($(M86_USE_NATIVE_EXYNOS_HAL3),true)
 LOCAL_SHARED_LIBRARIES += libexynoscamera3_m86 libbinder
 else ifeq ($(M86_STOCK_ENGINE),true)
