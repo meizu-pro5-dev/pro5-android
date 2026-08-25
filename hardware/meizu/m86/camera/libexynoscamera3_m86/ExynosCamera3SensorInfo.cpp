@@ -81,6 +81,8 @@ static uint8_t m86FaceDetectModes[] = {
 
 static void initM86StaticMetadata(ExynosSensorInfoBase *info, bool front)
 {
+    info->minFps = 15;
+    info->maxFps = 30;
     info->supportedHwLevel = ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY;
     info->lensFacing = front ? ANDROID_LENS_FACING_FRONT
                              : ANDROID_LENS_FACING_BACK;
