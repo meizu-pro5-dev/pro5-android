@@ -23,15 +23,18 @@ test "$(sha256sum "$donor_lib/hw/camera.vendor.exynos5.so" | cut -d' ' -f1)" = \
     "$expected_module"
 
 install -d "$output_lib/hw"
-for library in \
-    libexynoscamera.so \
-    libexynoscamera3.so \
-    libhwjpeg.so \
-    libsecnativefeature.so \
-    libsensorlistener.so \
-    libuniplugin.so; do
-    install -m 0644 "$donor_lib/$library" "$output_lib/$library"
-done
+install -m 0644 "$donor_lib/libexynoscamera.so" \
+    "$output_lib/libexynoscamera_routea.so"
+install -m 0644 "$donor_lib/libexynoscamera3.so" \
+    "$output_lib/libexynoscamera3_routea.so"
+install -m 0644 "$donor_lib/libhwjpeg.so" \
+    "$output_lib/libhwjpeg_routea.so"
+install -m 0644 "$donor_lib/libsecnativefeature.so" \
+    "$output_lib/libsecnativefeature_routea.so"
+install -m 0644 "$donor_lib/libsensorlistener.so" \
+    "$output_lib/libsensorlistener_routea.so"
+install -m 0644 "$donor_lib/libuniplugin.so" \
+    "$output_lib/libuniplugin_routea.so"
 install -m 0644 "$donor_lib/hw/camera.vendor.exynos5.so" \
     "$output_lib/hw/camera.vendor.exynos5.so"
 
@@ -45,8 +48,46 @@ install -m 0644 "$donor_lib/hw/camera.vendor.exynos5.so" \
 # calls and receives cameraId in r0. Keep this tied to the checked input hash.
 factory_patch='\x10\xb5\x04\x46\x8b\xf7\x8e\xe9\x10\xbd'
 printf '%b' "$factory_patch" | dd \
-    of="$output_lib/libexynoscamera3.so" \
+    of="$output_lib/libexynoscamera3_routea.so" \
     bs=1 seek=$((0x000b8e38)) conv=notrunc status=none
+
+# Give the complete donor-private closure unique SONAMEs. M86 already has a
+# stock libexynoscamera.so whose modified ABI exports takePicture_mz() rather
+# than takePicture(); allowing the common SONAME into the same linker scope
+# makes the provider bind the donor module to that incompatible HAL1 engine.
+patchelf --set-soname libexynoscamera_routea.so \
+    "$output_lib/libexynoscamera_routea.so"
+patchelf --set-soname libexynoscamera3_routea.so \
+    "$output_lib/libexynoscamera3_routea.so"
+patchelf --set-soname libhwjpeg_routea.so \
+    "$output_lib/libhwjpeg_routea.so"
+patchelf --set-soname libsecnativefeature_routea.so \
+    "$output_lib/libsecnativefeature_routea.so"
+patchelf --set-soname libsensorlistener_routea.so \
+    "$output_lib/libsensorlistener_routea.so"
+patchelf --set-soname libuniplugin_routea.so \
+    "$output_lib/libuniplugin_routea.so"
+
+for engine in \
+    "$output_lib/libexynoscamera_routea.so" \
+    "$output_lib/libexynoscamera3_routea.so"; do
+    patchelf --replace-needed libhwjpeg.so libhwjpeg_routea.so "$engine"
+    patchelf --replace-needed \
+        libsecnativefeature.so libsecnativefeature_routea.so "$engine"
+    patchelf --replace-needed libuniplugin.so libuniplugin_routea.so "$engine"
+    patchelf --replace-needed \
+        libsensorlistener.so libsensorlistener_routea.so "$engine"
+done
+
+patchelf --replace-needed \
+    libexynoscamera.so libexynoscamera_routea.so \
+    "$output_lib/hw/camera.vendor.exynos5.so"
+patchelf --replace-needed \
+    libexynoscamera3.so libexynoscamera3_routea.so \
+    "$output_lib/hw/camera.vendor.exynos5.so"
+patchelf --replace-needed \
+    libhwjpeg.so libhwjpeg_routea.so \
+    "$output_lib/hw/camera.vendor.exynos5.so"
 
 # Put the bridge first in the donor module's dependency scope so its guarded
 # SecNativeFeature symbol wins only for this camera process.
@@ -55,9 +96,9 @@ patchelf --add-needed libm86camera3_routea.so \
 
 sha256sum \
     "$output_lib/hw/camera.vendor.exynos5.so" \
-    "$output_lib/libexynoscamera.so" \
-    "$output_lib/libexynoscamera3.so" \
-    "$output_lib/libhwjpeg.so" \
-    "$output_lib/libsecnativefeature.so" \
-    "$output_lib/libsensorlistener.so" \
-    "$output_lib/libuniplugin.so"
+    "$output_lib/libexynoscamera_routea.so" \
+    "$output_lib/libexynoscamera3_routea.so" \
+    "$output_lib/libhwjpeg_routea.so" \
+    "$output_lib/libsecnativefeature_routea.so" \
+    "$output_lib/libsensorlistener_routea.so" \
+    "$output_lib/libuniplugin_routea.so"

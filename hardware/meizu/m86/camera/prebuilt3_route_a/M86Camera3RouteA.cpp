@@ -28,7 +28,8 @@ using CtorWithoutId = void (*)(void *);
 
 static void *createSensorInfo(int cameraId)
 {
-    void *handle = dlopen("libexynoscamera3.so", RTLD_NOW | RTLD_NOLOAD);
+    void *handle = dlopen(
+            "libexynoscamera3_routea.so", RTLD_NOW | RTLD_NOLOAD);
     if (handle == nullptr) {
         ALOGE("donor libexynoscamera3 is not loaded: %s", dlerror());
         return nullptr;
@@ -101,9 +102,11 @@ using SecNativeGetInstance = void *(*)();
 
 static void *forwardSecNativeGetInstance()
 {
-    static auto original = reinterpret_cast<SecNativeGetInstance>(
-            dlsym(RTLD_NEXT,
-                  "_ZN16SecNativeFeature11getInstanceEv"));
+    static void *handle = dlopen(
+            "libsecnativefeature_routea.so", RTLD_NOW | RTLD_NOLOAD);
+    static auto original = handle == nullptr ? nullptr
+            : reinterpret_cast<SecNativeGetInstance>(dlsym(
+                    handle, "_ZN16SecNativeFeature11getInstanceEv"));
     if (original == nullptr) {
         ALOGE("cannot forward SecNativeFeature::getInstance: %s", dlerror());
         return nullptr;
