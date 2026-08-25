@@ -27,7 +27,8 @@ status_t ExynosCamera3FrameFactoryPreviewM86::create(bool active)
     static_assert(ExynosCamera3HwCapsM86::previewOutputPipe == PIPE_SCP,
                   "m86 preview output must be SCP");
 
-    ALOGI("M86_NATIVE3_GRAPH create SS0->30S->I0S->DIS->SCP active=%d", active);
+    ALOGI("M86_NATIVE3_GRAPH create SS0->30S->30P->I0S->DIS->SCP active=%d",
+          active);
 
     status_t ret = m_setupConfig();
     if (ret != NO_ERROR) {
@@ -92,12 +93,12 @@ status_t ExynosCamera3FrameFactoryPreviewM86::m_setupConfig(void)
     m_flagMcscVraOTF = false;
     m_supportMCSC = false;
     m_supportSCC = false;
-    m_supportReprocessing = true; // Preview 30C is retained for later dirty Bayer JPEG.
+    m_supportReprocessing = false;
     m_supportPureBayerReprocessing = false;
     m_flagReprocessing = false;
 
     m_requestFLITE = 0;
-    m_request3AC = 1;
+    m_request3AC = 0;
     m_request3AP = 0;
     m_requestISP = 0;
     m_requestISPP = 0;
@@ -107,19 +108,31 @@ status_t ExynosCamera3FrameFactoryPreviewM86::m_setupConfig(void)
     m_requestSCP = 1;
     m_requestVRA = 0;
 
-    ALOGI("M86_NATIVE3_GRAPH requests 30S=leader 30C=1 30P=0 ISP=0 DIS=0 SCP=1");
+    ALOGI("M86_NATIVE3_GRAPH requests 30S=leader 30C=off 30P=OTF ISP=OTF DIS=OTF SCP=1");
     return NO_ERROR;
 }
 
 status_t ExynosCamera3FrameFactoryPreviewM86::m_setDeviceInfo(void)
 {
-    // Force the preview MCPipe to expose 30C even though the stage-1 public
-    // API does not expose a reprocessing/JPEG stream.
-    m_supportReprocessing = true;
+    m_supportReprocessing = false;
     m_supportPureBayerReprocessing = false;
     status_t ret = ExynosCamera3FrameFactoryPreview::m_setDeviceInfo();
     if (ret == NO_ERROR) {
-        ALOGI("M86_NATIVE3_GRAPH owner=PIPE_3AA nodes=110,111,112,130,132,150,152");
+        /* The 34xx donor keeps an unused 30C as a secondary node when dirty
+         * Bayer is disabled. MCPipe still opens secondary nodes, so remove it
+         * explicitly for the preview-only graph. */
+        const int pipeId = INDEX(PIPE_3AA);
+        const enum NODE_TYPE nodeType = getNodeType(PIPE_3AC);
+        m_nodeInfo[pipeId].nodeNum[nodeType] = -1;
+        m_nodeInfo[pipeId].secondaryNodeNum[nodeType] = -1;
+        m_nodeInfo[pipeId].nodeName[nodeType][0] = '\0';
+        m_nodeInfo[pipeId].secondaryNodeName[nodeType][0] = '\0';
+        m_nodeInfo[pipeId].pipeId[nodeType] = -1;
+        m_nodeNums[pipeId][nodeType] = -1;
+        m_sensorIds[pipeId][nodeType] = -1;
+        m_secondarySensorIds[pipeId][nodeType] = -1;
+
+        ALOGI("M86_NATIVE3_GRAPH owner=PIPE_3AA nodes=110,112,130,132,150,152 30C=off");
     }
     return ret;
 }
@@ -134,7 +147,32 @@ status_t ExynosCamera3FrameFactoryPreviewM86::m_initPipes(void)
 status_t ExynosCamera3FrameFactoryPreviewM86::m_fillNodeGroupInfo(
         ExynosCameraFrame *frame)
 {
-    return ExynosCamera3FrameFactoryPreview::m_fillNodeGroupInfo(frame);
+    status_t ret = ExynosCamera3FrameFactoryPreview::m_fillNodeGroupInfo(frame);
+    if (ret != NO_ERROR || frame == nullptr) {
+        return ret;
+    }
+
+    const uint32_t frameCount = frame->getFrameCount();
+    if (frameCount <= 3 || (frameCount % 100) == 0) {
+        ExynosRect bayerSrc = {0, };
+        ExynosRect bayerCrop = {0, };
+        ExynosRect bds = {0, };
+        status_t cropRet = m_parameters->getPreviewBayerCropSize(
+                &bayerSrc, &bayerCrop);
+        status_t bdsRet = m_parameters->getPreviewBdsSize(&bds);
+        if (cropRet == NO_ERROR && bdsRet == NO_ERROR) {
+            const int outputW = bayerCrop.w < bds.w ? bayerCrop.w : bds.w;
+            const int outputH = bayerCrop.h < bds.h ? bayerCrop.h : bds.h;
+            ALOGI("M86_NATIVE3_BDS frame=%u BCROP=%dx%d BDS=%dx%d 30P=%dx%d ISP-input=%dx%d",
+                  frameCount, bayerCrop.w, bayerCrop.h, bds.w, bds.h,
+                  outputW, outputH, outputW, outputH);
+        } else {
+            ALOGE("M86_NATIVE3_BDS frame=%u size query failed crop=%d bds=%d",
+                  frameCount, cropRet, bdsRet);
+        }
+    }
+
+    return NO_ERROR;
 }
 
 ExynosCameraFrame *ExynosCamera3FrameFactoryPreviewM86::createNewFrame(

@@ -38,12 +38,23 @@
 #undef USE_YUV_REPROCESSING_FOR_THUMBNAIL
 #define USE_YUV_REPROCESSING_FOR_THUMBNAIL (false)
 
+/* Stage 1 is preview-only. 30C must not be repurposed as an ISPC capture
+ * output until the capture/reprocessing graph is added explicitly. */
+#undef USE_3AC_FOR_ISPC
+#define USE_3AC_FOR_ISPC (false)
+
 /* First checkpoint is preview-only. Do not construct a donor reprocessing
  * graph until the m86 ISPC/GSC/JPEG route is implemented. */
 #undef MAIN_CAMERA_SINGLE_REPROCESSING
 #define MAIN_CAMERA_SINGLE_REPROCESSING (false)
 #undef FRONT_CAMERA_SINGLE_REPROCESSING
 #define FRONT_CAMERA_SINGLE_REPROCESSING (false)
+
+/* The PRO 5 firmware expects the 3AA preview output to be BDS-sized before
+ * entering the OTF ISP path. Keep this product-local; the legacy HAL1 config
+ * remains unchanged. */
+#undef CAMERA_HAS_OWN_BDS
+#define CAMERA_HAS_OWN_BDS (true)
 
 /* video150 is an always-present inline block on m86 even though Android HW
  * video stabilization is not exposed. */
