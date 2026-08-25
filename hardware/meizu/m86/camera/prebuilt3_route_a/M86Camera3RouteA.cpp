@@ -18,7 +18,7 @@ namespace {
 // replace this with sizeof() from a nearby public tree: the donor has private
 // state absent from the closest published header.
 constexpr size_t kDonorSensorInfoSize = 1216;
-constexpr uintptr_t kPatchedFactoryReturnOffset = 0x000bce40;
+constexpr uintptr_t kPatchedFactoryReturnOffset = 0x000b8e40;
 constexpr char kDonorCamera3Soname[] = "libexynoscamera3.so";
 
 constexpr int kRearSensorId = 108;  // IMX230 reported by the M86 kernel
