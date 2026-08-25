@@ -185,16 +185,6 @@ void getVendorTagOps(vendor_tag_ops_t *ops)
         gVendorModule->get_vendor_tag_ops(ops);
 }
 
-int openLegacy(const hw_module_t *module, const char *id,
-               uint32_t version, hw_device_t **device)
-{
-    if (ensureVendorModule() != 0 ||
-            gVendorModule->open_legacy == nullptr)
-        return -ENOSYS;
-    return gVendorModule->open_legacy(
-            &gVendorModule->common, id, version, device);
-}
-
 int setTorchMode(const char *cameraId, bool enabled)
 {
     if (ensureVendorModule() != 0 ||
@@ -232,7 +222,7 @@ extern "C" camera_module_t HAL_MODULE_INFO_SYM = {
     .get_camera_info = getCameraInfo,
     .set_callbacks = setCallbacks,
     .get_vendor_tag_ops = getVendorTagOps,
-    .open_legacy = openLegacy,
+    .open_legacy = nullptr,
     .set_torch_mode = setTorchMode,
     .init = init,
     .reserved = {0},
