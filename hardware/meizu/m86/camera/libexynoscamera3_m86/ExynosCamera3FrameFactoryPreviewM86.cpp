@@ -26,9 +26,21 @@ status_t ExynosCamera3FrameFactoryPreviewM86::create(bool active)
                   "m86 must not instantiate HWFC");
     static_assert(ExynosCamera3HwCapsM86::previewOutputPipe == PIPE_SCP,
                   "m86 preview output must be SCP");
+    static_assert(CAMERA_BAYER_FORMAT ==
+                          ExynosCamera3HwCapsM86::fliteBayerFormat,
+                  "m86 FLITE must use the HAL1-proven packed BG12 format");
+    static_assert(CAMERA_DUMP_BAYER_FORMAT ==
+                          ExynosCamera3HwCapsM86::rawDumpBayerFormat,
+                  "m86 raw dump must remain the unpacked BG16 format");
 
-    ALOGI("M86_NATIVE3_GRAPH create SS0->30S->30P->I0S->DIS->SCP active=%d",
-          active);
+    ALOGI("M86_NATIVE3_GRAPH create SS0->30S->30P->I0S->DIS->SCP "
+          "active=%d wire=RAW%d flite=0x%x preview=0x%x buffers=%d/%d/%d",
+          active, ExynosCamera3HwCapsM86::sensorWireBitDepth,
+          ExynosCamera3HwCapsM86::fliteBayerFormat,
+          ExynosCamera3HwCapsM86::previewYuvFormat,
+          ExynosCamera3HwCapsM86::sensorBufferCount,
+          ExynosCamera3HwCapsM86::aa3BufferCount,
+          ExynosCamera3HwCapsM86::previewBufferCount);
 
     status_t ret = m_setupConfig();
     if (ret != NO_ERROR) {

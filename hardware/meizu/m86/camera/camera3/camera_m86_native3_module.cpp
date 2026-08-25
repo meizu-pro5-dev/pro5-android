@@ -230,7 +230,7 @@ int configureStreams(const camera3_device_t *dev,
     const int ret = camera->configureStreams(config);
     ALOGI("M86_NATIVE3_GRAPH configure generation=%" PRIu64 " ret=%d",
           gOpenGeneration, ret);
-    return ret == NO_ERROR ? 0 : -EINVAL;
+    return ret == NO_ERROR ? 0 : (ret < 0 ? ret : -EINVAL);
 }
 
 int registerStreamBuffers(const camera3_device_t *dev,
@@ -267,7 +267,7 @@ int processCaptureRequest(const camera3_device_t *dev,
     if (ret != NO_ERROR) {
         ALOGE("M86_NATIVE3_RESULT submit failed generation=%" PRIu64
               " frame=%u ret=%d", gOpenGeneration, request->frame_number, ret);
-        return -EINVAL;
+        return ret < 0 ? ret : -EINVAL;
     }
     return 0;
 }

@@ -9,6 +9,16 @@
 #ifndef EXYNOS_CAMERA3_M86_CONFIG_H
 #define EXYNOS_CAMERA3_M86_CONFIG_H
 
+/*
+ * Both m86 sensor modules transmit RAW10 over CSI, but the working 74xx HAL1
+ * programs FLITE with the packed BG12 DMA contract.  The 34xx Camera3 donor
+ * leaves packed Bayer disabled and consequently expands FLITE to BYR2/BG16.
+ * Select the product-proven DMA packing before the donor config is parsed.
+ */
+#ifndef CAMERA_PACKED_BAYER_ENABLE
+#define CAMERA_PACKED_BAYER_ENABLE
+#endif
+
 /* Use the Exynos7420 Camera3 product contract from the 18camera branch.
  * This wrapper then removes blocks which do not exist in the m86 graph. */
 #include "ExynosCamera3Config.h"
