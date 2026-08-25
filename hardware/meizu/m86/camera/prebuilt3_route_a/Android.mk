@@ -9,9 +9,12 @@ LOCAL_MODULE := libm86camera3_routea
 LOCAL_MODULE_TAGS := optional
 LOCAL_PROPRIETARY_MODULE := true
 LOCAL_MULTILIB := 32
-LOCAL_SRC_FILES := M86Camera3RouteA.cpp
+LOCAL_SRC_FILES := \
+    M86Camera3RouteA.cpp \
+    ../libexynoscamera_m86/CameraParametersCompat.cpp
 
 LOCAL_SHARED_LIBRARIES := \
+    libcamera_client \
     libcutils \
     libdl \
     liblog

@@ -77,6 +77,12 @@ for engine in \
     patchelf --replace-needed libuniplugin.so libuniplugin_routea.so "$engine"
     patchelf --replace-needed \
         libsensorlistener.so libsensorlistener_routea.so "$engine"
+
+    # Make the Route A bridge a direct dependency of either donor engine, not
+    # an incidental sibling inherited from camera.vendor.exynos5.so. Besides
+    # carrying the guarded factory hook, the bridge exports the Samsung
+    # CameraParameters ABI constants removed from the platform library.
+    patchelf --add-needed libm86camera3_routea.so "$engine"
 done
 
 patchelf --replace-needed \

@@ -2,9 +2,11 @@
  * Copyright (C) 2026 The LineageOS Project
  * SPDX-License-Identifier: Apache-2.0
  *
- * Definitions for the legacy CameraParameters constants consumed by the
- * source-built SLSI Exynos7420 HAL1 engine. A12 removed the declarations from
- * CameraParameters.h; the matching m86 declaration block is restored by patch.
+ * Definitions for the legacy CameraParameters constants consumed by the SLSI
+ * Exynos7420 camera engines. This is shared by the source-built engines and the
+ * Route A donor compatibility bridge so every implementation uses one ABI
+ * table. A12 removed the declarations from CameraParameters.h; the matching
+ * m86 declaration block is restored by patch.
  */
 
 #include <camera/CameraParameters.h>
