@@ -83,6 +83,12 @@ for engine in \
     # carrying the guarded factory hook, the bridge exports the Samsung
     # CameraParameters ABI constants removed from the platform library.
     patchelf --add-needed libm86camera3_routea.so "$engine"
+
+    # Reuse the existing m86 platform ABI shim for legacy framework symbols
+    # such as android::Fence::~Fence(). The stock LD_SHIM rule is path-scoped
+    # to /system/lib/libexynoscamera.so and therefore cannot make this shim
+    # visible to the privately renamed Route A engines.
+    patchelf --add-needed libm86camera_shim.so "$engine"
 done
 
 patchelf --replace-needed \
