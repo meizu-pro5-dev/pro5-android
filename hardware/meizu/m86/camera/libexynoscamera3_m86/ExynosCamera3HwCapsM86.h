@@ -29,6 +29,14 @@ struct ExynosCamera3HwCapsM86 {
                 flitePackedWidthAlign * flitePackedWidthAlign) * 8 / 5;
     }
 
+    /* The 7420 ISP reprocessing input programs packed BG12 as 3/2 bytes per
+     * pixel aligned to 16 bytes.  The backing 30C allocation intentionally
+     * remains FLITE-sized (8/5), as in the working HAL1 path. */
+    static constexpr int ispReprocessingBytesPerLine(int width)
+    {
+        return ((width * 3 / 2) + 15) / 16 * 16;
+    }
+
     /* Rear stage-1 geometry comes from the IMX230 kernel modes and the
      * product-owned SensorInfo LUT, not from the Galaxy S6 sensor table. */
     static constexpr int rearSensorWidth = 5328;
@@ -47,6 +55,9 @@ struct ExynosCamera3HwCapsM86 {
     static constexpr int sensorBufferCount = 5;
     static constexpr int aa3BufferCount = 5;
     static constexpr int previewBufferCount = 12;
+    static constexpr int processedServiceBufferCount = VIDEO_MAX_FRAME;
+    static constexpr int dirtyBayerBufferCount = 5;
+    static constexpr int pictureBufferCount = 3;
 
     /* Keep the Surface handle registry independent from the SCP queue depth.
      * Samsung's 88xx HAL3 keeps consumer buffer registration at
@@ -61,7 +72,7 @@ struct ExynosCamera3HwCapsM86 {
     static constexpr bool supportsHwVdis = false;
     static constexpr bool flite3aaOtf = true;
     static constexpr bool aa3IspOtf = true;
-    static constexpr bool dirtyBayerReprocessing = false;
+    static constexpr bool dirtyBayerReprocessing = true;
     static constexpr bool pureBayerReprocessing = false;
     static constexpr int previewLeaderPipe = PIPE_3AA;
     static constexpr int previewOutputPipe = PIPE_SCP;

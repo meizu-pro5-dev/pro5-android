@@ -33,8 +33,9 @@ status_t ExynosCamera3FrameFactoryPreviewM86::create(bool active)
                           ExynosCamera3HwCapsM86::rawDumpBayerFormat,
                   "m86 raw dump must remain the unpacked BG16 format");
 
-    ALOGI("M86_NATIVE3_GRAPH create SS0->30S->30P->I0S->DIS->SCP "
+    ALOGI("M86_NATIVE3_GRAPH create camera=%d SS%d->30S->30P->I0S->DIS->SCP "
           "active=%d wire=RAW%d flite=0x%x preview=0x%x buffers=%d/%d/%d",
+          m_cameraId, m_cameraId == CAMERA_ID_BACK ? 0 : 1,
           active, ExynosCamera3HwCapsM86::sensorWireBitDepth,
           ExynosCamera3HwCapsM86::fliteBayerFormat,
           ExynosCamera3HwCapsM86::previewYuvFormat,
@@ -65,6 +66,12 @@ status_t ExynosCamera3FrameFactoryPreviewM86::create(bool active)
     m_pipes[INDEX(PIPE_GSC)]->setPipeId(PIPE_GSC);
     m_pipes[INDEX(PIPE_GSC)]->setPipeName("PIPE_GSC_M86_PREVIEW");
 
+    m_pipes[INDEX(PIPE_GSC_VIDEO)] = (ExynosCameraPipe *)new ExynosCameraPipeGSC(
+            m_cameraId, reinterpret_cast<ExynosCameraParameters *>(m_parameters),
+            true, m_nodeNums[INDEX(PIPE_GSC_VIDEO)]);
+    m_pipes[INDEX(PIPE_GSC_VIDEO)]->setPipeId(PIPE_GSC_VIDEO);
+    m_pipes[INDEX(PIPE_GSC_VIDEO)]->setPipeName("PIPE_GSC_M86_VIDEO");
+
     ret = m_pipes[INDEX(PIPE_FLITE)]->create(m_sensorIds[INDEX(PIPE_FLITE)]);
     if (ret != NO_ERROR) {
         ALOGE("M86_NATIVE3_GRAPH FLITE create failed ret=%d", ret);
@@ -78,6 +85,11 @@ status_t ExynosCamera3FrameFactoryPreviewM86::create(bool active)
     ret = m_pipes[INDEX(PIPE_GSC)]->create();
     if (ret != NO_ERROR) {
         ALOGE("M86_NATIVE3_GRAPH preview GSC create failed ret=%d", ret);
+        return INVALID_OPERATION;
+    }
+    ret = m_pipes[INDEX(PIPE_GSC_VIDEO)]->create();
+    if (ret != NO_ERROR) {
+        ALOGE("M86_NATIVE3_GRAPH video GSC create failed ret=%d", ret);
         return INVALID_OPERATION;
     }
     ret = m_pipes[INDEX(PIPE_3AA)]->setControl(V4L2_CID_IS_END_OF_STREAM, 1);
@@ -105,12 +117,13 @@ status_t ExynosCamera3FrameFactoryPreviewM86::m_setupConfig(void)
     m_flagMcscVraOTF = false;
     m_supportMCSC = false;
     m_supportSCC = false;
-    m_supportReprocessing = false;
+    m_supportReprocessing =
+            ExynosCamera3HwCapsM86::dirtyBayerReprocessing;
     m_supportPureBayerReprocessing = false;
     m_flagReprocessing = false;
 
     m_requestFLITE = 0;
-    m_request3AC = 0;
+    m_request3AC = ExynosCamera3HwCapsM86::dirtyBayerReprocessing ? 1 : 0;
     m_request3AP = 0;
     m_requestISP = 0;
     m_requestISPP = 0;
@@ -120,31 +133,22 @@ status_t ExynosCamera3FrameFactoryPreviewM86::m_setupConfig(void)
     m_requestSCP = 1;
     m_requestVRA = 0;
 
-    ALOGI("M86_NATIVE3_GRAPH requests 30S=leader 30C=off 30P=OTF ISP=OTF DIS=OTF SCP=1");
+    ALOGI("M86_NATIVE3_GRAPH requests 30S=leader 30C=%d 30P=OTF "
+          "ISP=OTF DIS=OTF SCP=1",
+          m_request3AC);
     return NO_ERROR;
 }
 
 status_t ExynosCamera3FrameFactoryPreviewM86::m_setDeviceInfo(void)
 {
-    m_supportReprocessing = false;
+    m_supportReprocessing =
+            ExynosCamera3HwCapsM86::dirtyBayerReprocessing;
     m_supportPureBayerReprocessing = false;
     status_t ret = ExynosCamera3FrameFactoryPreview::m_setDeviceInfo();
     if (ret == NO_ERROR) {
-        /* The 34xx donor keeps an unused 30C as a secondary node when dirty
-         * Bayer is disabled. MCPipe still opens secondary nodes, so remove it
-         * explicitly for the preview-only graph. */
-        const int pipeId = INDEX(PIPE_3AA);
-        const enum NODE_TYPE nodeType = getNodeType(PIPE_3AC);
-        m_nodeInfo[pipeId].nodeNum[nodeType] = -1;
-        m_nodeInfo[pipeId].secondaryNodeNum[nodeType] = -1;
-        m_nodeInfo[pipeId].nodeName[nodeType][0] = '\0';
-        m_nodeInfo[pipeId].secondaryNodeName[nodeType][0] = '\0';
-        m_nodeInfo[pipeId].pipeId[nodeType] = -1;
-        m_nodeNums[pipeId][nodeType] = -1;
-        m_sensorIds[pipeId][nodeType] = -1;
-        m_secondarySensorIds[pipeId][nodeType] = -1;
-
-        ALOGI("M86_NATIVE3_GRAPH owner=PIPE_3AA nodes=110,112,130,132,150,152 30C=off");
+        ALOGI("M86_NATIVE3_GRAPH camera=%d owner=PIPE_3AA "
+              "nodes=110,111,112,130,132,150,152 30C=dirty-bayer",
+              m_cameraId);
     }
     return ret;
 }
@@ -211,6 +215,9 @@ ExynosCameraFrame *ExynosCamera3FrameFactoryPreviewM86::createNewFrame(
     ExynosCameraFrameEntity *gsc = new ExynosCameraFrameEntity(
             PIPE_GSC, ENTITY_TYPE_INPUT_OUTPUT, ENTITY_BUFFER_FIXED);
     frame->addSiblingEntity(nullptr, gsc);
+    ExynosCameraFrameEntity *gscVideo = new ExynosCameraFrameEntity(
+            PIPE_GSC_VIDEO, ENTITY_TYPE_INPUT_OUTPUT, ENTITY_BUFFER_FIXED);
+    frame->addSiblingEntity(nullptr, gscVideo);
 
     ret = m_initPipelines(frame);
     if (ret != NO_ERROR) {
@@ -281,6 +288,13 @@ status_t ExynosCamera3FrameFactoryPreviewM86::stopPipes(void)
             return INVALID_OPERATION;
         }
     }
+    if (m_pipes[INDEX(PIPE_GSC_VIDEO)] != nullptr &&
+        m_pipes[INDEX(PIPE_GSC_VIDEO)]->isThreadRunning()) {
+        ret = stopThread(INDEX(PIPE_GSC_VIDEO));
+        if (ret != NO_ERROR) {
+            return INVALID_OPERATION;
+        }
+    }
     if (m_pipes[INDEX(PIPE_3AA)] != nullptr &&
         m_pipes[INDEX(PIPE_3AA)]->isThreadRunning()) {
         ret = m_pipes[INDEX(PIPE_3AA)]->stopThread();
@@ -314,6 +328,12 @@ status_t ExynosCamera3FrameFactoryPreviewM86::stopPipes(void)
         const status_t waitRet = stopThreadAndWait(INDEX(PIPE_GSC));
         if (waitRet != NO_ERROR) {
             ALOGW("M86_NATIVE3_FLUSH GSC drain ret=%d", waitRet);
+        }
+    }
+    if (m_pipes[INDEX(PIPE_GSC_VIDEO)] != nullptr) {
+        const status_t waitRet = stopThreadAndWait(INDEX(PIPE_GSC_VIDEO));
+        if (waitRet != NO_ERROR) {
+            ALOGW("M86_NATIVE3_FLUSH video GSC drain ret=%d", waitRet);
         }
     }
     ALOGI("M86_NATIVE3_FLUSH stop complete ret=%d", ret);

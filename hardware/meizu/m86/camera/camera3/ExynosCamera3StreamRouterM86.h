@@ -13,11 +13,21 @@ namespace android {
 class ExynosCamera3StreamRouterM86 final {
 public:
     static int validateConfiguration(
+            int cameraId,
             const camera3_stream_configuration_t *configuration);
-    static int validateRequest(const camera3_capture_request_t *request);
+    static int validateRequest(
+            int cameraId, const camera3_capture_request_t *request);
 
 private:
-    static bool isStage1Output(const camera3_stream_t *stream);
+    enum StreamRole {
+        ROLE_INVALID = 0,
+        ROLE_PREVIEW,
+        ROLE_VIDEO,
+        ROLE_CALLBACK,
+        ROLE_JPEG,
+    };
+
+    static StreamRole classify(int cameraId, const camera3_stream_t *stream);
 };
 
 } // namespace android

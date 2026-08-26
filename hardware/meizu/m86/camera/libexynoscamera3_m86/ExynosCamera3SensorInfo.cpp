@@ -38,9 +38,15 @@ static int m86FrontPreviewLut[][SIZE_OF_LUT] = {
      2576, 1932, 2576, 1932, 1440, 1080},
 };
 
+static int m86FrontPictureLut[][SIZE_OF_LUT] = {
+    {SIZE_RATIO_16_9, 2592, 1944, 2592, 1944,
+     2560, 1440, 2560, 1440, 2560, 1440},
+};
+
 static int m86RearPreviewList[][SIZE_OF_RESOLUTION] = {
     {1920, 1080, SIZE_RATIO_16_9},
     {1440, 1080, SIZE_RATIO_4_3},
+    {1280, 720, SIZE_RATIO_16_9},
 };
 
 static int m86RearPictureList[][SIZE_OF_RESOLUTION] = {
@@ -51,6 +57,7 @@ static int m86RearPictureList[][SIZE_OF_RESOLUTION] = {
 static int m86FrontPreviewList[][SIZE_OF_RESOLUTION] = {
     {1920, 1080, SIZE_RATIO_16_9},
     {1440, 1080, SIZE_RATIO_4_3},
+    {1280, 720, SIZE_RATIO_16_9},
 };
 
 static int m86FrontPictureList[][SIZE_OF_RESOLUTION] = {
@@ -144,8 +151,8 @@ static void initM86StaticMetadata(ExynosSensorInfoBase *info, bool front)
     info->ledsLength = ARRAY_LENGTH(AVAILABLE_LEDS);
 
     info->maxNumOutputStreams[RAW] = 0;
-    info->maxNumOutputStreams[PROCESSED] = 1;
-    info->maxNumOutputStreams[PROCESSED_STALL] = 0;
+    info->maxNumOutputStreams[PROCESSED] = 2;
+    info->maxNumOutputStreams[PROCESSED_STALL] = 1;
     info->maxNumInputStreams = 0;
     info->maxPipelineDepth = 4;
     info->partialResultCount = 1;
@@ -224,8 +231,8 @@ ExynosCamera3SensorOV5670M86::ExynosCamera3SensorOV5670M86()
 
     previewSizeLut = m86FrontPreviewLut;
     previewSizeLutMax = ARRAY_LENGTH(m86FrontPreviewLut);
-    pictureSizeLut = m86FrontPreviewLut;
-    pictureSizeLutMax = ARRAY_LENGTH(m86FrontPreviewLut);
+    pictureSizeLut = m86FrontPictureLut;
+    pictureSizeLutMax = ARRAY_LENGTH(m86FrontPictureLut);
     videoSizeLut = m86FrontPreviewLut;
     videoSizeLutMax = ARRAY_LENGTH(m86FrontPreviewLut);
     sizeTableSupport = true;

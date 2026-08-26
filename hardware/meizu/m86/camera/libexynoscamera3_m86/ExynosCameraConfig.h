@@ -48,17 +48,24 @@
 #undef USE_YUV_REPROCESSING_FOR_THUMBNAIL
 #define USE_YUV_REPROCESSING_FOR_THUMBNAIL (false)
 
-/* Stage 1 is preview-only. 30C must not be repurposed as an ISPC capture
- * output until the capture/reprocessing graph is added explicitly. */
+/* I1C produces YUYV while the product JPEG encoder consumes the configured
+ * JPEG input format.  Keep the proven 74xx software GSC conversion for both
+ * IMX230 and OV5670 captures. */
+#undef USE_GSC_FOR_CAPTURE_BACK
+#define USE_GSC_FOR_CAPTURE_BACK (true)
+#undef USE_GSC_FOR_CAPTURE_FRONT
+#define USE_GSC_FOR_CAPTURE_FRONT (true)
+
+/* Dirty Bayer is exported by 30C for the product-owned ISP reprocessing
+ * graph.  It is never treated as an ISPC preview output. */
 #undef USE_3AC_FOR_ISPC
 #define USE_3AC_FOR_ISPC (false)
 
-/* First checkpoint is preview-only. Do not construct a donor reprocessing
- * graph until the m86 ISPC/GSC/JPEG route is implemented. */
+/* Both sensors use the 7420 dirty-Bayer ISP -> ISPC -> GSC -> JPEG route. */
 #undef MAIN_CAMERA_SINGLE_REPROCESSING
-#define MAIN_CAMERA_SINGLE_REPROCESSING (false)
+#define MAIN_CAMERA_SINGLE_REPROCESSING (true)
 #undef FRONT_CAMERA_SINGLE_REPROCESSING
-#define FRONT_CAMERA_SINGLE_REPROCESSING (false)
+#define FRONT_CAMERA_SINGLE_REPROCESSING (true)
 
 /* The PRO 5 firmware expects the 3AA preview output to be BDS-sized before
  * entering the OTF ISP path. Keep this product-local; the legacy HAL1 config

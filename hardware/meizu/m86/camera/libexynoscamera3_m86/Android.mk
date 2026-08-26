@@ -48,7 +48,6 @@ LOCAL_CFLAGS += \
     -DUSE_CAMERA_ESD_RESET \
     -DM86_NATIVE_HAL3 \
     -DM86_NATIVE_HAL3_NO_VRA \
-    -DM86_NATIVE_HAL3_REAR_ONLY \
     -DMAIN_CAMERA_SENSOR_NAME=108 \
     -DFRONT_CAMERA_SENSOR_NAME=204 \
     -DBACK_ROTATION=90 \
@@ -96,6 +95,7 @@ LOCAL_C_INCLUDES += \
 LOCAL_SRC_FILES := \
     ExynosCamera3SensorInfo.cpp \
     ExynosCamera3FrameFactoryPreviewM86.cpp \
+    ExynosCamera3FrameReprocessingFactoryM86.cpp \
     CameraParametersCompat.cpp \
     ../../../../samsung_slsi-linaro/exynos/libcamera/common_v2/ExynosCameraFrame.cpp \
     ../../../../samsung_slsi-linaro/exynos/libcamera/common_v2/ExynosCameraMemory.cpp \

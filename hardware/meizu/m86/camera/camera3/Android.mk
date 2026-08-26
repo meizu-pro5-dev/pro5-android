@@ -27,8 +27,7 @@ LOCAL_C_INCLUDES += \
     $(TOP)/hardware/samsung_slsi-linaro/exynos/libcamera/common_v2/SensorInfos
 LOCAL_CFLAGS += \
     -DM86_NATIVE_HAL3 \
-    -DM86_NATIVE_HAL3_NO_VRA \
-    -DM86_NATIVE_HAL3_REAR_ONLY
+    -DM86_NATIVE_HAL3_NO_VRA
 else
 LOCAL_SRC_FILES := camera_m86_module.cpp
 endif

@@ -31,49 +31,91 @@ using android::NO_ERROR;
 
 namespace {
 
-constexpr int kCameraCount = 1;
+constexpr int kCameraCount = 2;
 constexpr int kRearCameraId = 0;
+constexpr int kFrontCameraId = 1;
 
 pthread_mutex_t gLock = PTHREAD_MUTEX_INITIALIZER;
 camera3_device_t *gDevice = nullptr;
-camera_metadata_t *gEngineStaticInfo = nullptr;
-camera_metadata_t *gPublicStaticInfo = nullptr;
+camera_metadata_t *gEngineStaticInfo[kCameraCount] = {nullptr, nullptr};
+camera_metadata_t *gPublicStaticInfo[kCameraCount] = {nullptr, nullptr};
 const camera_module_callbacks_t *gCallbacks = nullptr;
 uint64_t gGeneration = 0;
 uint64_t gOpenGeneration = 0;
 
-int buildConservativeStaticInfo()
+bool isValidCameraId(int cameraId)
 {
-    if (gPublicStaticInfo != nullptr) {
+    return cameraId >= 0 && cameraId < kCameraCount;
+}
+
+int parseCameraId(const char *id)
+{
+    if (id == nullptr || id[0] == '\0' || id[1] != '\0') {
+        return -1;
+    }
+
+    const int cameraId = id[0] - '0';
+    return isValidCameraId(cameraId) ? cameraId : -1;
+}
+
+int buildConservativeStaticInfo(int cameraId)
+{
+    if (!isValidCameraId(cameraId)) {
+        return -EINVAL;
+    }
+    if (gPublicStaticInfo[cameraId] != nullptr) {
         return 0;
     }
-    if (gEngineStaticInfo == nullptr &&
+    if (gEngineStaticInfo[cameraId] == nullptr &&
         ExynosCamera3MetadataConverter::constructStaticInfo(
-                kRearCameraId, &gEngineStaticInfo) != NO_ERROR) {
+                cameraId, &gEngineStaticInfo[cameraId]) != NO_ERROR) {
         return -EINVAL;
     }
 
     CameraMetadata metadata;
-    metadata = gEngineStaticInfo;
+    metadata = gEngineStaticInfo[cameraId];
+
+    const int32_t jpegWidth = cameraId == kFrontCameraId ? 2560 : 4608;
+    const int32_t jpegHeight = cameraId == kFrontCameraId ? 1440 : 2592;
 
     const int32_t streamConfigs[] = {
         HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1920, 1080,
         ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1440, 1080,
+        ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1280, 720,
+        ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
         HAL_PIXEL_FORMAT_YCbCr_420_888, 1920, 1080,
+        ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 1440, 1080,
+        ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 1280, 720,
+        ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
+        HAL_PIXEL_FORMAT_BLOB, jpegWidth, jpegHeight,
         ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
     };
     const int64_t minFrameDurations[] = {
         HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1920, 1080, 33333333LL,
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1440, 1080, 33333333LL,
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1280, 720, 33333333LL,
         HAL_PIXEL_FORMAT_YCbCr_420_888, 1920, 1080, 33333333LL,
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 1440, 1080, 33333333LL,
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 1280, 720, 33333333LL,
+        HAL_PIXEL_FORMAT_BLOB, jpegWidth, jpegHeight, 100000000LL,
     };
     const int64_t stallDurations[] = {
         HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1920, 1080, 0,
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1440, 1080, 0,
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1280, 720, 0,
         HAL_PIXEL_FORMAT_YCbCr_420_888, 1920, 1080, 0,
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 1440, 1080, 0,
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 1280, 720, 0,
+        HAL_PIXEL_FORMAT_BLOB, jpegWidth, jpegHeight, 500000000LL,
     };
     const uint8_t capabilities[] = {
         ANDROID_REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE,
     };
-    const int32_t maxOutputStreams[] = {0, 1, 0};
+    const int32_t maxOutputStreams[] = {0, 2, 1};
     const int32_t maxInputStreams = 0;
     const int32_t partialResultCount = 1;
     const uint8_t pipelineDepth = 4;
@@ -104,6 +146,10 @@ int buildConservativeStaticInfo()
         ANDROID_CONTROL_MODE,
         ANDROID_CONTROL_SCENE_MODE,
         ANDROID_CONTROL_VIDEO_STABILIZATION_MODE,
+        ANDROID_JPEG_ORIENTATION,
+        ANDROID_JPEG_QUALITY,
+        ANDROID_JPEG_THUMBNAIL_QUALITY,
+        ANDROID_JPEG_THUMBNAIL_SIZE,
         ANDROID_SCALER_CROP_REGION,
         ANDROID_STATISTICS_FACE_DETECT_MODE,
     };
@@ -116,6 +162,11 @@ int buildConservativeStaticInfo()
         ANDROID_CONTROL_AWB_STATE,
         ANDROID_CONTROL_MODE,
         ANDROID_LENS_FOCAL_LENGTH,
+        ANDROID_JPEG_ORIENTATION,
+        ANDROID_JPEG_QUALITY,
+        ANDROID_JPEG_SIZE,
+        ANDROID_JPEG_THUMBNAIL_QUALITY,
+        ANDROID_JPEG_THUMBNAIL_SIZE,
         ANDROID_REQUEST_PIPELINE_DEPTH,
         ANDROID_SCALER_CROP_REGION,
         ANDROID_SENSOR_TIMESTAMP,
@@ -158,18 +209,13 @@ int buildConservativeStaticInfo()
     metadata.update(ANDROID_REQUEST_AVAILABLE_RESULT_KEYS,
                     resultKeys, sizeof(resultKeys) / sizeof(resultKeys[0]));
     metadata.sort();
-    gPublicStaticInfo = metadata.release();
-    return gPublicStaticInfo == nullptr ? -ENOMEM : 0;
+    gPublicStaticInfo[cameraId] = metadata.release();
+    return gPublicStaticInfo[cameraId] == nullptr ? -ENOMEM : 0;
 }
 
 ExynosCamera3 *engine(const camera3_device_t *dev)
 {
     return dev == nullptr ? nullptr : static_cast<ExynosCamera3 *>(dev->priv);
-}
-
-bool parseRearId(const char *id)
-{
-    return id != nullptr && strcmp(id, "0") == 0;
 }
 
 int closeDevice(hw_device_t *device)
@@ -180,10 +226,12 @@ int closeDevice(hw_device_t *device)
 
     camera3_device_t *cameraDevice = reinterpret_cast<camera3_device_t *>(device);
     ExynosCamera3 *camera = engine(cameraDevice);
+    const int cameraId = camera == nullptr ? -1 : camera->getCameraId();
     const uint64_t generation = gOpenGeneration;
     int ret = 0;
 
-    ALOGI("close camera=0 pid=%d generation=%" PRIu64, getpid(), generation);
+    ALOGI("close camera=%d pid=%d generation=%" PRIu64,
+          cameraId, getpid(), generation);
     if (camera != nullptr) {
         const int releaseRet = camera->releaseDevice();
         if (releaseRet != NO_ERROR) {
@@ -223,7 +271,8 @@ int configureStreams(const camera3_device_t *dev,
     if (camera == nullptr) {
         return -EINVAL;
     }
-    const int validation = ExynosCamera3StreamRouterM86::validateConfiguration(config);
+    const int validation = ExynosCamera3StreamRouterM86::validateConfiguration(
+            camera->getCameraId(), config);
     if (validation != 0) {
         return validation;
     }
@@ -257,7 +306,8 @@ int processCaptureRequest(const camera3_device_t *dev,
                           camera3_capture_request_t *request)
 {
     ExynosCamera3 *camera = engine(dev);
-    if (camera == nullptr || ExynosCamera3StreamRouterM86::validateRequest(request) != 0) {
+    if (camera == nullptr || ExynosCamera3StreamRouterM86::validateRequest(
+            camera->getCameraId(), request) != 0) {
         ALOGE("M86_NATIVE3_REQUEST reject generation=%" PRIu64, gOpenGeneration);
         return -EINVAL;
     }
@@ -314,7 +364,8 @@ camera3_device_ops_t gDeviceOps = {
 
 int openDevice(const hw_module_t *module, const char *id, hw_device_t **device)
 {
-    if (module == nullptr || device == nullptr || !parseRearId(id)) {
+    const int cameraId = parseCameraId(id);
+    if (module == nullptr || device == nullptr || cameraId < 0) {
         return -EINVAL;
     }
 
@@ -337,7 +388,8 @@ int openDevice(const hw_module_t *module, const char *id, hw_device_t **device)
     cameraDevice->common.close = closeDevice;
     cameraDevice->ops = &gDeviceOps;
     cameraDevice->priv =
-            new (std::nothrow) ExynosCamera3(kRearCameraId, &gEngineStaticInfo);
+            new (std::nothrow) ExynosCamera3(
+                    cameraId, &gEngineStaticInfo[cameraId]);
     if (cameraDevice->priv == nullptr) {
         free(cameraDevice);
         pthread_mutex_unlock(&gLock);
@@ -349,7 +401,8 @@ int openDevice(const hw_module_t *module, const char *id, hw_device_t **device)
     *device = &cameraDevice->common;
     pthread_mutex_unlock(&gLock);
 
-    ALOGI("open camera=0 pid=%d generation=%" PRIu64, getpid(), gOpenGeneration);
+    ALOGI("open camera=%d pid=%d generation=%" PRIu64,
+          cameraId, getpid(), gOpenGeneration);
     return 0;
 }
 
@@ -360,17 +413,18 @@ int getNumberOfCameras()
 
 int getCameraInfo(int cameraId, camera_info *info)
 {
-    if (cameraId != kRearCameraId || info == nullptr) {
+    if (!isValidCameraId(cameraId) || info == nullptr) {
         return -EINVAL;
     }
-    if (buildConservativeStaticInfo() != 0) {
+    if (buildConservativeStaticInfo(cameraId) != 0) {
         return -EINVAL;
     }
     memset(info, 0, sizeof(*info));
-    info->facing = CAMERA_FACING_BACK;
-    info->orientation = 90;
+    info->facing = cameraId == kRearCameraId
+            ? CAMERA_FACING_BACK : CAMERA_FACING_FRONT;
+    info->orientation = cameraId == kRearCameraId ? 90 : 270;
     info->device_version = CAMERA_DEVICE_API_VERSION_3_2;
-    info->static_camera_characteristics = gPublicStaticInfo;
+    info->static_camera_characteristics = gPublicStaticInfo[cameraId];
     info->resource_cost = 100;
     return 0;
 }
@@ -397,12 +451,12 @@ int openLegacy(const hw_module_t *, const char *, uint32_t, hw_device_t **)
 
 int setTorchMode(const char *cameraId, bool)
 {
-    return parseRearId(cameraId) ? -ENOSYS : -EINVAL;
+    return parseCameraId(cameraId) >= 0 ? -ENOSYS : -EINVAL;
 }
 
 int initModule()
 {
-    ALOGI("module init rear-only camera3.2");
+    ALOGI("module init dual-camera camera3.2 rear=IMX230 front=OV5670");
     return 0;
 }
 
