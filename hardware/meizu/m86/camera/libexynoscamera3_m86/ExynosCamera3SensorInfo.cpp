@@ -74,6 +74,8 @@ static int m86ThumbnailList[][SIZE_OF_RESOLUTION] = {
 };
 
 static int m86FpsList[][2] = {
+    {15000, 24000},
+    {24000, 24000},
     {15000, 30000},
     {30000, 30000},
 };

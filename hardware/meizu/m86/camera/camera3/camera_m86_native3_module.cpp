@@ -77,6 +77,8 @@ int buildConservativeStaticInfo(int cameraId)
 
     const int32_t jpegWidth = cameraId == kFrontCameraId ? 2560 : 4608;
     const int32_t jpegHeight = cameraId == kFrontCameraId ? 1440 : 2592;
+    const int64_t preview4By3MinFrameDuration =
+            cameraId == kFrontCameraId ? 33333333LL : 41666667LL;
 
     const int32_t streamConfigs[] = {
         HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1920, 1080,
@@ -96,10 +98,12 @@ int buildConservativeStaticInfo(int cameraId)
     };
     const int64_t minFrameDurations[] = {
         HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1920, 1080, 33333333LL,
-        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1440, 1080, 33333333LL,
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1440, 1080,
+        preview4By3MinFrameDuration,
         HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1280, 720, 33333333LL,
         HAL_PIXEL_FORMAT_YCbCr_420_888, 1920, 1080, 33333333LL,
-        HAL_PIXEL_FORMAT_YCbCr_420_888, 1440, 1080, 33333333LL,
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 1440, 1080,
+        preview4By3MinFrameDuration,
         HAL_PIXEL_FORMAT_YCbCr_420_888, 1280, 720, 33333333LL,
         HAL_PIXEL_FORMAT_BLOB, jpegWidth, jpegHeight, 100000000LL,
     };
@@ -124,11 +128,28 @@ int buildConservativeStaticInfo(int cameraId)
     const float maxDigitalZoom = 1.0f;
     const int32_t maxRegions[] = {0, 0, 0};
     const uint8_t aeModes[] = {ANDROID_CONTROL_AE_MODE_ON};
-    const uint8_t afModes[] = {ANDROID_CONTROL_AF_MODE_OFF};
+    const uint8_t rearAfModes[] = {
+        ANDROID_CONTROL_AF_MODE_OFF,
+        ANDROID_CONTROL_AF_MODE_AUTO,
+        ANDROID_CONTROL_AF_MODE_MACRO,
+        ANDROID_CONTROL_AF_MODE_CONTINUOUS_VIDEO,
+        ANDROID_CONTROL_AF_MODE_CONTINUOUS_PICTURE,
+    };
+    const uint8_t frontAfModes[] = {ANDROID_CONTROL_AF_MODE_OFF};
     const uint8_t awbModes[] = {ANDROID_CONTROL_AWB_MODE_AUTO};
     const uint8_t controlModes[] = {ANDROID_CONTROL_MODE_AUTO};
     const uint8_t effectModes[] = {ANDROID_CONTROL_EFFECT_MODE_OFF};
     const uint8_t sceneModes[] = {ANDROID_CONTROL_SCENE_MODE_DISABLED};
+    const uint8_t rearSceneModeOverrides[] = {
+        ANDROID_CONTROL_AE_MODE_ON,
+        ANDROID_CONTROL_AWB_MODE_AUTO,
+        ANDROID_CONTROL_AF_MODE_AUTO,
+    };
+    const uint8_t frontSceneModeOverrides[] = {
+        ANDROID_CONTROL_AE_MODE_ON,
+        ANDROID_CONTROL_AWB_MODE_AUTO,
+        ANDROID_CONTROL_AF_MODE_OFF,
+    };
     const uint8_t stabilizationModes[] = {
         ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_OFF,
     };
@@ -193,11 +214,26 @@ int buildConservativeStaticInfo(int cameraId)
     metadata.update(ANDROID_SCALER_AVAILABLE_MAX_DIGITAL_ZOOM, &maxDigitalZoom, 1);
     metadata.update(ANDROID_CONTROL_MAX_REGIONS, maxRegions, 3);
     metadata.update(ANDROID_CONTROL_AE_AVAILABLE_MODES, aeModes, sizeof(aeModes));
-    metadata.update(ANDROID_CONTROL_AF_AVAILABLE_MODES, afModes, sizeof(afModes));
+    if (cameraId == kFrontCameraId) {
+        metadata.update(ANDROID_CONTROL_AF_AVAILABLE_MODES,
+                        frontAfModes, sizeof(frontAfModes));
+    } else {
+        metadata.update(ANDROID_CONTROL_AF_AVAILABLE_MODES,
+                        rearAfModes, sizeof(rearAfModes));
+    }
     metadata.update(ANDROID_CONTROL_AWB_AVAILABLE_MODES, awbModes, sizeof(awbModes));
     metadata.update(ANDROID_CONTROL_AVAILABLE_MODES, controlModes, sizeof(controlModes));
     metadata.update(ANDROID_CONTROL_AVAILABLE_EFFECTS, effectModes, sizeof(effectModes));
     metadata.update(ANDROID_CONTROL_AVAILABLE_SCENE_MODES, sceneModes, sizeof(sceneModes));
+    if (cameraId == kFrontCameraId) {
+        metadata.update(ANDROID_CONTROL_SCENE_MODE_OVERRIDES,
+                        frontSceneModeOverrides,
+                        sizeof(frontSceneModeOverrides));
+    } else {
+        metadata.update(ANDROID_CONTROL_SCENE_MODE_OVERRIDES,
+                        rearSceneModeOverrides,
+                        sizeof(rearSceneModeOverrides));
+    }
     metadata.update(ANDROID_CONTROL_AVAILABLE_VIDEO_STABILIZATION_MODES,
                     stabilizationModes, sizeof(stabilizationModes));
     metadata.update(ANDROID_STATISTICS_INFO_AVAILABLE_FACE_DETECT_MODES,
