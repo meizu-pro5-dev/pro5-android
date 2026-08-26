@@ -193,7 +193,10 @@ status_t ExynosCamera3FrameReprocessingFactoryM86::initPipes(void)
     tempRect.fullW = captureYuvSize.w;
     tempRect.fullH = captureYuvSize.h;
     tempRect.colorFormat = m_parameters->getHwPictureFormat();
-    pipeInfo[nodeType].bytesPerPlane[0] = captureYuvSize.w * 2;
+    /* fimc-is2 interprets YUYV bytesperline as a pixel stride and applies
+     * the two bytes-per-pixel factor itself.  Leave it unset so queue_setup
+     * derives exactly width * height * 2 for the I1C image plane. */
+    pipeInfo[nodeType].bytesPerPlane[0] = 0;
     pipeInfo[nodeType].bufInfo.count =
             ExynosCamera3HwCapsM86::pictureBufferCount;
     SET_CAPTURE_DEVICE_BASIC_INFO();
