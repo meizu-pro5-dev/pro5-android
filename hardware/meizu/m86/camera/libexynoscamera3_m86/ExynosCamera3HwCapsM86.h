@@ -48,6 +48,12 @@ struct ExynosCamera3HwCapsM86 {
     static constexpr int aa3BufferCount = 5;
     static constexpr int previewBufferCount = 12;
 
+    /* Keep the Surface handle registry independent from the SCP queue depth.
+     * Samsung's 88xx HAL3 keeps consumer buffer registration at
+     * VIDEO_MAX_FRAME while num_request_preview_buffers limits the number of
+     * buffers concurrently owned by the HAL. */
+    static constexpr int previewServiceBufferCount = VIDEO_MAX_FRAME;
+
     static constexpr bool hasMcsc = false;
     static constexpr bool hasVra = false;
     static constexpr bool hasHwfc = false;
