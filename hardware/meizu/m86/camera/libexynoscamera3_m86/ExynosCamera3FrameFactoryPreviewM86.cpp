@@ -10,6 +10,50 @@
 
 namespace android {
 
+namespace {
+
+void setM86FixedNodeSize(camera2_node *node, int width, int height)
+{
+    node->input.cropRegion[0] = 0;
+    node->input.cropRegion[1] = 0;
+    node->input.cropRegion[2] = width;
+    node->input.cropRegion[3] = height;
+    node->output.cropRegion[0] = 0;
+    node->output.cropRegion[1] = 0;
+    node->output.cropRegion[2] = width;
+    node->output.cropRegion[3] = height;
+}
+
+void forceM86PreviewBds(camera2_node_group *nodeGroup3aa,
+                        camera2_node_group *nodeGroupIsp,
+                        camera2_node_group *nodeGroupDis,
+                        int width, int height)
+{
+    camera2_node *taaOutput =
+            &nodeGroup3aa->capture[PERFRAME_BACK_3AP_POS];
+    taaOutput->output.cropRegion[0] = 0;
+    taaOutput->output.cropRegion[1] = 0;
+    taaOutput->output.cropRegion[2] = width;
+    taaOutput->output.cropRegion[3] = height;
+
+    setM86FixedNodeSize(
+            &nodeGroup3aa->capture[PERFRAME_BACK_ISPP_POS], width, height);
+    setM86FixedNodeSize(
+            &nodeGroup3aa->capture[PERFRAME_BACK_SCP_POS], width, height);
+
+    setM86FixedNodeSize(&nodeGroupIsp->leader, width, height);
+    setM86FixedNodeSize(
+            &nodeGroupIsp->capture[PERFRAME_BACK_ISPP_POS], width, height);
+    setM86FixedNodeSize(
+            &nodeGroupIsp->capture[PERFRAME_BACK_SCP_POS], width, height);
+
+    setM86FixedNodeSize(&nodeGroupDis->leader, width, height);
+    setM86FixedNodeSize(
+            &nodeGroupDis->capture[PERFRAME_BACK_SCP_POS], width, height);
+}
+
+} // namespace
+
 ExynosCamera3FrameFactoryPreviewM86::ExynosCamera3FrameFactoryPreviewM86(
     int cameraId, ExynosCamera3Parameters *parameters)
     : ExynosCamera3FrameFactoryPreview(cameraId, parameters)
@@ -169,23 +213,86 @@ status_t ExynosCamera3FrameFactoryPreviewM86::m_fillNodeGroupInfo(
     }
 
     const uint32_t frameCount = frame->getFrameCount();
-    if (frameCount <= 3 || (frameCount % 100) == 0) {
+    if (m_cameraId == CAMERA_ID_BACK) {
+        camera2_node_group nodeGroup3aa;
+        camera2_node_group nodeGroupIsp;
+        camera2_node_group nodeGroupDis;
         ExynosRect bayerSrc = {0, };
-        ExynosRect bayerCrop = {0, };
-        ExynosRect bds = {0, };
-        status_t cropRet = m_parameters->getPreviewBayerCropSize(
-                &bayerSrc, &bayerCrop);
-        status_t bdsRet = m_parameters->getPreviewBdsSize(&bds);
-        if (cropRet == NO_ERROR && bdsRet == NO_ERROR) {
-            const int outputW = bayerCrop.w < bds.w ? bayerCrop.w : bds.w;
-            const int outputH = bayerCrop.h < bds.h ? bayerCrop.h : bds.h;
-            ALOGI("M86_NATIVE3_BDS frame=%u BCROP=%dx%d BDS=%dx%d 30P=%dx%d ISP-input=%dx%d",
-                  frameCount, bayerCrop.w, bayerCrop.h, bds.w, bds.h,
-                  outputW, outputH, outputW, outputH);
-        } else {
-            ALOGE("M86_NATIVE3_BDS frame=%u size query failed crop=%d bds=%d",
-                  frameCount, cropRet, bdsRet);
+        ExynosRect ignoredDynamicCrop = {0, };
+        ExynosRect fixedBayerCrop = {0, };
+        ExynosRect fixedBds = {0, };
+        int previewW = 0;
+        int previewH = 0;
+        int pictureW = 0;
+        int pictureH = 0;
+
+        m_parameters->getHwPreviewSize(&previewW, &previewH);
+        m_parameters->getPictureSize(&pictureW, &pictureH);
+        ret = m_parameters->getPreviewBayerCropSize(
+                &bayerSrc, &ignoredDynamicCrop);
+        if (ret != NO_ERROR) {
+            ALOGE("M86_NATIVE3_ZOOM frame=%u cannot query Bayer source ret=%d",
+                  frameCount, ret);
+            return ret;
         }
+
+        const bool preview4By3 =
+                static_cast<int64_t>(previewW) * 3 ==
+                static_cast<int64_t>(previewH) * 4;
+        fixedBayerCrop.w = 5312;
+        fixedBayerCrop.h = preview4By3 ? 3984 : 2988;
+        fixedBayerCrop.w = fixedBayerCrop.w < bayerSrc.w
+                ? fixedBayerCrop.w : ALIGN_DOWN(bayerSrc.w, CAMERA_BCROP_ALIGN);
+        fixedBayerCrop.h = fixedBayerCrop.h < bayerSrc.h
+                ? fixedBayerCrop.h : ALIGN_DOWN(bayerSrc.h, 2);
+        fixedBayerCrop.x = ALIGN_DOWN((bayerSrc.w - fixedBayerCrop.w) >> 1, 2);
+        fixedBayerCrop.y = ALIGN_DOWN((bayerSrc.h - fixedBayerCrop.h) >> 1, 2);
+        fixedBds.w = previewW;
+        fixedBds.h = previewH;
+
+        frame->getNodeGroupInfo(&nodeGroup3aa, PERFRAME_INFO_3AA);
+        frame->getNodeGroupInfo(&nodeGroupIsp, PERFRAME_INFO_ISP);
+        frame->getNodeGroupInfo(&nodeGroupDis, PERFRAME_INFO_DIS);
+
+        /* Replace the 34xx HAL3 dynamic 3AA crop with the fixed, HAL1-proven
+         * M86 graph.  Camera3 cropRegion is applied later by PIPE_GSC; the
+         * inline SCP node must never be reconfigured while streaming. */
+        ExynosCameraNodeGroup3AA::updateNodeGroupInfo(
+                m_cameraId, &nodeGroup3aa, fixedBayerCrop, fixedBds,
+                previewW, previewH, pictureW, pictureH);
+        ExynosCameraNodeGroupISP::updateNodeGroupInfo(
+                m_cameraId, &nodeGroupIsp, fixedBayerCrop, fixedBds,
+                previewW, previewH, pictureW, pictureH,
+                m_parameters->getHWVdisMode());
+        ExynosCameraNodeGroupDIS::updateNodeGroupInfo(
+                m_cameraId, &nodeGroupDis, fixedBayerCrop, fixedBds,
+                previewW, previewH, pictureW, pictureH,
+                m_parameters->getHWVdisMode());
+
+        /* CAMERA_HAS_OWN_BDS is false in the donor configuration, but the
+         * PRO 5 firmware requires the HAL1-proven 30P/ISP dimensions. */
+        forceM86PreviewBds(&nodeGroup3aa, &nodeGroupIsp, &nodeGroupDis,
+                           fixedBds.w, fixedBds.h);
+
+        frame->storeNodeGroupInfo(&nodeGroup3aa, PERFRAME_INFO_3AA);
+        frame->storeNodeGroupInfo(&nodeGroupIsp, PERFRAME_INFO_ISP);
+        frame->storeNodeGroupInfo(&nodeGroupDis, PERFRAME_INFO_DIS);
+
+    }
+
+    if (frameCount <= 3 || (frameCount % 100) == 0) {
+        camera2_node_group nodeGroup3aa;
+        frame->getNodeGroupInfo(&nodeGroup3aa, PERFRAME_INFO_3AA);
+        const camera2_node *leader = &nodeGroup3aa.leader;
+        const camera2_node *bds =
+                &nodeGroup3aa.capture[PERFRAME_BACK_3AP_POS];
+        ALOGI("M86_NATIVE3_BDS frame=%u BCROP=(%d,%d %dx%d) "
+              "30P=%dx%d ISP-input=%dx%d",
+              frameCount,
+              leader->input.cropRegion[0], leader->input.cropRegion[1],
+              leader->input.cropRegion[2], leader->input.cropRegion[3],
+              bds->output.cropRegion[2], bds->output.cropRegion[3],
+              bds->output.cropRegion[2], bds->output.cropRegion[3]);
     }
 
     return NO_ERROR;
