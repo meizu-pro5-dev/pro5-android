@@ -3,13 +3,11 @@
 
 # m86 media/OMX product owner.
 #
-# The PRO 5 codec stack is the same source-built Exynos OpenMAX used by the
-# maintained Exynos 7420 family. The modules below are defined by the
-# unmodified hardware/samsung_slsi/openmax and hardware/samsung_slsi/exynos
-# trees. BoardConfigPlatform.mk already selects the matching feature flags
-# (DMA-BUF, ANB output sharing, HEVC/VP9 decode and encode, custom component
-# registration), so this fragment only owns the installed package set and the
-# XML/configuration contract.
+# The PRO 5 codec stack uses the source-built Exynos OpenMAX implementation,
+# but its native_handle ABI is owned by gralloc.m86 for compatibility with the
+# Flyme Mali userspace. BoardConfigPlatform.mk therefore binds OMX to the M86
+# gralloc contract in addition to selecting the codec feature flags. This file
+# only owns the installed package set and XML/configuration contract.
 
 PRODUCT_PACKAGES += \
     libExynosOMX_Core \

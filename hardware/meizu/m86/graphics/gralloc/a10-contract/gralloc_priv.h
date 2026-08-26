@@ -17,6 +17,7 @@
 #ifndef GRALLOC_PRIV_H_
 #define GRALLOC_PRIV_H_
 
+#include <stddef.h>
 #include <stdint.h>
 #include <limits.h>
 #include <sys/cdefs.h>
@@ -232,6 +233,25 @@ struct private_handle_t {
 
 #endif
 };
+
+#ifdef __cplusplus
+/*
+ * This is a userspace ABI shared with the Flyme r15p0 Mali stack.  Consumers
+ * of gralloc.m86, including Exynos OMX, must compile against this exact layout.
+ */
+static_assert(sizeof(private_handle_t) == 160,
+              "unexpected m86 private_handle_t size");
+static_assert(__builtin_offsetof(private_handle_t, fd) == 0x0c,
+              "unexpected m86 gralloc fd offset");
+static_assert(__builtin_offsetof(private_handle_t, format) == 0x28,
+              "unexpected m86 gralloc format offset");
+static_assert(__builtin_offsetof(private_handle_t, width) == 0x2c,
+              "unexpected m86 gralloc width offset");
+static_assert(__builtin_offsetof(private_handle_t, height) == 0x30,
+              "unexpected m86 gralloc height offset");
+static_assert(__builtin_offsetof(private_handle_t, stride) == 0x34,
+              "unexpected m86 gralloc stride offset");
+#endif
 
 #define DSS_CROP_X 0
 #define DSS_CROP_Y 360
