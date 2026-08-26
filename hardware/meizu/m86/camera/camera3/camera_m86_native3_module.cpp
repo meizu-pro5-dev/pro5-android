@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <vector>
 
 #include <camera/CameraMetadata.h>
 #include <hardware/camera.h>
@@ -75,12 +76,10 @@ int buildConservativeStaticInfo(int cameraId)
     CameraMetadata metadata;
     metadata = gEngineStaticInfo[cameraId];
 
-    const int32_t jpegWidth = cameraId == kFrontCameraId ? 2560 : 4608;
-    const int32_t jpegHeight = cameraId == kFrontCameraId ? 1440 : 2592;
     const int64_t preview4By3MinFrameDuration =
             cameraId == kFrontCameraId ? 33333333LL : 41666667LL;
 
-    const int32_t streamConfigs[] = {
+    std::vector<int32_t> streamConfigs = {
         HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1920, 1080,
         ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
         HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1440, 1080,
@@ -93,10 +92,8 @@ int buildConservativeStaticInfo(int cameraId)
         ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
         HAL_PIXEL_FORMAT_YCbCr_420_888, 1280, 720,
         ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
-        HAL_PIXEL_FORMAT_BLOB, jpegWidth, jpegHeight,
-        ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
     };
-    const int64_t minFrameDurations[] = {
+    std::vector<int64_t> minFrameDurations = {
         HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1920, 1080, 33333333LL,
         HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1440, 1080,
         preview4By3MinFrameDuration,
@@ -105,17 +102,41 @@ int buildConservativeStaticInfo(int cameraId)
         HAL_PIXEL_FORMAT_YCbCr_420_888, 1440, 1080,
         preview4By3MinFrameDuration,
         HAL_PIXEL_FORMAT_YCbCr_420_888, 1280, 720, 33333333LL,
-        HAL_PIXEL_FORMAT_BLOB, jpegWidth, jpegHeight, 100000000LL,
     };
-    const int64_t stallDurations[] = {
+    std::vector<int64_t> stallDurations = {
         HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1920, 1080, 0,
         HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1440, 1080, 0,
         HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 1280, 720, 0,
         HAL_PIXEL_FORMAT_YCbCr_420_888, 1920, 1080, 0,
         HAL_PIXEL_FORMAT_YCbCr_420_888, 1440, 1080, 0,
         HAL_PIXEL_FORMAT_YCbCr_420_888, 1280, 720, 0,
-        HAL_PIXEL_FORMAT_BLOB, jpegWidth, jpegHeight, 500000000LL,
     };
+    const int32_t rearJpegSizes[][2] = {
+        {5312, 3984}, {5312, 2988}, {4160, 3120},
+        {2656, 1992}, {1920, 1080},
+    };
+    const int32_t frontJpegSizes[][2] = {
+        {2592, 1944}, {2592, 1458}, {1920, 1080}, {640, 480},
+    };
+    const int32_t (*jpegSizes)[2] = cameraId == kFrontCameraId
+            ? frontJpegSizes : rearJpegSizes;
+    const size_t jpegSizeCount = cameraId == kFrontCameraId
+            ? sizeof(frontJpegSizes) / sizeof(frontJpegSizes[0])
+            : sizeof(rearJpegSizes) / sizeof(rearJpegSizes[0]);
+    for (size_t i = 0; i < jpegSizeCount; ++i) {
+        streamConfigs.insert(streamConfigs.end(), {
+            HAL_PIXEL_FORMAT_BLOB, jpegSizes[i][0], jpegSizes[i][1],
+            ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
+        });
+        minFrameDurations.insert(minFrameDurations.end(), {
+            HAL_PIXEL_FORMAT_BLOB, jpegSizes[i][0], jpegSizes[i][1],
+            100000000LL,
+        });
+        stallDurations.insert(stallDurations.end(), {
+            HAL_PIXEL_FORMAT_BLOB, jpegSizes[i][0], jpegSizes[i][1],
+            500000000LL,
+        });
+    }
     const uint8_t capabilities[] = {
         ANDROID_REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE,
     };
@@ -195,12 +216,11 @@ int buildConservativeStaticInfo(int cameraId)
     };
 
     metadata.update(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS,
-                    streamConfigs, sizeof(streamConfigs) / sizeof(streamConfigs[0]));
+                    streamConfigs.data(), streamConfigs.size());
     metadata.update(ANDROID_SCALER_AVAILABLE_MIN_FRAME_DURATIONS,
-                    minFrameDurations,
-                    sizeof(minFrameDurations) / sizeof(minFrameDurations[0]));
+                    minFrameDurations.data(), minFrameDurations.size());
     metadata.update(ANDROID_SCALER_AVAILABLE_STALL_DURATIONS,
-                    stallDurations, sizeof(stallDurations) / sizeof(stallDurations[0]));
+                    stallDurations.data(), stallDurations.size());
     metadata.update(ANDROID_REQUEST_AVAILABLE_CAPABILITIES,
                     capabilities, sizeof(capabilities));
     metadata.update(ANDROID_REQUEST_MAX_NUM_OUTPUT_STREAMS,

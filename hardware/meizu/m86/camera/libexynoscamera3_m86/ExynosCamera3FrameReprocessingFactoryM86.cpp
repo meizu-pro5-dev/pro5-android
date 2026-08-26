@@ -166,10 +166,14 @@ status_t ExynosCamera3FrameReprocessingFactoryM86::initPipes(void)
 
     int hwSensorW = 0;
     int hwSensorH = 0;
-    int hwPictureW = 0;
-    int hwPictureH = 0;
+    ExynosRect captureYuvSize = {0, };
     m_parameters->getHwSensorSize(&hwSensorW, &hwSensorH);
-    m_parameters->getHwPictureSize(&hwPictureW, &hwPictureH);
+    status_t ret = m_parameters->getPictureBdsSize(&captureYuvSize);
+    if (ret != NO_ERROR || captureYuvSize.w <= 0 || captureYuvSize.h <= 0) {
+        ALOGE("M86_NATIVE3_CAPTURE invalid I1C size ret=%d size=%dx%d",
+              ret, captureYuvSize.w, captureYuvSize.h);
+        return BAD_VALUE;
+    }
 
     const int pipeId = PIPE_ISP_REPROCESSING;
     enum NODE_TYPE leaderNodeType = getNodeType(PIPE_ISP_REPROCESSING);
@@ -186,14 +190,15 @@ status_t ExynosCamera3FrameReprocessingFactoryM86::initPipes(void)
 
     nodeType = getNodeType(PIPE_ISPC_REPROCESSING);
     const int perFramePos = PERFRAME_REPROCESSING_SCC_POS;
-    tempRect.fullW = hwPictureW;
-    tempRect.fullH = hwPictureH;
+    tempRect.fullW = captureYuvSize.w;
+    tempRect.fullH = captureYuvSize.h;
     tempRect.colorFormat = m_parameters->getHwPictureFormat();
+    pipeInfo[nodeType].bytesPerPlane[0] = captureYuvSize.w * 2;
     pipeInfo[nodeType].bufInfo.count =
             ExynosCamera3HwCapsM86::pictureBufferCount;
     SET_CAPTURE_DEVICE_BASIC_INFO();
 
-    status_t ret = m_pipes[INDEX(PIPE_ISP_REPROCESSING)]->setupPipe(
+    ret = m_pipes[INDEX(PIPE_ISP_REPROCESSING)]->setupPipe(
             pipeInfo, sensorIds, secondarySensorIds);
     if (ret != NO_ERROR) {
         ALOGE("M86_NATIVE3_CAPTURE setup I1S/I1C failed ret=%d", ret);
@@ -206,7 +211,8 @@ status_t ExynosCamera3FrameReprocessingFactoryM86::initPipes(void)
           m_cameraId, hwSensorW, hwSensorH,
           ExynosCamera3HwCapsM86::ispReprocessingBytesPerLine(hwSensorW),
           ExynosCamera3HwCapsM86::dirtyBayerBufferCount,
-          hwPictureW, hwPictureH, m_parameters->getHwPictureFormat(),
+          captureYuvSize.w, captureYuvSize.h,
+          m_parameters->getHwPictureFormat(),
           ExynosCamera3HwCapsM86::pictureBufferCount);
     return NO_ERROR;
 }
@@ -322,21 +328,27 @@ status_t ExynosCamera3FrameReprocessingFactoryM86::m_fillNodeGroupInfo(
     nodeGroupIsp.capture[PERFRAME_REPROCESSING_SCC_POS].vid =
             FIMC_IS_VIDEO_I1C_NUM - FIMC_IS_VIDEO_BAS_NUM;
 
-    int pictureW = 0;
-    int pictureH = 0;
     ExynosRect previewBayerCrop = {0, };
     ExynosRect pictureBayerCrop = {0, };
     ExynosRect bnsSize = {0, };
     ExynosRect bdsSize = {0, };
-    m_parameters->getPictureSize(&pictureW, &pictureH);
     m_parameters->getPreviewBayerCropSize(&bnsSize, &previewBayerCrop);
     m_parameters->getPictureBayerCropSize(&bnsSize, &pictureBayerCrop);
     m_parameters->getPictureBdsSize(&bdsSize);
 
+    /* I1C on Exynos7420 cannot scale.  The Flyme picture LUT records its
+     * real YUYV output in BDS; the following GSC owns conversion to the
+     * external JPEG request size.  Do not let a preview/picture ratio
+     * mismatch fall back to the 34xx equation and widen this DMA plane. */
+    pictureBayerCrop.x = 0;
+    pictureBayerCrop.y = 0;
+    pictureBayerCrop.w = bdsSize.w;
+    pictureBayerCrop.h = bdsSize.h;
+
     /* The 34xx compatibility helper named updateNodeGroupInfo() is an
      * intentional no-op.  Use the same reprocessing calculator as the
      * working 74xx HAL1 so I1S/I1C receive real crop regions on the first
-     * shot (rear 4608x2592, front 2560x1440). */
+     * shot. */
     ExynosCameraNodeGroup::updateNodeGroupInfo(
             m_cameraId,
             &nodeGroup3aa,
@@ -344,8 +356,8 @@ status_t ExynosCamera3FrameReprocessingFactoryM86::m_fillNodeGroupInfo(
             previewBayerCrop,
             pictureBayerCrop,
             bdsSize,
-            pictureW,
-            pictureH,
+            bdsSize.w,
+            bdsSize.h,
             false,
             false);
     frame->storeNodeGroupInfo(&nodeGroupIsp,

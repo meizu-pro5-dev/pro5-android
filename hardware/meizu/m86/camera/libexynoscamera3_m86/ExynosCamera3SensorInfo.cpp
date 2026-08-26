@@ -19,28 +19,30 @@ bool needGSCForCapture(int camId)
 
 static int m86RearPreviewLut[][SIZE_OF_LUT] = {
     {SIZE_RATIO_16_9, 5328, 3000, 5328, 3000,
-     5316, 2990, 1920, 1080, 1920, 1080},
+     5312, 2988, 1920, 1080, 1920, 1080},
     {SIZE_RATIO_4_3, 5344, 4016, 5344, 4016,
-     5328, 3996, 1440, 1080, 1440, 1080},
+     5312, 3984, 1440, 1080, 1440, 1080},
 };
 
 static int m86RearPictureLut[][SIZE_OF_LUT] = {
-    {SIZE_RATIO_4_3, 5344, 4016, 5344, 4016,
-     5328, 3996, 4608, 3456, 4608, 3456},
     {SIZE_RATIO_16_9, 5328, 3000, 5328, 3000,
-     5316, 2990, 4608, 2592, 4608, 2592},
+     5312, 2988, 5312, 2988, 5312, 2988},
+    {SIZE_RATIO_4_3, 5344, 4016, 5344, 4016,
+     5312, 3984, 5312, 3984, 5312, 3984},
 };
 
 static int m86FrontPreviewLut[][SIZE_OF_LUT] = {
     {SIZE_RATIO_16_9, 2592, 1944, 2592, 1944,
      2560, 1440, 2560, 1440, 1920, 1080},
     {SIZE_RATIO_4_3, 2592, 1944, 2592, 1944,
-     2576, 1932, 2576, 1932, 1440, 1080},
+     2576, 1934, 2576, 1934, 1440, 1080},
 };
 
 static int m86FrontPictureLut[][SIZE_OF_LUT] = {
     {SIZE_RATIO_16_9, 2592, 1944, 2592, 1944,
      2560, 1440, 2560, 1440, 2560, 1440},
+    {SIZE_RATIO_4_3, 2592, 1944, 2592, 1944,
+     2576, 1934, 2576, 1934, 2576, 1934},
 };
 
 static int m86RearPreviewList[][SIZE_OF_RESOLUTION] = {
@@ -50,8 +52,11 @@ static int m86RearPreviewList[][SIZE_OF_RESOLUTION] = {
 };
 
 static int m86RearPictureList[][SIZE_OF_RESOLUTION] = {
-    {4608, 3456, SIZE_RATIO_4_3},
-    {4608, 2592, SIZE_RATIO_16_9},
+    {5312, 3984, SIZE_RATIO_4_3},
+    {5312, 2988, SIZE_RATIO_16_9},
+    {4160, 3120, SIZE_RATIO_4_3},
+    {2656, 1992, SIZE_RATIO_4_3},
+    {1920, 1080, SIZE_RATIO_16_9},
 };
 
 static int m86FrontPreviewList[][SIZE_OF_RESOLUTION] = {
@@ -61,7 +66,10 @@ static int m86FrontPreviewList[][SIZE_OF_RESOLUTION] = {
 };
 
 static int m86FrontPictureList[][SIZE_OF_RESOLUTION] = {
-    {2560, 1440, SIZE_RATIO_16_9},
+    {2592, 1944, SIZE_RATIO_4_3},
+    {2592, 1458, SIZE_RATIO_16_9},
+    {1920, 1080, SIZE_RATIO_16_9},
+    {640, 480, SIZE_RATIO_4_3},
 };
 
 static int m86VideoList[][SIZE_OF_RESOLUTION] = {
@@ -173,8 +181,10 @@ ExynosCamera3SensorIMX230M86::ExynosCamera3SensorIMX230M86()
 {
     maxPreviewW = 1920;
     maxPreviewH = 1080;
-    maxPictureW = 4608;
-    maxPictureH = 3456;
+    /* Flyme keeps the aligned sensor envelope here and advertises the
+     * active 5312-wide outputs through rearPictureList. */
+    maxPictureW = 5344;
+    maxPictureH = 4016;
     maxVideoW = 1920;
     maxVideoH = 1080;
     maxSensorW = 5344;
@@ -218,8 +228,8 @@ ExynosCamera3SensorOV5670M86::ExynosCamera3SensorOV5670M86()
 {
     maxPreviewW = 1920;
     maxPreviewH = 1080;
-    maxPictureW = 2560;
-    maxPictureH = 1440;
+    maxPictureW = 2592;
+    maxPictureH = 1944;
     maxVideoW = 1920;
     maxVideoH = 1080;
     maxSensorW = 2592;

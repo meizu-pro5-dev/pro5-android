@@ -7,6 +7,7 @@
 
 #include "ExynosCamera3StreamRouterM86.h"
 
+#include <stddef.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <log/log.h>
@@ -21,10 +22,35 @@ constexpr uint32_t kPreview43Width = 1440;
 constexpr uint32_t kPreview43Height = 1080;
 constexpr uint32_t kVideo720Width = 1280;
 constexpr uint32_t kVideo720Height = 720;
-constexpr uint32_t kRearJpegWidth = 4608;
-constexpr uint32_t kRearJpegHeight = 2592;
-constexpr uint32_t kFrontJpegWidth = 2560;
-constexpr uint32_t kFrontJpegHeight = 1440;
+struct Size {
+    uint32_t width;
+    uint32_t height;
+};
+
+constexpr Size kRearJpegSizes[] = {
+    {5312, 3984},
+    {5312, 2988},
+    {4160, 3120},
+    {2656, 1992},
+    {1920, 1080},
+};
+
+constexpr Size kFrontJpegSizes[] = {
+    {2592, 1944},
+    {2592, 1458},
+    {1920, 1080},
+    {640, 480},
+};
+
+template <size_t N>
+bool containsSize(const Size (&sizes)[N], uint32_t width, uint32_t height)
+{
+    for (const Size &size : sizes) {
+        if (size.width == width && size.height == height)
+            return true;
+    }
+    return false;
+}
 
 bool isProcessedSize(uint32_t width, uint32_t height)
 {
@@ -43,12 +69,10 @@ ExynosCamera3StreamRouterM86::classify(
     }
 
     if (stream->format == HAL_PIXEL_FORMAT_BLOB) {
-        const bool rear = cameraId == 0 &&
-                stream->width == kRearJpegWidth &&
-                stream->height == kRearJpegHeight;
-        const bool front = cameraId == 1 &&
-                stream->width == kFrontJpegWidth &&
-                stream->height == kFrontJpegHeight;
+        const bool rear = cameraId == 0 && containsSize(
+                kRearJpegSizes, stream->width, stream->height);
+        const bool front = cameraId == 1 && containsSize(
+                kFrontJpegSizes, stream->width, stream->height);
         return rear || front ? ROLE_JPEG : ROLE_INVALID;
     }
 
