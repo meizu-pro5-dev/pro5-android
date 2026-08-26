@@ -94,7 +94,77 @@ static uint8_t m86Capabilities[] = {
 
 static uint8_t m86FaceDetectModes[] = {
     ANDROID_STATISTICS_FACE_DETECT_MODE_OFF,
+    ANDROID_STATISTICS_FACE_DETECT_MODE_SIMPLE,
 };
+
+static uint8_t m86AntibandingModes[] = {
+    ANDROID_CONTROL_AE_ANTIBANDING_MODE_OFF,
+    ANDROID_CONTROL_AE_ANTIBANDING_MODE_50HZ,
+    ANDROID_CONTROL_AE_ANTIBANDING_MODE_60HZ,
+    ANDROID_CONTROL_AE_ANTIBANDING_MODE_AUTO,
+};
+
+static uint8_t m86SceneModes[] = {
+    ANDROID_CONTROL_SCENE_MODE_DISABLED,
+    ANDROID_CONTROL_SCENE_MODE_FACE_PRIORITY,
+    ANDROID_CONTROL_SCENE_MODE_ACTION,
+    ANDROID_CONTROL_SCENE_MODE_PORTRAIT,
+    ANDROID_CONTROL_SCENE_MODE_LANDSCAPE,
+    ANDROID_CONTROL_SCENE_MODE_NIGHT,
+    ANDROID_CONTROL_SCENE_MODE_NIGHT_PORTRAIT,
+    ANDROID_CONTROL_SCENE_MODE_THEATRE,
+    ANDROID_CONTROL_SCENE_MODE_BEACH,
+    ANDROID_CONTROL_SCENE_MODE_SNOW,
+    ANDROID_CONTROL_SCENE_MODE_SUNSET,
+    ANDROID_CONTROL_SCENE_MODE_STEADYPHOTO,
+    ANDROID_CONTROL_SCENE_MODE_FIREWORKS,
+    ANDROID_CONTROL_SCENE_MODE_SPORTS,
+    ANDROID_CONTROL_SCENE_MODE_PARTY,
+    ANDROID_CONTROL_SCENE_MODE_CANDLELIGHT,
+};
+
+#define M86_SCENE_OVERRIDE(afMode) \
+    ANDROID_CONTROL_AE_MODE_ON, ANDROID_CONTROL_AWB_MODE_AUTO, afMode
+
+static uint8_t m86RearSceneModeOverrides[] = {
+    M86_SCENE_OVERRIDE(ANDROID_CONTROL_AF_MODE_AUTO),
+    M86_SCENE_OVERRIDE(ANDROID_CONTROL_AF_MODE_AUTO),
+    M86_SCENE_OVERRIDE(ANDROID_CONTROL_AF_MODE_AUTO),
+    M86_SCENE_OVERRIDE(ANDROID_CONTROL_AF_MODE_AUTO),
+    M86_SCENE_OVERRIDE(ANDROID_CONTROL_AF_MODE_AUTO),
+    M86_SCENE_OVERRIDE(ANDROID_CONTROL_AF_MODE_AUTO),
+    M86_SCENE_OVERRIDE(ANDROID_CONTROL_AF_MODE_AUTO),
+    M86_SCENE_OVERRIDE(ANDROID_CONTROL_AF_MODE_AUTO),
+    M86_SCENE_OVERRIDE(ANDROID_CONTROL_AF_MODE_AUTO),
+    M86_SCENE_OVERRIDE(ANDROID_CONTROL_AF_MODE_AUTO),
+    M86_SCENE_OVERRIDE(ANDROID_CONTROL_AF_MODE_AUTO),
+    M86_SCENE_OVERRIDE(ANDROID_CONTROL_AF_MODE_AUTO),
+    M86_SCENE_OVERRIDE(ANDROID_CONTROL_AF_MODE_AUTO),
+    M86_SCENE_OVERRIDE(ANDROID_CONTROL_AF_MODE_AUTO),
+    M86_SCENE_OVERRIDE(ANDROID_CONTROL_AF_MODE_AUTO),
+    M86_SCENE_OVERRIDE(ANDROID_CONTROL_AF_MODE_AUTO),
+};
+
+static uint8_t m86FrontSceneModeOverrides[] = {
+    M86_SCENE_OVERRIDE(ANDROID_CONTROL_AF_MODE_OFF),
+    M86_SCENE_OVERRIDE(ANDROID_CONTROL_AF_MODE_OFF),
+    M86_SCENE_OVERRIDE(ANDROID_CONTROL_AF_MODE_OFF),
+    M86_SCENE_OVERRIDE(ANDROID_CONTROL_AF_MODE_OFF),
+    M86_SCENE_OVERRIDE(ANDROID_CONTROL_AF_MODE_OFF),
+    M86_SCENE_OVERRIDE(ANDROID_CONTROL_AF_MODE_OFF),
+    M86_SCENE_OVERRIDE(ANDROID_CONTROL_AF_MODE_OFF),
+    M86_SCENE_OVERRIDE(ANDROID_CONTROL_AF_MODE_OFF),
+    M86_SCENE_OVERRIDE(ANDROID_CONTROL_AF_MODE_OFF),
+    M86_SCENE_OVERRIDE(ANDROID_CONTROL_AF_MODE_OFF),
+    M86_SCENE_OVERRIDE(ANDROID_CONTROL_AF_MODE_OFF),
+    M86_SCENE_OVERRIDE(ANDROID_CONTROL_AF_MODE_OFF),
+    M86_SCENE_OVERRIDE(ANDROID_CONTROL_AF_MODE_OFF),
+    M86_SCENE_OVERRIDE(ANDROID_CONTROL_AF_MODE_OFF),
+    M86_SCENE_OVERRIDE(ANDROID_CONTROL_AF_MODE_OFF),
+    M86_SCENE_OVERRIDE(ANDROID_CONTROL_AF_MODE_OFF),
+};
+
+#undef M86_SCENE_OVERRIDE
 
 static void initM86StaticMetadata(ExynosSensorInfoBase *info, bool front)
 {
@@ -116,8 +186,8 @@ static void initM86StaticMetadata(ExynosSensorInfoBase *info, bool front)
 
     info->colorAberrationModes = AVAILABLE_COLOR_CORRECTION_ABERRATION_MODES;
     info->colorAberrationModesLength = ARRAY_LENGTH(AVAILABLE_COLOR_CORRECTION_ABERRATION_MODES);
-    info->antiBandingModes = AVAILABLE_ANTIBANDING_MODES;
-    info->antiBandingModesLength = ARRAY_LENGTH(AVAILABLE_ANTIBANDING_MODES);
+    info->antiBandingModes = m86AntibandingModes;
+    info->antiBandingModesLength = ARRAY_LENGTH(m86AntibandingModes);
     info->aeModes = front ? AVAILABLE_AE_MODES_FRONT : AVAILABLE_AE_MODES_BACK;
     info->aeModesLength = front ? ARRAY_LENGTH(AVAILABLE_AE_MODES_FRONT)
                                 : ARRAY_LENGTH(AVAILABLE_AE_MODES_BACK);
@@ -126,17 +196,25 @@ static void initM86StaticMetadata(ExynosSensorInfoBase *info, bool front)
                                 : ARRAY_LENGTH(AVAILABLE_AF_MODES_BACK);
     info->effectModes = AVAILABLE_EFFECT_MODES;
     info->effectModesLength = ARRAY_LENGTH(AVAILABLE_EFFECT_MODES);
-    info->sceneModes = AVAILABLE_SCENE_MODES;
-    info->sceneModesLength = ARRAY_LENGTH(AVAILABLE_SCENE_MODES);
+    info->sceneModes = m86SceneModes;
+    info->sceneModesLength = ARRAY_LENGTH(m86SceneModes);
     info->videoStabilizationModes = AVAILABLE_VIDEO_STABILIZATION_MODES;
     info->videoStabilizationModesLength = ARRAY_LENGTH(AVAILABLE_VIDEO_STABILIZATION_MODES);
     info->awbModes = AVAILABLE_AWB_MODES;
     info->awbModesLength = ARRAY_LENGTH(AVAILABLE_AWB_MODES);
     info->controlModes = AVAILABLE_CONTROL_MODES;
     info->controlModesLength = ARRAY_LENGTH(AVAILABLE_CONTROL_MODES);
-    info->sceneModeOverrides = SCENE_MODE_OVERRIDES;
-    info->sceneModeOverridesLength = ARRAY_LENGTH(SCENE_MODE_OVERRIDES);
-    info->max3aRegions[AE] = 1;
+    info->sceneModeOverrides = front ? m86FrontSceneModeOverrides
+                                     : m86RearSceneModeOverrides;
+    info->sceneModeOverridesLength = front
+            ? ARRAY_LENGTH(m86FrontSceneModeOverrides)
+            : ARRAY_LENGTH(m86RearSceneModeOverrides);
+    info->exposureCompensationRange[MIN] = -4;
+    info->exposureCompensationRange[MAX] = 4;
+    info->exposureCompensationStep = 0.5f;
+    info->aeLockAvailable = ANDROID_CONTROL_AE_LOCK_AVAILABLE_TRUE;
+    info->awbLockAvailable = ANDROID_CONTROL_AWB_LOCK_AVAILABLE_TRUE;
+    info->max3aRegions[AE] = front ? 0 : 1;
     info->max3aRegions[AWB] = 0;
     info->max3aRegions[AF] = front ? 0 : 1;
 
@@ -150,7 +228,7 @@ static void initM86StaticMetadata(ExynosSensorInfoBase *info, bool front)
     info->opticalStabilizationLength = ARRAY_LENGTH(AVAILABLE_OPTICAL_STABILIZATION);
     info->faceDetectModes = m86FaceDetectModes;
     info->faceDetectModesLength = ARRAY_LENGTH(m86FaceDetectModes);
-    info->maxNumDetectedFaces = 0;
+    info->maxNumDetectedFaces = NUM_OF_DETECTED_FACES;
     info->testPatternModes = AVAILABLE_TEST_PATTERN_MODES;
     info->testPatternModesLength = ARRAY_LENGTH(AVAILABLE_TEST_PATTERN_MODES);
     info->hotPixelMapModes = AVAILABLE_HOT_PIXEL_MAP_MODES;
@@ -166,10 +244,10 @@ static void initM86StaticMetadata(ExynosSensorInfoBase *info, bool front)
     info->maxNumInputStreams = 0;
     info->maxPipelineDepth = 4;
     info->partialResultCount = 1;
-    info->zoomSupport = false;
+    info->zoomSupport = true;
     info->smoothZoomSupport = false;
-    info->maxZoomLevel = 0;
-    info->maxZoomRatio = 1000;
+    info->maxZoomLevel = front ? MAX_ZOOM_LEVEL_FRONT : MAX_ZOOM_LEVEL;
+    info->maxZoomRatio = front ? MAX_ZOOM_RATIO_FRONT : MAX_ZOOM_RATIO;
     info->croppingType = ANDROID_SCALER_CROPPING_TYPE_CENTER_ONLY;
     info->stallDurations = NULL;
     info->stallDurationsLength = 0;
@@ -240,6 +318,10 @@ ExynosCamera3SensorOV5670M86::ExynosCamera3SensorOV5670M86()
     sensorMarginBase[TOP_BASE] = 0;
     sensorMarginBase[WIDTH_BASE] = 0;
     sensorMarginBase[HEIGHT_BASE] = 0;
+    minimumFocusDistance = 0.0f;
+    focusDistanceCalibration =
+            ANDROID_LENS_INFO_FOCUS_DISTANCE_CALIBRATION_UNCALIBRATED;
+    flashAvailable = ANDROID_FLASH_INFO_AVAILABLE_FALSE;
 
     previewSizeLut = m86FrontPreviewLut;
     previewSizeLutMax = ARRAY_LENGTH(m86FrontPreviewLut);
