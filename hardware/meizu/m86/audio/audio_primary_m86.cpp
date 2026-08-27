@@ -114,7 +114,8 @@ struct M86Device {
     void* flyme_handle;
     M86StreamOut* active_output;
     audio_devices_t active_output_devices;
-    bool hifi_enabled;
+    bool hifi_user_enabled;
+    bool hifi_route_requested;
     int hifi_gain;
 };
 
@@ -192,6 +193,49 @@ static bool m86_find_parameter(const char* kv_pairs, const char* key,
         cursor = next + 1;
     }
     return false;
+}
+
+static bool m86_replace_parameter(const char* kv_pairs, const char* key,
+                                  const char* replacement, char* output,
+                                  size_t output_size) {
+    if (kv_pairs == nullptr || key == nullptr || replacement == nullptr ||
+        output == nullptr || output_size == 0) {
+        return false;
+    }
+    const size_t key_size = strlen(key);
+    const char* cursor = kv_pairs;
+    size_t used = 0;
+    bool replaced = false;
+    while (*cursor != '\0') {
+        while (*cursor == ';' || *cursor == ',' || *cursor == ' ') {
+            ++cursor;
+        }
+        if (*cursor == '\0') {
+            break;
+        }
+        const char* end = strpbrk(cursor, ";,");
+        if (end == nullptr) {
+            end = cursor + strlen(cursor);
+        }
+        const bool matches = strncmp(cursor, key, key_size) == 0
+                && cursor[key_size] == '=';
+        const char* token = matches ? replacement : cursor;
+        const size_t token_size = matches ? strlen(replacement)
+                                          : static_cast<size_t>(end - cursor);
+        const size_t separator_size = used == 0 ? 0 : 1;
+        if (used + separator_size + token_size + 1 > output_size) {
+            return false;
+        }
+        if (separator_size != 0) {
+            output[used++] = ';';
+        }
+        memcpy(output + used, token, token_size);
+        used += token_size;
+        output[used] = '\0';
+        replaced = replaced || matches;
+        cursor = *end == '\0' ? end : end + 1;
+    }
+    return replaced;
 }
 
 #define M86_OUT_COMMON(name, return_type, args, call_args, fallback)          \
@@ -319,12 +363,45 @@ static int out_set_parameters(audio_stream_t* stream, const char* kv_pairs) {
         requested_devices = static_cast<audio_devices_t>(requested);
     }
 
+    char hifi_route[32];
+    const bool has_hifi_route = m86_find_parameter(
+            kv_pairs, "hifi_state", hifi_route, sizeof(hifi_route));
+    const bool requested_hifi_route = has_hifi_route
+            && (strcmp(hifi_route, "on") == 0 || strcmp(hifi_route, "1") == 0);
+    const char* forwarded_parameters = kv_pairs;
+    char rewritten_parameters[512];
+    if (has_hifi_route && out->owner != nullptr) {
+        const audio_devices_t effective_devices = has_routing
+                ? requested_devices : out->owner->active_output_devices;
+        const bool effective_hifi = out->owner->hifi_user_enabled
+                && requested_hifi_route && m86_is_wired_output(effective_devices);
+        char effective_state[32];
+        snprintf(effective_state, sizeof(effective_state), "hifi_state=%s",
+                 effective_hifi ? "on" : "off");
+        if (!m86_replace_parameter(kv_pairs, "hifi_state", effective_state,
+                                   rewritten_parameters,
+                                   sizeof(rewritten_parameters))) {
+            return -EINVAL;
+        }
+        forwarded_parameters = rewritten_parameters;
+    }
+
     const int result = out->flyme_stream->common.set_parameters(
-            &out->flyme_stream->common, kv_pairs);
-    if (result == 0 && has_routing && out->owner != nullptr) {
-        out->owner->active_output_devices = requested_devices;
-        (void)m86_apply_headphone_volume(out->owner);
-        (void)m86_apply_hifi_policy(out->owner);
+            &out->flyme_stream->common, forwarded_parameters);
+    if (result == 0 && out->owner != nullptr) {
+        if (has_hifi_route) {
+            out->owner->hifi_route_requested = requested_hifi_route;
+            const int gain_result = m86_apply_hifi_gain(out->owner);
+            if (gain_result != 0) {
+                ALOGW("HiFi gain apply after output reconfigure failed: %d",
+                      gain_result);
+            }
+        }
+        if (has_routing) {
+            out->owner->active_output_devices = requested_devices;
+            (void)m86_apply_headphone_volume(out->owner);
+            (void)m86_apply_hifi_policy(out->owner);
+        }
     }
     return result;
 }
@@ -806,19 +883,24 @@ static int m86_apply_hifi_state(M86Device* wrapper) {
         return 0;
     }
 
-    const bool active = wrapper->hifi_enabled
+    const bool active = wrapper->hifi_user_enabled
+            && wrapper->hifi_route_requested
             && m86_is_wired_output(wrapper->active_output_devices);
     char state[32];
     snprintf(state, sizeof(state), "hifi_state=%s", active ? "on" : "off");
     const int state_result = wrapper->active_output->flyme_stream->common.set_parameters(
             &wrapper->active_output->flyme_stream->common, state);
     if (state_result != 0) {
-        ALOGW("HiFi state apply failed: active=%d devices=0x%x result=%d",
+        ALOGW("HiFi state apply failed: user=%d route=%d active=%d devices=0x%x result=%d",
+              wrapper->hifi_user_enabled ? 1 : 0,
+              wrapper->hifi_route_requested ? 1 : 0,
               active ? 1 : 0,
               static_cast<unsigned int>(wrapper->active_output_devices), state_result);
         return state_result;
     }
-    ALOGI("HiFi state applied: active=%d devices=0x%x gain=%d",
+    ALOGI("HiFi state applied: user=%d route=%d active=%d devices=0x%x gain=%d",
+          wrapper->hifi_user_enabled ? 1 : 0,
+          wrapper->hifi_route_requested ? 1 : 0,
           active ? 1 : 0,
           static_cast<unsigned int>(wrapper->active_output_devices),
           wrapper->hifi_gain);
@@ -844,7 +926,7 @@ static int m86_apply_hifi_policy(M86Device* wrapper) {
 static void m86_load_hifi_properties(M86Device* wrapper) {
     char value[PROPERTY_VALUE_MAX];
     property_get(kHifiEnabledProperty, value, "1");
-    wrapper->hifi_enabled = strcmp(value, "0") != 0;
+    wrapper->hifi_user_enabled = strcmp(value, "0") != 0;
 
     property_get(kHifiGainProperty, value, "0");
     char* end = nullptr;
@@ -859,7 +941,7 @@ static void m86_store_hifi_properties(const M86Device* wrapper) {
         return;
     }
     const int enabled_result = property_set(kHifiEnabledProperty,
-                                             wrapper->hifi_enabled ? "1" : "0");
+                                             wrapper->hifi_user_enabled ? "1" : "0");
     char gain[16];
     snprintf(gain, sizeof(gain), "%d", wrapper->hifi_gain);
     const int gain_result = property_set(kHifiGainProperty, gain);
@@ -877,18 +959,19 @@ static int m86_set_parameters(audio_hw_device_t* device, const char* kv_pairs) {
     }
 
     char value[32];
-    const bool has_hifi_state = m86_find_parameter(kv_pairs, "hifi_state", value,
-                                                   sizeof(value));
+    const bool has_hifi_enabled = m86_find_parameter(
+            kv_pairs, "m86_hifi_enabled", value, sizeof(value));
     const bool has_hifi_gain = m86_find_parameter(kv_pairs, "hifi_gain", value,
                                                   sizeof(value));
-    if (has_hifi_state || has_hifi_gain) {
-        int result = 0;
-        if (has_hifi_state) {
+    if (has_hifi_enabled || has_hifi_gain) {
+        if (has_hifi_enabled) {
             char state[32];
-            if (!m86_find_parameter(kv_pairs, "hifi_state", state, sizeof(state))) {
+            if (!m86_find_parameter(kv_pairs, "m86_hifi_enabled", state,
+                                    sizeof(state))) {
                 return -EINVAL;
             }
-            wrapper->hifi_enabled = strcmp(state, "on") == 0 || strcmp(state, "1") == 0;
+            wrapper->hifi_user_enabled = strcmp(state, "on") == 0
+                    || strcmp(state, "1") == 0;
         }
         if (has_hifi_gain) {
             char gain[32];
@@ -904,8 +987,12 @@ static int m86_set_parameters(audio_hw_device_t* device, const char* kv_pairs) {
                     : requested > 3 ? 3 : requested);
         }
         m86_store_hifi_properties(wrapper);
-        result = m86_apply_hifi_policy(wrapper);
-        return result;
+        // AudioFlinger follows this device-level policy update with an
+        // output-level HiFi reconfigure. Defer touching the active Flyme
+        // stream until AudioFlinger has put it in standby; the successful
+        // output parameter call above then applies the retained gain before
+        // the next write restarts PCM.
+        return 0;
     }
     return wrapper->flyme_device != nullptr &&
                            wrapper->flyme_device->set_parameters != nullptr
@@ -977,6 +1064,7 @@ static void m86_close_output(audio_hw_device_t* device,
     if (wrapper->active_output == output) {
         wrapper->active_output = nullptr;
         wrapper->active_output_devices = AUDIO_DEVICE_NONE;
+        wrapper->hifi_route_requested = false;
     }
     if (wrapper->flyme_device != nullptr &&
         wrapper->flyme_device->close_output_stream != nullptr) {
@@ -1078,7 +1166,8 @@ static int m86_create_audio_patch(
     for (unsigned int i = 0; i < num_sinks; ++i) {
         if (sinks[i].type == AUDIO_PORT_TYPE_DEVICE) {
             has_output_sink = true;
-            output_devices |= sinks[i].ext.device.type;
+            output_devices = static_cast<audio_devices_t>(
+                    output_devices | sinks[i].ext.device.type);
         }
     }
     if (!has_output_sink) {
@@ -1220,5 +1309,6 @@ extern "C" struct audio_module HAL_MODULE_INFO_SYM = {
         "LineageOS",
         &g_methods,
         nullptr,
+        {},
     },
 };

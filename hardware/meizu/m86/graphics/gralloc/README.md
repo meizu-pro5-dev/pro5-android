@@ -1,11 +1,17 @@
 # m86 gralloc adapter
 
-This module compiles the unmodified LineageOS 17.1 Exynos gralloc allocator,
-mapper, and format chooser, but owns the PRO 5 fbdev post path locally. The
-local framebuffer implementation is derived from
-`hardware/samsung_slsi/exynos/gralloc/framebuffer.cpp` at commit
-`6dce0ba9f592d75ca5747464f09669cd76c8c81e` under Apache-2.0.
+This module compiles the `lineage-19.1-old-r15` Nougat gralloc contract
+(samungexynos7420 `android_hardware_samsung_slsi-linaro_exynos` commit
+`6e74c51a7f147794044c42db29f93d3700395ede`, Apache-2.0) instead of the newer
+lineage-19.1 linaro layout. The old contract produces the private-handle ABI
+required by the Flyme r15p0 `libGLES_mali.so` blob:
 
-The local implementation validates mapper results and copy bounds and uses the
-persistent framebuffer mapping established by `init_fb`. This replaces the
-former patch applied directly to the Samsung project.
+- `sizeof(private_handle_t) == 160`
+- `numFds + numInts == 37`
+- `magic == 0x3141592` at offset `0x18`
+- `internal_format` at offset `0x90`
+
+`a10-contract/` carries the imported allocator/mapper/chooser/header. The m86
+fbdev post path is owned locally; the local framebuffer implementation is
+derived from the same Nougat `framebuffer.cpp` and validates mapper results,
+copy bounds, and the persistent framebuffer mapping established by `init_fb`.

@@ -7,6 +7,10 @@ cc_library_shared {
     vendor: true,
     compile_multilib: "32",
     relative_install_path: "hw",
+    // The binderized service loads the canonical passthrough implementation
+    // name; keep the unique m86 module name for namespace ownership while
+    // installing the artifact under the AOSP lookup name.
+    stem: "android.hardware.bluetooth@1.0-impl",
     srcs: [
         "bluetooth_address.cc",
         "bluetooth_hci_compat.cc",
