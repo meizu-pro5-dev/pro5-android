@@ -1,0 +1,27 @@
+From e73f5112ee279b85066b5dac06cee6291b24869c Mon Sep 17 00:00:00 2001
+From: M86 Builder <m86-builder@localhost>
+Date: Mon, 24 Aug 2026 12:44:47 +0000
+Subject: [PATCH] m86: checkpoint validated Android 12 baseline
+
+Change-Id: Icfb93067390cdc5c266d3414734c59180ed53164
+---
+ gnss/1.0/default/Gnss.cpp | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/gnss/1.0/default/Gnss.cpp b/gnss/1.0/default/Gnss.cpp
+index 7d1cacfcd8ec90ebc339f71a76febedf8814c012..958216d85bbc11220a29696046ef29c52993716e 100644
+--- a/gnss/1.0/default/Gnss.cpp
++++ b/gnss/1.0/default/Gnss.cpp
+@@ -260,8 +260,10 @@ void Gnss::nmeaCb(GpsUtcTime timestamp, const char* nmea, int length) {
+         return;
+     }
+ 
+-    android::hardware::hidl_string nmeaString;
+-    nmeaString.setToExternal(nmea, length);
++    // Legacy GPS HALs pass the NMEA payload length without promising a NUL
++    // byte at nmea[length].  setToExternal() verifies that byte and aborts the
++    // service when the vendor buffer is tightly sized, so make an owned copy.
++    android::hardware::hidl_string nmeaString(nmea, static_cast<size_t>(length));
+     auto ret = sGnssCbIface->gnssNmeaCb(timestamp, nmeaString);
+     if (!ret.isOk()) {
+         ALOGE("%s: Unable to invoke callback", __func__);

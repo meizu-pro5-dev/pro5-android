@@ -1,0 +1,13 @@
+# repository	base revision	validated revision	patch
+frameworks/av	8ad4e1d710fab315ff7ce461eed1efa60f282828	cd85ddd1d53e24d03b0e705e774a2477757fd4a2	patches/lineage-19.1/frameworks-av/0001-m86-checkpoint-validated-Android-12-baseline.patch
+frameworks/av	8ad4e1d710fab315ff7ce461eed1efa60f282828	cd85ddd1d53e24d03b0e705e774a2477757fd4a2	patches/lineage-19.1/frameworks-av/0002-Camera-preserve-recording-stream-setup-errors.patch
+hardware/interfaces	ae469cee0dce6d71489588126a15da8e67a50102	e73f5112ee279b85066b5dac06cee6291b24869c	patches/lineage-19.1/hardware-interfaces/0001-m86-checkpoint-validated-Android-12-baseline.patch
+hardware/samsung_slsi-linaro/graphics	3774f17faed760fd90ba9d7c90d591c938f631a9	036302651ef03db74dbd1510ff93f1cd73551ac5	patches/lineage-19.1/hardware-samsung-slsi-linaro-graphics/0001-m86-checkpoint-validated-Android-12-baseline.patch
+hardware/samsung_slsi-linaro/openmax	979aeed23ab9faa200fe7771245ffb788bc26a27	bf5e08a4ddfbaec0b308585103703d9fb6f19ba3	patches/lineage-19.1/hardware-samsung-slsi-linaro-openmax/0001-openmax-honor-board-gralloc-private-ABI.patch
+hardware/samsung_slsi-linaro/openmax	979aeed23ab9faa200fe7771245ffb788bc26a27	bf5e08a4ddfbaec0b308585103703d9fb6f19ba3	patches/lineage-19.1/hardware-samsung-slsi-linaro-openmax/0002-videocodec-negotiate-MFC-AVC-controls.patch
+hardware/samsung_slsi-linaro/openmax	979aeed23ab9faa200fe7771245ffb788bc26a27	bf5e08a4ddfbaec0b308585103703d9fb6f19ba3	patches/lineage-19.1/hardware-samsung-slsi-linaro-openmax/0003-openmax-use-frame-tags-for-MFC-v8-AVC-timestamps.patch
+hardware/samsung_slsi-linaro/openmax	979aeed23ab9faa200fe7771245ffb788bc26a27	bf5e08a4ddfbaec0b308585103703d9fb6f19ba3	patches/lineage-19.1/hardware-samsung-slsi-linaro-openmax/0004-openmax-use-frame-tags-for-MFC-v9-AVC-timestamps.patch
+packages/apps/Camera2	b98b0079e2764a18dd17a7b157c3fa7d5cc9e375	476019282a060f0c2afc6e541a8c9a8665db26fe	patches/lineage-19.1/packages-apps-Camera2/0001-m86-checkpoint-validated-Android-12-baseline.patch
+system/bpf	bb1485f836d496570a337f6d7b809a3e44191f71	933439e0f04215f1357aa0c8ca9e2651306df61b	patches/lineage-19.1/system-bpf/0001-m86-checkpoint-validated-Android-12-baseline.patch
+system/netd	bb0df47d330bed1f1bfa59ffa54834da4c87b043	6e1f5ff3630bf72b940727f8f3ee136a5640d0f7	patches/lineage-19.1/system-netd/0001-m86-checkpoint-validated-Android-12-baseline.patch
+system/nfc	4514f6081f3a7ffabfacd83c0330ddbc774a77d5	d1bc5a7ab59e246281672c5aef3bb2b2df1ec73a	patches/lineage-19.1/system-nfc/0001-m86-checkpoint-validated-Android-12-baseline.patch

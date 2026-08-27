@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+  <remote
+      name="pro5-dev"
+      fetch="https://github.com/meizu-pro5-dev/" />
+  <remote
+      name="samsung7420"
+      fetch="https://github.com/samsungexynos7420/" />
+
+  <project
+      path="device/meizu/m86"
+      name="android_device_meizu_m86"
+      remote="pro5-dev"
+      revision="beb90886890e48f4d9d56befa9a08e4e2736df81" />
+  <project
+      path="kernel/meizu/m86"
+      name="android_kernel_meizu_m86"
+      remote="pro5-dev"
+      revision="155e0723c58d0a9341b74d72e111c263a62124da" />
+  <project
+      path="vendor/meizu/m86"
+      name="android_vendor_meizu_m86"
+      remote="pro5-dev"
+      revision="c0cfce12051df252131d8dddc9f1e3589a8bd45e" />
+  <project
+      path="hardware/samsung_slsi-linaro/exynos"
+      name="android_hardware_samsung_slsi-linaro_exynos"
+      remote="pro5-dev"
+      revision="37ed79080c8a01e71598cca7aa24832694c295bf" />
+
+  <project
+      path="device/samsung/universal7420-common"
+      name="android_device_samsung_universal7420-common"
+      remote="samsung7420"
+      revision="7c8d965e820f04a8898b75032db2b820ae5d6fa1" />
+  <project
+      path="hardware/samsung_slsi-linaro/config"
+      name="android_hardware_samsung_slsi-linaro_config"
+      remote="samsung7420"
+      revision="4c8ed9a21b82621e7904a279c832f8b36fb0e989" />
+  <project
+      path="hardware/samsung_slsi-linaro/exynos5"
+      name="android_hardware_samsung_slsi-linaro_exynos5"
+      remote="samsung7420"
+      revision="dd2f9115c2fcb8767a9766da898f06b657872997" />
+  <project
+      path="hardware/samsung_slsi-linaro/graphics"
+      name="android_hardware_samsung_slsi-linaro_graphics"
+      remote="samsung7420"
+      revision="3774f17faed760fd90ba9d7c90d591c938f631a9" />
+  <project
+      path="hardware/samsung_slsi-linaro/openmax"
+      name="android_hardware_samsung_slsi-linaro_openmax"
+      remote="samsung7420"
+      revision="979aeed23ab9faa200fe7771245ffb788bc26a27" />
+  <project
+      path="device/samsung_slsi/sepolicy"
+      name="LineageOS/android_device_samsung_slsi_sepolicy"
+      revision="b86bdaaa5aef70c51d28bc882b9867c3e88dd57d" />
+</manifest>

@@ -1,0 +1,63 @@
+From d1bc5a7ab59e246281672c5aef3bb2b2df1ec73a Mon Sep 17 00:00:00 2001
+From: M86 Builder <m86-builder@localhost>
+Date: Mon, 24 Aug 2026 12:44:48 +0000
+Subject: [PATCH] m86: checkpoint validated Android 12 baseline
+
+Change-Id: I2097ecbe9f61754f46d1c708f1b34a66095e61d6
+---
+ src/nfa/dm/nfa_dm_discover.cc | 35 ++++++++---------------------------
+ 1 file changed, 8 insertions(+), 27 deletions(-)
+
+diff --git a/src/nfa/dm/nfa_dm_discover.cc b/src/nfa/dm/nfa_dm_discover.cc
+index 09254343f6b089ea4b22159a6728071ed08ef738..e96661d767021bd45876ff6a0e6646e5e9258339 100644
+--- a/src/nfa/dm/nfa_dm_discover.cc
++++ b/src/nfa/dm/nfa_dm_discover.cc
+@@ -223,24 +223,12 @@ static uint8_t nfa_dm_get_rf_discover_config(
+     if (num_params >= max_params) return num_params;
+   }
+ 
+-  /* Check polling B' */
+-  if (dm_disc_mask & NFA_DM_DISC_MASK_P_B_PRIME) {
+-    disc_params[num_params].type = NFC_DISCOVERY_TYPE_POLL_B_PRIME;
+-    disc_params[num_params].frequency = p_nfa_dm_rf_disc_freq_cfg->pbp;
+-    num_params++;
+-
+-    if (num_params >= max_params) return num_params;
+-  }
+-
+-  /* Check polling KOVIO */
+-  if (dm_disc_mask & NFA_DM_DISC_MASK_P_KOVIO) {
+-    disc_params[num_params].type = NFC_DISCOVERY_TYPE_POLL_KOVIO;
+-    disc_params[num_params].frequency = p_nfa_dm_rf_disc_freq_cfg->pk;
+-    num_params++;
+-
+-    if (num_params >= max_params) return num_params;
+-  }
+-
++  /* B' polling is unsupported by the m86 PN547 NCI 1.0 firmware and is
++     intentionally omitted. */
++  /* KOVIO barcode polling is unsupported by the m86 PN547 NCI 1.0 firmware:
++     the controller answers RF_DISCOVER with NCI_STATUS_INVALID_PARAM when a
++     KOVIO discovery entry is present, which wedges the discovery-start state
++     machine. */
+   /* Check listening ISO 15693 */
+   if (dm_disc_mask & NFA_DM_DISC_MASK_L_ISO15693) {
+     disc_params[num_params].type = NFC_DISCOVERY_TYPE_LISTEN_ISO15693;
+@@ -250,15 +238,8 @@ static uint8_t nfa_dm_get_rf_discover_config(
+     if (num_params >= max_params) return num_params;
+   }
+ 
+-  /* Check listening B' */
+-  if (dm_disc_mask & NFA_DM_DISC_MASK_L_B_PRIME) {
+-    disc_params[num_params].type = NFC_DISCOVERY_TYPE_LISTEN_B_PRIME;
+-    disc_params[num_params].frequency = 1;
+-    num_params++;
+-
+-    if (num_params >= max_params) return num_params;
+-  }
+-
++  /* B' listening is unsupported by the m86 PN547 NCI 1.0 firmware and is
++     intentionally omitted (see the B' polling note above). */
+   return num_params;
+ }
+ 

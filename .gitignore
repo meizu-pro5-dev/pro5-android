@@ -24,6 +24,7 @@ kernel/meizu/m86/include/generated/autoconf.h
 vendor/meizu/m86/proprietary/
 legacy/device-meizu-m86-cm14/dtb_cm
 legacy/device-meizu-m86-cm14/rootdir/sbin/cbd
+hardware/meizu/m86/camera/libexynoscamera_stock/libexynoscamera.so
 
 # Device evidence is retained locally but normally too large for Git.
 evidence/*

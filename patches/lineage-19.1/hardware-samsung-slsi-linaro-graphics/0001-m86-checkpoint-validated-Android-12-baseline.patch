@@ -1,0 +1,26 @@
+From 036302651ef03db74dbd1510ff93f1cd73551ac5 Mon Sep 17 00:00:00 2001
+From: M86 Builder <m86-builder@localhost>
+Date: Mon, 24 Aug 2026 12:44:48 +0000
+Subject: [PATCH] m86: checkpoint validated Android 12 baseline
+
+---
+ base/libhwc1/Android.mk | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/base/libhwc1/Android.mk b/base/libhwc1/Android.mk
+index c3cc3f87856d89dbd59e81b9a1caba43b70ad4a9..4577f0b8803a9a0ac1dfd87dd47aced5db1c332a 100644
+--- a/base/libhwc1/Android.mk
++++ b/base/libhwc1/Android.mk
+@@ -34,6 +34,12 @@ COMMON_C_INCLUDES := \
+     $(TOP)/hardware/samsung_slsi-linaro/graphics/$(TARGET_SOC_BASE)/libhwcutilsmodule \
+     $(TOP)/hardware/samsung_slsi-linaro/graphics/base/libmpp
+ 
++ifeq ($(TARGET_BOOTLOADER_BOARD_NAME),m86)
++COMMON_C_INCLUDES := \
++    $(TOP)/hardware/meizu/m86/graphics/gralloc/a10-contract \
++    $(COMMON_C_INCLUDES)
++endif
++
+ ifeq ($(BOARD_HDMI_INCAPABLE), true)
+ COMMON_C_INCLUDES += $(TOP)/hardware/samsung_slsi-linaro/graphics/base/libhwc1/libhdmi_dummy
+ else

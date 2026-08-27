@@ -1,0 +1,256 @@
+From 2f7fed4f5d6516849b22fae768a24fe5a0ef99d5 Mon Sep 17 00:00:00 2001
+From: M86 Builder <m86-builder@localhost>
+Date: Wed, 26 Aug 2026 15:12:40 +0000
+Subject: [PATCH 2/4] videocodec: negotiate MFC AVC controls
+
+---
+ videocodec/osal/ExynosVideo_OSAL.c            | 193 +++++++++++++++++-
+ .../osal/include/ExynosVideo_OSAL_Enc.h       |   2 +-
+ 2 files changed, 193 insertions(+), 2 deletions(-)
+
+diff --git a/videocodec/osal/ExynosVideo_OSAL.c b/videocodec/osal/ExynosVideo_OSAL.c
+index 7e37ebe8cd5a7ef2a2f8ea5b5c976bf145235bf2..b0bd9ac2abeabdfa7e68ec5a2b44265e7bddc715 100644
+--- a/videocodec/osal/ExynosVideo_OSAL.c
++++ b/videocodec/osal/ExynosVideo_OSAL.c
+@@ -26,6 +26,7 @@
+  */
+ 
+ #include <string.h>
++#include <errno.h>
+ #include <sys/mman.h>
+ 
+ #include "ExynosVideo_OSAL.h"
+@@ -61,6 +62,168 @@ static struct {
+     {PRIMARIES_RESERVED,    TRANSFER_SMPTE_170M,  MATRIX_COEFF_REC709},        /* sRGB (IEC 61966-2-1) */
+ };
+ 
++typedef struct _CodecOSALControlCapability {
++    unsigned int           id;
++    int                    queryResult;
++    int                    queryErrno;
++    struct v4l2_queryctrl  query;
++} CodecOSALControlCapability;
++
++static int Codec_OSAL_IsOptionalH264Control(unsigned int id)
++{
++    switch (id) {
++    case V4L2_CID_MPEG_VIDEO_GOP_CLOSURE:
++    case V4L2_CID_MPEG_VIDEO_H264_I_PERIOD:
++    case V4L2_CID_MPEG_VIDEO_VBV_SIZE:
++    case V4L2_CID_MPEG_VIDEO_H264_VUI_SAR_ENABLE:
++    case V4L2_CID_MPEG_VIDEO_H264_VUI_SAR_IDC:
++    case V4L2_CID_MPEG_VIDEO_H264_VUI_EXT_SAR_WIDTH:
++    case V4L2_CID_MPEG_VIDEO_H264_VUI_EXT_SAR_HEIGHT:
++    case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING:
++    case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_TYPE:
++    case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER:
++    case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_QP:
++    case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_BIT0:
++    case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_BIT1:
++    case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_BIT2:
++    case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_BIT3:
++    case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_BIT4:
++    case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_BIT5:
++    case V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_BIT6:
++    case V4L2_CID_MPEG_VIDEO_H264_SEI_FRAME_PACKING:
++    case V4L2_CID_MPEG_VIDEO_H264_SEI_FP_CURRENT_FRAME_0:
++    case V4L2_CID_MPEG_VIDEO_H264_SEI_FP_ARRANGEMENT_TYPE:
++    case V4L2_CID_MPEG_VIDEO_H264_FMO:
++    case V4L2_CID_MPEG_VIDEO_H264_FMO_MAP_TYPE:
++    case V4L2_CID_MPEG_VIDEO_H264_FMO_SLICE_GROUP:
++    case V4L2_CID_MPEG_VIDEO_H264_FMO_RUN_LENGTH:
++    case V4L2_CID_MPEG_VIDEO_H264_FMO_CHANGE_DIRECTION:
++    case V4L2_CID_MPEG_VIDEO_H264_FMO_CHANGE_RATE:
++    case V4L2_CID_MPEG_VIDEO_H264_ASO:
++    case V4L2_CID_MPEG_VIDEO_H264_ASO_SLICE_ORDER:
++    case V4L2_CID_MPEG_MFC_H264_VUI_RESTRICTION_ENABLE:
++    case V4L2_CID_MPEG_MFC_H264_NUM_OF_LTR:
++    case V4L2_CID_MPEG_MFC_CONFIG_QP_ENABLE:
++    case V4L2_CID_MPEG_MFC_CONFIG_QP:
++    case V4L2_CID_MPEG_VIDEO_TEMPORAL_SHORTTERM_MAX_LAYER:
++    case V4L2_CID_MPEG_VIDEO_ROI_ENABLE:
++    case V4L2_CID_MPEG_VIDEO_H264_MIN_QP_P:
++    case V4L2_CID_MPEG_VIDEO_H264_MAX_QP_P:
++    case V4L2_CID_MPEG_VIDEO_H264_MIN_QP_B:
++    case V4L2_CID_MPEG_VIDEO_H264_MAX_QP_B:
++    case V4L2_CID_MPEG_VIDEO_RC_PVC_ENABLE:
++    case V4L2_CID_MPEG_VIDEO_DROP_CONTROL:
++        return 1;
++    default:
++        return 0;
++    }
++}
++
++static int Codec_OSAL_NegotiateH264Controls(
++    int                         fd,
++    struct v4l2_ext_controls  *ext_ctrls)
++{
++    CodecOSALControlCapability capability[MAX_CTRL_NUM];
++    unsigned int capabilityCount = 0;
++    unsigned int candidateCount;
++    unsigned int readIndex;
++    unsigned int writeIndex = 0;
++
++    if ((ext_ctrls == NULL) || (ext_ctrls->controls == NULL))
++        return -1;
++
++    memset(capability, 0, sizeof(capability));
++    candidateCount = ext_ctrls->count;
++
++    for (readIndex = 0; readIndex < candidateCount; readIndex++) {
++        struct v4l2_ext_control *control = &ext_ctrls->controls[readIndex];
++        CodecOSALControlCapability *current = NULL;
++        unsigned int capabilityIndex;
++        int optional = Codec_OSAL_IsOptionalH264Control(control->id);
++
++        for (capabilityIndex = 0;
++             capabilityIndex < capabilityCount;
++             capabilityIndex++) {
++            if (capability[capabilityIndex].id == control->id) {
++                current = &capability[capabilityIndex];
++                break;
++            }
++        }
++
++        if (current == NULL) {
++            if (capabilityCount >= MAX_CTRL_NUM) {
++                ALOGE("%s: H.264 capability cache overflow", __FUNCTION__);
++                return -1;
++            }
++
++            current = &capability[capabilityCount++];
++            current->id = control->id;
++            current->query.id = control->id;
++            current->queryResult =
++                exynos_v4l2_queryctrl(fd, &current->query);
++            current->queryErrno = errno;
++
++            if (current->queryResult != 0) {
++                if ((current->queryErrno == EINVAL) && (optional != 0)) {
++                    ALOGW("%s: optional H.264 control 0x%x is not supported; omitted",
++                          __FUNCTION__, control->id);
++                } else {
++                    ALOGE("%s: %s H.264 control 0x%x query failed (%d - %s)",
++                          __FUNCTION__,
++                          (optional != 0)? "optional":"required",
++                          control->id,
++                          current->queryErrno,
++                          strerror(current->queryErrno));
++                    return -1;
++                }
++            } else if ((current->query.flags &
++                        (V4L2_CTRL_FLAG_DISABLED |
++                         V4L2_CTRL_FLAG_INACTIVE |
++                         V4L2_CTRL_FLAG_READ_ONLY)) != 0) {
++                if (optional != 0) {
++                    ALOGW("%s: optional H.264 control 0x%x flags=0x%x; omitted",
++                          __FUNCTION__, control->id, current->query.flags);
++                } else {
++                    ALOGE("%s: required H.264 control 0x%x is not writable, flags=0x%x",
++                          __FUNCTION__, control->id, current->query.flags);
++                    return -1;
++                }
++            }
++        }
++
++        if ((current->queryResult != 0) ||
++            ((current->query.flags &
++              (V4L2_CTRL_FLAG_DISABLED |
++               V4L2_CTRL_FLAG_INACTIVE |
++               V4L2_CTRL_FLAG_READ_ONLY)) != 0)) {
++            continue;
++        }
++
++        if ((control->value < current->query.minimum) ||
++            (control->value > current->query.maximum) ||
++            ((current->query.step > 1) &&
++             ((((long long)control->value - current->query.minimum) %
++               current->query.step) != 0))) {
++            ALOGE("%s: H.264 control 0x%x value=%d outside [%d, %d] step=%d",
++                  __FUNCTION__, control->id, control->value,
++                  current->query.minimum, current->query.maximum,
++                  current->query.step);
++            return -1;
++        }
++
++        if (writeIndex != readIndex)
++            ext_ctrls->controls[writeIndex] = *control;
++        writeIndex++;
++    }
++
++    ext_ctrls->count = writeIndex;
++    ALOGI("%s: MFC H.264 controls candidates=%u submitted=%u omitted=%u",
++          __FUNCTION__, candidateCount, writeIndex,
++          candidateCount - writeIndex);
++
++    return 0;
++}
++
+ int Codec_OSAL_VideoMemoryToSystemMemory(
+     ExynosVideoMemoryType eMemoryType)
+ {
+@@ -695,6 +858,9 @@ int Codec_OSAL_SetControls(
+             struct v4l2_ext_control  ext_ctrl[MAX_CTRL_NUM];
+             struct v4l2_ext_controls ext_ctrls;
+ 
++            memset(ext_ctrl, 0, sizeof(ext_ctrl));
++            memset(&ext_ctrls, 0, sizeof(ext_ctrls));
++
+             /* common parameters */
+             ext_ctrl[0].id = V4L2_CID_MPEG_VIDEO_GOP_SIZE;
+             ext_ctrl[0].value = pCommonParam->IDRPeriod;
+@@ -908,7 +1074,7 @@ int Codec_OSAL_SetControls(
+                 ext_ctrl[91].id     = V4L2_CID_MPEG_MFC_H264_VUI_RESTRICTION_ENABLE;
+                 ext_ctrl[91].value  = pH264Param->VuiRestrictionEnable;
+ 
+-                ext_ctrls.count = H264_CTRL_NUM;
++                ext_ctrls.count = H264_CTRL_CANDIDATE_NUM;
+ 
+                 if (pCtx->videoCtx.instInfo.supportInfo.enc.bTemporalSvcSupport == VIDEO_TRUE) {
+                     i = ext_ctrls.count;
+@@ -1592,7 +1758,32 @@ int Codec_OSAL_SetControls(
+             ext_ctrls.ctrl_class = V4L2_CTRL_CLASS_MPEG;
+             ext_ctrls.controls = ext_ctrl;
+ 
++            if ((pEncParam->eCompressionFormat == VIDEO_CODING_AVC) &&
++                (Codec_OSAL_NegotiateH264Controls(
++                    pCtx->videoCtx.hDevice, &ext_ctrls) != 0)) {
++                ret = -1;
++                goto EXIT;
++            }
++
++            if ((pEncParam->eCompressionFormat == VIDEO_CODING_AVC) &&
++                (exynos_v4l2_try_ext_ctrl(
++                    pCtx->videoCtx.hDevice, &ext_ctrls) != 0)) {
++                ret = -1;
++                goto EXIT;
++            }
++
+             if (exynos_v4l2_s_ext_ctrl(pCtx->videoCtx.hDevice, &ext_ctrls) != 0) {
++                if (ext_ctrls.error_idx < ext_ctrls.count) {
++                    ALOGE("%s: MFC set controls failed: "
++                          "error_idx=%u id=0x%x value=%d count=%u",
++                          __FUNCTION__, ext_ctrls.error_idx,
++                          ext_ctrl[ext_ctrls.error_idx].id,
++                          ext_ctrl[ext_ctrls.error_idx].value,
++                          ext_ctrls.count);
++                } else {
++                    ALOGE("%s: MFC set controls failed: error_idx=%u count=%u",
++                          __FUNCTION__, ext_ctrls.error_idx, ext_ctrls.count);
++                }
+                 ret = -1;
+                 goto EXIT;
+             }
+diff --git a/videocodec/osal/include/ExynosVideo_OSAL_Enc.h b/videocodec/osal/include/ExynosVideo_OSAL_Enc.h
+index 870f4a1b8b61283755a7065c23084425ddc7b420..e93fdc4d0f3c4e51193c2cd8656a08b7deb252ba 100644
+--- a/videocodec/osal/include/ExynosVideo_OSAL_Enc.h
++++ b/videocodec/osal/include/ExynosVideo_OSAL_Enc.h
+@@ -42,7 +42,7 @@
+ #define VIDEO_MFC_OTF_SECURE_ENCODER_NAME    "s5p-mfc-enc-otf-secure"
+ 
+ #define MAX_CTRL_NUM          110 /* +1(drop ctrl) */
+-#define H264_CTRL_NUM         92  /* +7(svc), +4(skype), +1(roi), +4(qp range) +1(pvc) +1(drop ctrl)*/
++#define H264_CTRL_CANDIDATE_NUM 92  /* actual count is negotiated with the MFC driver */
+ #define MPEG4_CTRL_NUM        26  /* +4(qp range) */
+ #define H263_CTRL_NUM         18  /* +2(qp range) */
+ #define VP8_CTRL_NUM          30  /* +3(svc), +2(qp range) */
