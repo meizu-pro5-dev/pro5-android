@@ -22,7 +22,7 @@ LOCAL_SRC_FILES := \
     ExynosCamera3StreamRouterM86.cpp
 LOCAL_C_INCLUDES += \
     $(LOCAL_PATH)/../libexynoscamera3_m86 \
-    $(TOP)/hardware/samsung_slsi-linaro/exynos/libcamera/34xx/hal3 \
+    $(TOP)/hardware/samsung_slsi-linaro/exynos/libcamera/74xx/hal3 \
     $(TOP)/hardware/samsung_slsi-linaro/exynos/libcamera/common_v2 \
     $(TOP)/hardware/samsung_slsi-linaro/exynos/libcamera/common_v2/SensorInfos
 LOCAL_CFLAGS += \
@@ -62,7 +62,6 @@ LOCAL_C_INCLUDES += \
     $(TOP)/hardware/meizu/m86/graphics/gralloc/a10-contract \
     $(TOP)/hardware/samsung_slsi-linaro/exynos/libcamera/74xx \
     $(TOP)/hardware/samsung_slsi-linaro/exynos/libcamera/74xx/JpegEncoderForCamera \
-    $(TOP)/hardware/samsung_slsi-linaro/exynos/libcamera/34xx/hal1 \
     $(TOP)/hardware/samsung_slsi-linaro/exynos/libcamera/common_v2 \
     $(TOP)/hardware/samsung_slsi-linaro/exynos/libcamera/common_v2/SensorInfos \
     $(TOP)/hardware/samsung_slsi-linaro/exynos/libcamera/common_v2/Buffers \

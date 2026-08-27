@@ -254,8 +254,8 @@ status_t ExynosCamera3FrameFactoryPreviewM86::m_fillNodeGroupInfo(
         frame->getNodeGroupInfo(&nodeGroupIsp, PERFRAME_INFO_ISP);
         frame->getNodeGroupInfo(&nodeGroupDis, PERFRAME_INFO_DIS);
 
-        /* Replace the 34xx HAL3 dynamic 3AA crop with the fixed, HAL1-proven
-         * M86 graph.  Camera3 cropRegion is applied later by PIPE_GSC; the
+        /* Keep the fixed, HAL1-proven M86 3AA graph. Camera3 cropRegion is
+         * applied later by PIPE_GSC; the
          * inline SCP node must never be reconfigured while streaming. */
         ExynosCameraNodeGroup3AA::updateNodeGroupInfo(
                 m_cameraId, &nodeGroup3aa, fixedBayerCrop, fixedBds,

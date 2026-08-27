@@ -341,17 +341,15 @@ status_t ExynosCamera3FrameReprocessingFactoryM86::m_fillNodeGroupInfo(
 
     /* I1C on Exynos7420 cannot scale.  The Flyme picture LUT records its
      * real YUYV output in BDS; the following GSC owns conversion to the
-     * external JPEG request size.  Do not let a preview/picture ratio
-     * mismatch fall back to the 34xx equation and widen this DMA plane. */
+     * external JPEG request size. Do not let a preview/picture ratio mismatch
+     * fall back to the generic equation and widen this DMA plane. */
     pictureBayerCrop.x = 0;
     pictureBayerCrop.y = 0;
     pictureBayerCrop.w = bdsSize.w;
     pictureBayerCrop.h = bdsSize.h;
 
-    /* The 34xx compatibility helper named updateNodeGroupInfo() is an
-     * intentional no-op.  Use the same reprocessing calculator as the
-     * working 74xx HAL1 so I1S/I1C receive real crop regions on the first
-     * shot. */
+    /* Use the 74xx node-group calculator shared with the working HAL1 path so
+     * I1S/I1C receive real crop regions on the first shot. */
     ExynosCameraNodeGroup::updateNodeGroupInfo(
             m_cameraId,
             &nodeGroup3aa,

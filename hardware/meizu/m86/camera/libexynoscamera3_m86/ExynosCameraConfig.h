@@ -11,9 +11,8 @@
 
 /*
  * Both m86 sensor modules transmit RAW10 over CSI, but the working 74xx HAL1
- * programs FLITE with the packed BG12 DMA contract.  The 34xx Camera3 donor
- * leaves packed Bayer disabled and consequently expands FLITE to BYR2/BG16.
- * Select the product-proven DMA packing before the donor config is parsed.
+ * programs FLITE with the packed BG12 DMA contract. Select that product-proven
+ * DMA packing before the shared Camera3 configuration is parsed.
  */
 #ifndef CAMERA_PACKED_BAYER_ENABLE
 #define CAMERA_PACKED_BAYER_ENABLE
@@ -23,8 +22,8 @@
  * This wrapper then removes blocks which do not exist in the m86 graph. */
 #include "ExynosCamera3Config.h"
 
-/* The old 34xx HAL3 sources use the APP4 index directly.  Their historical
- * ExynosExif include is not consistently visible through the mixed
+/* The HAL3 sources use the APP4 index directly. Their historical ExynosExif
+ * include is not consistently visible through the mixed
  * common_v2 include graph on Android 12, so keep the product contract local. */
 #ifndef APP_MARKER_4
 #define APP_MARKER_4 4
@@ -80,9 +79,8 @@
 #define M86_HAS_VRA (false)
 #define M86_HAS_HWFC (false)
 
-/* common_v2 SensorInfo includes ExynosCameraConfig.h directly, while the
- * 34xx engine includes ExynosCamera3Config.h. Keep the queue contract visible
- * through both historical include paths. */
+/* common_v2 SensorInfo and the 74xx HAL3 core enter through different config
+ * headers. Keep the queue contract visible through both include paths. */
 #ifndef NUM_REQUEST_BLOCK_MAX
 #define NUM_REQUEST_BLOCK_MAX 9
 #endif

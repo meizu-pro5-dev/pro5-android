@@ -12,9 +12,9 @@
 namespace android {
 
 /*
- * Product-owned entry point for the PRO 5 preview graph. The first bring-up
- * keeps the proven 34xx factory mechanics, while topology-affecting donor
- * branches are compiled out by M86_NATIVE_HAL3 in the platform patch.
+ * Product-owned entry point for the PRO 5 preview graph. Generic 74xx HAL3
+ * factory mechanics stay in the platform tree while M86_NATIVE_HAL3 replaces
+ * topology-sensitive branches with the product-proven fimc-is2 graph.
  */
 class ExynosCamera3FrameFactoryPreviewM86 final
     : public ExynosCamera3FrameFactoryPreview {

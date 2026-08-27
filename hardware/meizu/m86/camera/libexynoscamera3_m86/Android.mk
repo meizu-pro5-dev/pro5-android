@@ -1,9 +1,9 @@
 # Copyright (C) 2026 The LineageOS Project
 # SPDX-License-Identifier: Apache-2.0
 #
-# Native Camera3 engine for the Meizu PRO 5.  The Camera3 request/result
-# machinery comes from the published 34xx HAL3 tree, while the product-owned
-# files in this directory provide the m86 sensor tables and Exynos7420
+# Native Camera3 engine for the Meizu PRO 5.  The request/result machinery is
+# hosted by the Exynos7420 HAL3 tree and common_v2, while the product-owned
+# files in this directory provide the m86 sensor tables and fixed fimc-is2
 # topology.  Keep this module separate from the working HAL1-backed
 # libexynoscamera_m86 during bring-up.
 
@@ -73,8 +73,7 @@ LOCAL_C_INCLUDES += \
     $(SLSI_CAMERA)/common_v2/Activities \
     $(SLSI_CAMERA)/common_v2/Buffers \
     $(SLSI_CAMERA)/common_v2/Ged \
-    $(SLSI_CAMERA)/34xx \
-    $(SLSI_CAMERA)/34xx/hal3 \
+    $(SLSI_CAMERA)/74xx/hal3 \
     $(SLSI_CAMERA)/74xx \
     $(SLSI_CAMERA)/74xx/JpegEncoderForCamera \
     $(TOP)/hardware/samsung_slsi-linaro/exynos/include \
@@ -123,15 +122,15 @@ LOCAL_SRC_FILES := \
     ../../../../samsung_slsi-linaro/exynos/libcamera/common_v2/ExynosCameraMetadataConverter.cpp \
     ../../../../samsung_slsi-linaro/exynos/libcamera/common_v2/Ged/ExynosCameraActivityAutofocusVendor.cpp \
     ../../../../samsung_slsi-linaro/exynos/libcamera/common_v2/Ged/ExynosCameraFrameSelectorVendor.cpp \
-    ../../../../samsung_slsi-linaro/exynos/libcamera/34xx/ExynosCameraActivityControl.cpp \
-    ../../../../samsung_slsi-linaro/exynos/libcamera/34xx/ExynosCameraScalableSensor.cpp \
-    ../../../../samsung_slsi-linaro/exynos/libcamera/34xx/ExynosCameraUtilsModule.cpp \
-    ../../../../samsung_slsi-linaro/exynos/libcamera/34xx/hal3/ExynosCameraSizeControl.cpp \
-    ../../../../samsung_slsi-linaro/exynos/libcamera/34xx/hal3/ExynosCamera3.cpp \
-    ../../../../samsung_slsi-linaro/exynos/libcamera/34xx/hal3/ExynosCamera3Parameters.cpp \
-    ../../../../samsung_slsi-linaro/exynos/libcamera/34xx/hal3/ExynosCamera3FrameFactory.cpp \
-    ../../../../samsung_slsi-linaro/exynos/libcamera/34xx/hal3/ExynosCamera3FrameFactoryPreview.cpp \
-    ../../../../samsung_slsi-linaro/exynos/libcamera/34xx/hal3/ExynosCamera3FrameReprocessingFactory.cpp \
+    ../../../../samsung_slsi-linaro/exynos/libcamera/74xx/hal3/ExynosCameraActivityControl.cpp \
+    ../../../../samsung_slsi-linaro/exynos/libcamera/74xx/hal3/ExynosCameraScalableSensor.cpp \
+    ../../../../samsung_slsi-linaro/exynos/libcamera/74xx/hal3/ExynosCameraUtilsModule.cpp \
+    ../../../../samsung_slsi-linaro/exynos/libcamera/74xx/hal3/ExynosCameraSizeControl.cpp \
+    ../../../../samsung_slsi-linaro/exynos/libcamera/74xx/hal3/ExynosCamera3.cpp \
+    ../../../../samsung_slsi-linaro/exynos/libcamera/74xx/hal3/ExynosCamera3Parameters.cpp \
+    ../../../../samsung_slsi-linaro/exynos/libcamera/74xx/hal3/ExynosCamera3FrameFactory.cpp \
+    ../../../../samsung_slsi-linaro/exynos/libcamera/74xx/hal3/ExynosCamera3FrameFactoryPreview.cpp \
+    ../../../../samsung_slsi-linaro/exynos/libcamera/74xx/hal3/ExynosCamera3FrameReprocessingFactory.cpp \
     ../../../../samsung_slsi-linaro/exynos/libcamera/74xx/JpegEncoderForCamera/ExynosJpegEncoderForCamera.cpp
 
 include $(TOP)/hardware/samsung_slsi-linaro/exynos/BoardConfigCFlags.mk
