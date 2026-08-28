@@ -33,11 +33,6 @@
 
   <!-- Exynos 7420 Android 13 BSP dependencies. -->
   <project
-      path="device/samsung/universal7420-common"
-      name="android_device_samsung_universal7420-common"
-      remote="samsung7420"
-      revision="8074a13969465e4b9d62080f6012d657474434ff" />
-  <project
       path="hardware/samsung_slsi-linaro/config"
       name="android_hardware_samsung_slsi-linaro_config"
       remote="samsung7420"

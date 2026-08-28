@@ -16,6 +16,14 @@ The Android 13 build adaptations are split between:
 - the device-owned `hardware/meizu/m86/camera/libexynoscamera3_m86` target;
 - the graphics, OpenMAX, framework and Camera2 compatibility queue.
 
+## Device-common independence
+
+The m86 product does not sync, inherit or parse
+`device/samsung/universal7420-common`. The two MFC sandbox syscall additions
+are device-owned under `device/meizu/m86/seccomp`; the obsolete common header
+path and Soong namespace have been removed. Exynos7420 support is consumed
+directly from the pinned Samsung SLSI repositories.
+
 ## Network status
 
 The Android 12 `system/bpf` compatibility patch is retained only as a build
