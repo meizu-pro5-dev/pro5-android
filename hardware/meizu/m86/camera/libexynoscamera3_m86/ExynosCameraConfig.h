@@ -22,6 +22,9 @@
  * This wrapper then removes blocks which do not exist in the m86 graph. */
 #include "ExynosCamera3Config.h"
 
+/* The m86 fimc-is2 metadata ABI predates camera2_uctl::opMode. */
+#undef USE_FW_OPMODE
+
 /* The HAL3 sources use the APP4 index directly. Their historical ExynosExif
  * include is not consistently visible through the mixed
  * common_v2 include graph on Android 12, so keep the product contract local. */

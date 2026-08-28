@@ -121,6 +121,7 @@ LOCAL_SRC_FILES := \
     ../../../../samsung_slsi-linaro/exynos/libcamera/common_v2/ExynosCameraStreamManager.cpp \
     ../../../../samsung_slsi-linaro/exynos/libcamera/common_v2/ExynosCameraMetadataConverter.cpp \
     ../../../../samsung_slsi-linaro/exynos/libcamera/common_v2/Ged/ExynosCameraActivityAutofocusVendor.cpp \
+    ../../../../samsung_slsi-linaro/exynos/libcamera/common_v2/Ged/ExynosCameraActivityFlashVendor.cpp \
     ../../../../samsung_slsi-linaro/exynos/libcamera/common_v2/Ged/ExynosCameraFrameSelectorVendor.cpp \
     ../../../../samsung_slsi-linaro/exynos/libcamera/74xx/hal3/ExynosCameraActivityControl.cpp \
     ../../../../samsung_slsi-linaro/exynos/libcamera/74xx/hal3/ExynosCameraScalableSensor.cpp \
