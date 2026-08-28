@@ -1,0 +1,40 @@
+From 70ecaae851935e17023269535d4a7bb6dd419825 Mon Sep 17 00:00:00 2001
+From: M86 Builder <m86-builder@localhost>
+Date: Thu, 27 Aug 2026 09:43:48 +0000
+Subject: [PATCH 4/4] openmax: use frame tags for MFC v9 AVC timestamps
+
+---
+ .../video/enc/h264/Exynos_OMX_H264enc.c         | 17 ++++++++++-------
+ 1 file changed, 10 insertions(+), 7 deletions(-)
+
+diff --git a/openmax/component/video/enc/h264/Exynos_OMX_H264enc.c b/openmax/component/video/enc/h264/Exynos_OMX_H264enc.c
+index 3a98676..9994d28 100644
+--- a/openmax/component/video/enc/h264/Exynos_OMX_H264enc.c
++++ b/openmax/component/video/enc/h264/Exynos_OMX_H264enc.c
+@@ -3970,16 +3970,19 @@ OMX_ERRORTYPE Exynos_H264Enc_DstOut(
+         }
+ 
+         /*
+-         * MFC v8 does not provide the capture-buffer timestamp contract used
+-         * by newer MFC batch modes.  Its non-zero DQBUF timestamp may be from
+-         * an unrelated clock and must not replace the timestamp paired with
+-         * this encoded frame through the hardware frame tag.
++         * Exynos7420 reports MFC_90 even though its encoder uses the same
++         * frame-tag timestamp contract as the older MFC v8 path.  Its capture
++         * buffers are not video-batch buffers, so a non-zero DQBUF timestamp
++         * must not replace the timestamp paired with this encoded frame.
+          */
+-        if (pH264Enc->hMFCH264Handle.videoInstInfo.HwVersion == MFC_80) {
++        if ((pH264Enc->hMFCH264Handle.videoInstInfo.HwVersion == MFC_80) ||
++            (pH264Enc->hMFCH264Handle.videoInstInfo.HwVersion == MFC_90)) {
+             if (pExynosComponent->bTimestampSlotUsed[indexTimestamp] != OMX_TRUE) {
+                 Exynos_OSAL_Log(EXYNOS_LOG_ERROR,
+-                                "[%p][%s] MFC v8 frame tag(%d) has no pending timestamp slot",
+-                                pExynosComponent, __FUNCTION__, indexTimestamp);
++                                "[%p][%s] legacy MFC(0x%x) frame tag(%d) has no pending timestamp slot",
++                                pExynosComponent, __FUNCTION__,
++                                pH264Enc->hMFCH264Handle.videoInstInfo.HwVersion,
++                                indexTimestamp);
+                 ret = (OMX_ERRORTYPE)OMX_ErrorCodecEncode;
+                 goto EXIT;
+             }

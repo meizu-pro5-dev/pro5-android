@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+  <remote
+      name="pro5-dev"
+      fetch="https://github.com/meizu-pro5-dev/" />
+  <remote
+      name="samsung7420"
+      fetch="https://github.com/samsungexynos7420/" />
+
+  <!-- Meizu PRO 5 repositories; publish these local lineage-20.0 branches before sync. -->
+  <project
+      path="device/meizu/m86"
+      name="android_device_meizu_m86"
+      remote="pro5-dev"
+      revision="lineage-20.0" />
+  <project
+      path="kernel/meizu/m86"
+      name="android_kernel_meizu_m86"
+      remote="pro5-dev"
+      revision="lineage-20.0" />
+  <project
+      path="vendor/meizu/m86"
+      name="android_vendor_meizu_m86"
+      remote="pro5-dev"
+      revision="lineage-20.0" />
+  <project
+      path="hardware/samsung_slsi-linaro/exynos"
+      name="android_hardware_samsung_slsi-linaro_exynos"
+      remote="pro5-dev"
+      revision="lineage-20.0" />
+
+  <!-- m86 Camera3 changes live in Exynos74xx; libcamera/34xx stays upstream. -->
+
+  <!-- Exynos 7420 Android 13 BSP dependencies. -->
+  <project
+      path="device/samsung/universal7420-common"
+      name="android_device_samsung_universal7420-common"
+      remote="samsung7420"
+      revision="8074a13969465e4b9d62080f6012d657474434ff" />
+  <project
+      path="hardware/samsung_slsi-linaro/config"
+      name="android_hardware_samsung_slsi-linaro_config"
+      remote="samsung7420"
+      revision="646f8ce8a25385ebd4d384c794d0278255d303dd" />
+  <project
+      path="hardware/samsung_slsi-linaro/exynos5"
+      name="android_hardware_samsung_slsi-linaro_exynos5"
+      remote="samsung7420"
+      revision="47b57f7b16ca50387b6507a8d67d59657f72da28" />
+  <project
+      path="hardware/samsung_slsi-linaro/graphics"
+      name="android_hardware_samsung_slsi-linaro_graphics"
+      remote="samsung7420"
+      revision="9de623247cc8c45f67283843dd2382e3b01e1c6b" />
+  <project
+      path="hardware/samsung_slsi-linaro/openmax"
+      name="android_hardware_samsung_slsi-linaro_openmax"
+      remote="samsung7420"
+      revision="0faa3d4cad375a31bf43dea0d0bfea274c5972d7" />
+  <project
+      path="hardware/samsung_slsi-linaro/codec2"
+      name="android_hardware_samsung_slsi-linaro_codec2"
+      remote="samsung7420"
+      revision="227b34d6b95d7e923059d1d7603c40543e7d0f15" />
+  <project
+      path="hardware/samsung_slsi-linaro/interfaces"
+      name="android_hardware_samsung_slsi-linaro_interfaces"
+      remote="samsung7420"
+      revision="5446f9170340e3466376c29f40fb53ee12628be3" />
+  <project
+      path="hardware/samsung"
+      name="LineageOS/android_hardware_samsung"
+      revision="65fcb7bb55a35d6751bbe289fcba894fce39becf" />
+  <project
+      path="device/samsung_slsi/sepolicy"
+      name="LineageOS/android_device_samsung_slsi_sepolicy"
+      revision="52e4e8929d4c0c14a213b09c448d09717940c091" />
+</manifest>

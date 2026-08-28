@@ -1,0 +1,413 @@
+From 106c1435f63c8bae26870e369d8027f9183e3df1 Mon Sep 17 00:00:00 2001
+From: M86 Builder <m86-builder@localhost>
+Date: Mon, 24 Aug 2026 12:44:47 +0000
+Subject: [PATCH 1/2] m86: checkpoint validated Android 12 baseline
+
+Change-Id: I46e63aca4ffadb1e1d812631dd8e67fafcf99bed
+---
+ camera/include/camera/CameraParameters.h |  35 ++++++
+ media/libaudiohal/impl/StreamHalHidl.cpp |  13 ++
+ services/audioflinger/AudioFlinger.cpp   |   7 ++
+ services/audioflinger/Threads.cpp        | 154 ++++++++++++++++++++++-
+ services/audioflinger/Threads.h          |  14 +++
+ services/audioflinger/Tracks.cpp         |   3 +
+ 6 files changed, 224 insertions(+), 2 deletions(-)
+
+diff --git a/camera/include/camera/CameraParameters.h b/camera/include/camera/CameraParameters.h
+index ba33ffe63b..414df75ffe 100644
+--- a/camera/include/camera/CameraParameters.h
++++ b/camera/include/camera/CameraParameters.h
+@@ -41,6 +41,41 @@ class CameraParameters
+ {
+ public:
+     CameraParameters();
++
++    /* Legacy Flyme/SLSI HAL1 constants removed from the A12 public API.
++     * Restored for the source-built m86 Exynos camera engine. */
++    static const char PIXEL_FORMAT_YUV420SP_NV21[];
++    static const char EFFECT_CARTOONIZE[];
++    static const char EFFECT_POINT_RED_YELLOW[];
++    static const char EFFECT_POINT_GREEN[];
++    static const char EFFECT_POINT_BLUE[];
++    static const char EFFECT_VINTAGE_COLD[];
++    static const char EFFECT_VINTAGE_WARM[];
++    static const char EFFECT_WASHED[];
++    static const char ISO_AUTO[];
++    static const char ISO_NIGHT[];
++    static const char ISO_SPORTS[];
++    static const char ISO_6400[];
++    static const char ISO_3200[];
++    static const char ISO_1600[];
++    static const char ISO_800[];
++    static const char ISO_400[];
++    static const char ISO_200[];
++    static const char ISO_100[];
++    static const char ISO_80[];
++    static const char ISO_50[];
++    static const char KEY_SUPPORTED_METERING_MODE[];
++    static const char METERING_CENTER[];
++    static const char METERING_MATRIX[];
++    static const char METERING_SPOT[];
++    static const char METERING_OFF[];
++    static const char KEY_DYNAMIC_RANGE_CONTROL[];
++    static const char KEY_SUPPORTED_PHASE_AF[];
++    static const char KEY_PHASE_AF[];
++    static const char KEY_SUPPORTED_RT_HDR[];
++    static const char KEY_RT_HDR[];
++    static const char KEY_ISO_MODE[];
++    static const char KEY_SUPPORTED_ISO_MODES[];
+     CameraParameters(const String8 &params) { unflatten(params); }
+     ~CameraParameters();
+ 
+diff --git a/media/libaudiohal/impl/StreamHalHidl.cpp b/media/libaudiohal/impl/StreamHalHidl.cpp
+index 76f9a60075..ab5a22682e 100644
+--- a/media/libaudiohal/impl/StreamHalHidl.cpp
++++ b/media/libaudiohal/impl/StreamHalHidl.cpp
+@@ -19,6 +19,7 @@
+ 
+ #include <android/hidl/manager/1.0/IServiceManager.h>
+ #include <hwbinder/IPCThreadState.h>
++#include <cutils/properties.h>
+ #include <media/AudioParameter.h>
+ #include <mediautils/memory.h>
+ #include <mediautils/SchedulingPolicyService.h>
+@@ -461,6 +462,18 @@ status_t StreamOutHalHidl::write(const void *buffer, size_t bytes, size_t *writt
+         if ((status = getCachedBufferSize(&bufferSize)) != OK) {
+             return status;
+         }
++        // The Flyme m86 primary HAL changes its output buffer from 4 KiB at
++        // 44.1 kHz up to 16 KiB at 176.4/192 kHz without reopening the
++        // stream. HIDL permits prepareForWriting() only once, so a queue
++        // created by an earlier system sound would otherwise remain 4 KiB
++        // and truncate every later high-rate write. Reserve the largest
++        // Flyme write block in the transport queue; this does not alter the
++        // HAL/ALSA buffer size or AudioFlinger latency.
++        constexpr size_t kM86MaxHifiWriteSize = 16 * 1024;
++        if (property_get_bool("ro.meizu.hardware.hifi", false)
++                && bufferSize < kM86MaxHifiWriteSize) {
++            bufferSize = kM86MaxHifiWriteSize;
++        }
+         if (bytes > bufferSize) bufferSize = bytes;
+         if ((status = prepareForWriting(bufferSize)) != OK) {
+             return status;
+diff --git a/services/audioflinger/AudioFlinger.cpp b/services/audioflinger/AudioFlinger.cpp
+index d2363d80b6..7fdd52b486 100644
+--- a/services/audioflinger/AudioFlinger.cpp
++++ b/services/audioflinger/AudioFlinger.cpp
+@@ -1851,6 +1851,13 @@ status_t AudioFlinger::setParameters(audio_io_handle_t ioHandle, const String8&
+                 AudioFlinger::mScreenState = ((AudioFlinger::mScreenState & ~1) + 2) | isOff;
+             }
+         }
++        if (param.get(String8("m86_hifi_enabled"), value) == NO_ERROR
++                || param.get(String8("hifi_gain"), value) == NO_ERROR) {
++            const sp<PlaybackThread> primary = primaryPlaybackThread_l();
++            if (primary != nullptr) {
++                primary->requestM86HifiRecompute(true /* forceReopen */);
++            }
++        }
+         return final_result;
+     }
+ 
+diff --git a/services/audioflinger/Threads.cpp b/services/audioflinger/Threads.cpp
+index 458828c2c5..ba384020d2 100644
+--- a/services/audioflinger/Threads.cpp
++++ b/services/audioflinger/Threads.cpp
+@@ -707,6 +707,17 @@ status_t AudioFlinger::ThreadBase::sendSetParameterConfigEvent_l(const String8&
+     return sendConfigEvent_l(configEvent);
+ }
+ 
++// Queue a parameter update without waiting. Callers already running on the
++// playback thread must not wait for processConfigEvents_l() on that same thread.
++void AudioFlinger::ThreadBase::sendSetParameterConfigEventAsync_l(
++        const String8& keyValuePair)
++{
++    sp<ConfigEvent> configEvent = new SetParameterConfigEvent(keyValuePair);
++    configEvent->mWaitStatus = false;
++    mConfigEvents.add(configEvent);
++    mWaitWorkCV.signal();
++}
++
+ status_t AudioFlinger::ThreadBase::sendCreateAudioPatchConfigEvent(
+                                                         const struct audio_patch *patch,
+                                                         audio_patch_handle_t *handle)
+@@ -4517,6 +4528,15 @@ void AudioFlinger::PlaybackThread::removeTracks_l(const Vector< sp<Track> >& tra
+             }
+         }
+     }
++    if (!tracksToRemove.isEmpty()) {
++        requestM86HifiRecompute_l();
++    }
++}
++
++void AudioFlinger::PlaybackThread::requestM86HifiRecompute(bool forceReopen)
++{
++    Mutex::Autolock _l(mLock);
++    requestM86HifiRecompute_l(forceReopen);
+ }
+ 
+ status_t AudioFlinger::PlaybackThread::getTimestamp_l(AudioTimestamp& timestamp)
+@@ -4581,6 +4601,9 @@ status_t AudioFlinger::MixerThread::createAudioPatch_l(const struct audio_patch
+     } else {
+         status = PlaybackThread::createAudioPatch_l(patch, handle);
+     }
++    if (status == NO_ERROR) {
++        requestM86HifiRecompute_l();
++    }
+     return status;
+ }
+ 
+@@ -4676,6 +4699,9 @@ status_t AudioFlinger::MixerThread::releaseAudioPatch_l(const audio_patch_handle
+     } else {
+         status = PlaybackThread::releaseAudioPatch_l(handle);
+     }
++    if (status == NO_ERROR) {
++        requestM86HifiRecompute_l();
++    }
+     return status;
+ }
+ 
+@@ -4726,6 +4752,11 @@ AudioFlinger::MixerThread::MixerThread(const sp<AudioFlinger>& audioFlinger, Aud
+     :   PlaybackThread(audioFlinger, output, id, type, systemReady, mixerConfig),
+         // mAudioMixer below
+         // mFastMixer below
++        mM86NormalSampleRate(mSampleRate),
++        mM86HifiRouteRate(0),
++        mM86HifiRouteActive(false),
++        mM86HifiRecomputeQueued(false),
++        mM86HifiForceReopenQueued(false),
+         mFastMixerFutex(0),
+         mMasterMono(false)
+         // mOutputSink below
+@@ -5997,6 +6028,57 @@ bool AudioFlinger::MixerThread::checkForNewParameter_l(const String8& keyValuePa
+     AutoPark<FastMixer> park(mFastMixer);
+ 
+     AudioParameter param = AudioParameter(keyValuePair);
++    String8 outputParameters(keyValuePair);
++    bool m86HifiRequest = false;
++    bool m86ForceReopen = false;
++    bool m86DesiredActive = false;
++    uint32_t m86DesiredRate = mM86NormalSampleRate;
++    int m86Recompute;
++    if (param.getInt(String8("m86_hifi_recompute"), m86Recompute) == NO_ERROR) {
++        m86HifiRequest = true;
++        m86ForceReopen = m86Recompute > 1 || mM86HifiForceReopenQueued;
++        mM86HifiRecomputeQueued = false;
++        mM86HifiForceReopenQueued = false;
++
++        const bool userEnabled = property_get_bool(
++                "persist.vendor.m86.hifi.enabled", false);
++        const DeviceTypeSet devices = outDeviceTypes();
++        const bool wired = devices.count(AUDIO_DEVICE_OUT_WIRED_HEADSET) != 0
++                || devices.count(AUDIO_DEVICE_OUT_WIRED_HEADPHONE) != 0;
++        uint32_t commonRate = 0;
++        bool compatible = userEnabled && wired;
++        for (const sp<Track>& track : mActiveTracks) {
++            if (track->streamType() == AUDIO_STREAM_SYSTEM) {
++                continue;
++            }
++            const uint32_t rate = track->sampleRate();
++            const bool supportedRate = rate == 44100 || rate == 48000
++                    || rate == 88200 || rate == 96000
++                    || rate == 176400 || rate == 192000;
++            const bool media = track->attributes().usage == AUDIO_USAGE_MEDIA
++                    || track->streamType() == AUDIO_STREAM_MUSIC;
++            if (!media || !audio_is_linear_pcm(track->format())
++                    || audio_channel_count_from_out_mask(track->channelMask()) != 2
++                    || !supportedRate || (commonRate != 0 && commonRate != rate)) {
++                compatible = false;
++                break;
++            }
++            commonRate = rate;
++        }
++        m86DesiredActive = compatible && commonRate != 0;
++        m86DesiredRate = m86DesiredActive ? commonRate : mM86NormalSampleRate;
++        outputParameters = String8::format("hifi_state=%s;%s=%u",
++                m86DesiredActive ? "on" : "off",
++                AudioParameter::keySamplingRate, m86DesiredRate);
++        param = AudioParameter(outputParameters);
++        ALOGI("m86 HiFi arbitration: user=%d wired=%d active=%d rate=%u tracks=%zu",
++              userEnabled ? 1 : 0, wired ? 1 : 0, m86DesiredActive ? 1 : 0,
++              m86DesiredRate, mActiveTracks.size());
++        if (!m86ForceReopen && m86DesiredActive == mM86HifiRouteActive
++                && mSampleRate == m86DesiredRate) {
++            return false;
++        }
++    }
+     int value;
+     if (param.getInt(String8(AudioParameter::keySamplingRate), value) == NO_ERROR) {
+         reconfig = true;
+@@ -6032,7 +6114,16 @@ bool AudioFlinger::MixerThread::checkForNewParameter_l(const String8& keyValuePa
+     }
+ 
+     if (status == NO_ERROR) {
+-        status = mOutput->stream->setParameters(keyValuePair);
++        if (m86ForceReopen && !mStandby) {
++            ALOGI("m86 HiFi policy changed: closing active output before apply");
++            mOutput->standby();
++            if (!mStandby) {
++                mThreadMetrics.logEndInterval();
++                mStandby = true;
++            }
++            mBytesWritten = 0;
++        }
++        status = mOutput->stream->setParameters(outputParameters);
+         if (!mStandby && status == INVALID_OPERATION) {
+             mOutput->standby();
+             if (!mStandby) {
+@@ -6041,10 +6132,48 @@ bool AudioFlinger::MixerThread::checkForNewParameter_l(const String8& keyValuePa
+                 mStandby = true;
+             }
+             mBytesWritten = 0;
+-            status = mOutput->stream->setParameters(keyValuePair);
++            status = mOutput->stream->setParameters(outputParameters);
++        }
++        if (m86HifiRequest && m86DesiredActive && status != NO_ERROR) {
++            const status_t requestedStatus = status;
++            const String8 rollback = String8::format("hifi_state=off;%s=%u",
++                    AudioParameter::keySamplingRate, mM86NormalSampleRate);
++            status_t rollbackStatus = mOutput->stream->setParameters(rollback);
++            if (!mStandby && rollbackStatus == INVALID_OPERATION) {
++                mOutput->standby();
++                if (!mStandby) {
++                    mThreadMetrics.logEndInterval();
++                    mStandby = true;
++                }
++                mBytesWritten = 0;
++                rollbackStatus = mOutput->stream->setParameters(rollback);
++            }
++            ALOGE("m86 HiFi route failed: rate=%u status=%d rollback=%d",
++                  m86DesiredRate, requestedStatus, rollbackStatus);
++            if (rollbackStatus == NO_ERROR) {
++                status = NO_ERROR;
++                m86DesiredActive = false;
++                m86DesiredRate = mM86NormalSampleRate;
++            }
+         }
+         if (status == NO_ERROR && reconfig) {
++            effect_buffer_t* const oldSinkBuffer =
++                    reinterpret_cast<effect_buffer_t*>(mSinkBuffer);
++            effect_buffer_t* const oldMixerBuffer =
++                    reinterpret_cast<effect_buffer_t*>(mMixerBuffer);
+             readOutputParameters_l();
++            size_t reboundTracks = 0;
++            for (const auto& track : mTracks) {
++                if (track->mainBuffer() == oldSinkBuffer
++                        || track->mainBuffer() == oldMixerBuffer) {
++                    track->setMainBuffer(
++                            reinterpret_cast<effect_buffer_t*>(mSinkBuffer));
++                    ++reboundTracks;
++                }
++            }
++            ALOGI_IF(reboundTracks != 0,
++                    "m86 HiFi reconfiguration: rebound %zu tracks to new sink buffer",
++                    reboundTracks);
+             delete mAudioMixer;
+             mAudioMixer = new AudioMixer(mNormalFrameCount, mSampleRate);
+             for (const auto &track : mTracks) {
+@@ -6062,11 +6191,29 @@ bool AudioFlinger::MixerThread::checkForNewParameter_l(const String8& keyValuePa
+             }
+             sendIoConfigEvent_l(AUDIO_OUTPUT_CONFIG_CHANGED);
+         }
++        if (m86HifiRequest && status == NO_ERROR) {
++            mM86HifiRouteActive = m86DesiredActive;
++            mM86HifiRouteRate = m86DesiredActive ? m86DesiredRate : 0;
++        }
+     }
+ 
+     return reconfig;
+ }
+ 
++void AudioFlinger::MixerThread::requestM86HifiRecompute_l(bool forceReopen)
++{
++    if (mType != MIXER) {
++        return;
++    }
++    mM86HifiForceReopenQueued |= forceReopen;
++    if (mM86HifiRecomputeQueued) {
++        return;
++    }
++    mM86HifiRecomputeQueued = true;
++    sendSetParameterConfigEventAsync_l(String8::format(
++            "m86_hifi_recompute=%d", forceReopen ? 2 : 1));
++}
++
+ 
+ void AudioFlinger::MixerThread::dumpInternals_l(int fd, const Vector<String16>& args)
+ {
+@@ -6077,6 +6224,9 @@ void AudioFlinger::MixerThread::dumpInternals_l(int fd, const Vector<String16>&
+     dprintf(fd, "  Master balance: %f (%s)\n", mMasterBalance.load(),
+             (hasFastMixer() ? std::to_string(mFastMixer->getMasterBalance())
+                             : mBalance.toString()).c_str());
++    dprintf(fd, "  m86 HiFi route: %s, rate: %u Hz, normal rate: %u Hz\n",
++            mM86HifiRouteActive ? "active" : "inactive", mM86HifiRouteRate,
++            mM86NormalSampleRate);
+     if (hasFastMixer()) {
+         dprintf(fd, "  FastMixer thread %p tid=%d", mFastMixer.get(), mFastMixer->getTid());
+ 
+diff --git a/services/audioflinger/Threads.h b/services/audioflinger/Threads.h
+index ad5617d33f..cd4b0a6601 100644
+--- a/services/audioflinger/Threads.h
++++ b/services/audioflinger/Threads.h
+@@ -355,6 +355,7 @@ public:
+                 void        sendPrioConfigEvent(pid_t pid, pid_t tid, int32_t prio, bool forApp);
+                 void        sendPrioConfigEvent_l(pid_t pid, pid_t tid, int32_t prio, bool forApp);
+                 status_t    sendSetParameterConfigEvent_l(const String8& keyValuePair);
++                void        sendSetParameterConfigEventAsync_l(const String8& keyValuePair);
+                 status_t    sendCreateAudioPatchConfigEvent(const struct audio_patch *patch,
+                                                             audio_patch_handle_t *handle);
+                 status_t    sendReleaseAudioPatchConfigEvent(audio_patch_handle_t handle);
+@@ -941,6 +942,7 @@ protected:
+ public:
+ 
+     virtual     status_t    initCheck() const { return (mOutput == NULL) ? NO_INIT : NO_ERROR; }
++                void        requestM86HifiRecompute(bool forceReopen = false);
+ 
+                 // return estimated latency in milliseconds, as reported by HAL
+                 uint32_t    latency() const;
+@@ -1199,6 +1201,10 @@ private:
+                 }
+ 
+ protected:
++    virtual     void        requestM86HifiRecompute_l(bool forceReopen = false) {
++                                (void)forceReopen;
++                            }
++
+     ActiveTracks<Track>     mActiveTracks;
+ 
+     // Time to sleep between cycles when:
+@@ -1457,6 +1463,8 @@ public:
+                                     audio_channel_mask_t channelMask, audio_format_t format,
+                                     audio_session_t sessionId, uid_t uid) const override;
+ protected:
++                void        requestM86HifiRecompute_l(bool forceReopen = false) override;
++
+     virtual     mixer_state prepareTracks_l(Vector< sp<Track> > *tracksToRemove);
+     virtual     uint32_t    idleSleepTimeUs() const;
+     virtual     uint32_t    suspendSleepTimeUs() const;
+@@ -1485,6 +1493,12 @@ protected:
+ 
+                 AudioMixer* mAudioMixer;    // normal mixer
+ private:
++                uint32_t    mM86NormalSampleRate;
++                uint32_t    mM86HifiRouteRate;
++                bool        mM86HifiRouteActive;
++                bool        mM86HifiRecomputeQueued;
++                bool        mM86HifiForceReopenQueued;
++
+                 // one-time initialization, no locks required
+                 sp<FastMixer>     mFastMixer;     // non-0 if there is also a fast mixer
+                 sp<AudioWatchdog> mAudioWatchdog; // non-0 if there is an audio watchdog thread
+diff --git a/services/audioflinger/Tracks.cpp b/services/audioflinger/Tracks.cpp
+index 10f9f73fad..4fd0a613e6 100644
+--- a/services/audioflinger/Tracks.cpp
++++ b/services/audioflinger/Tracks.cpp
+@@ -1115,6 +1115,9 @@ status_t AudioFlinger::PlaybackThread::Track::start(AudioSystem::sync_event_t ev
+             mObservedUnderruns = playbackThread->getFastTrackUnderruns(mFastIndex);
+         }
+         status = playbackThread->addTrack_l(this);
++        if (status == NO_ERROR || status == ALREADY_EXISTS) {
++            playbackThread->requestM86HifiRecompute_l();
++        }
+         if (status == INVALID_OPERATION || status == PERMISSION_DENIED) {
+             triggerEvents(AudioSystem::SYNC_EVENT_PRESENTATION_COMPLETE);
+             //  restore previous state if start was rejected by policy manager

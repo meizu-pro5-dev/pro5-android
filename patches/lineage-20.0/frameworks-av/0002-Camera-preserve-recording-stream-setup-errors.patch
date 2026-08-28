@@ -1,0 +1,91 @@
+From 807387494023151f9543578e49cdd9981475aa2a Mon Sep 17 00:00:00 2001
+From: M86 Builder <m86-builder@localhost>
+Date: Wed, 26 Aug 2026 12:13:32 +0000
+Subject: [PATCH 2/2] Camera: preserve recording stream setup errors
+
+Change-Id: I7d3e9065f47f85be5c6699497b814c8d35b9d737
+---
+ .../libcameraservice/api1/Camera2Client.cpp   | 41 +++++++++++++++----
+ 1 file changed, 32 insertions(+), 9 deletions(-)
+
+diff --git a/services/camera/libcameraservice/api1/Camera2Client.cpp b/services/camera/libcameraservice/api1/Camera2Client.cpp
+index ac073767d1..ca15ac95c9 100644
+--- a/services/camera/libcameraservice/api1/Camera2Client.cpp
++++ b/services/camera/libcameraservice/api1/Camera2Client.cpp
+@@ -1132,7 +1132,7 @@ status_t Camera2Client::startRecordingL(Parameters &params, bool restart) {
+ 
+     if (!restart) {
+         sCameraService->playSound(CameraService::SOUND_RECORDING_START);
+-        mStreamingProcessor->updateRecordingRequest(params);
++        res = mStreamingProcessor->updateRecordingRequest(params);
+         if (res != OK) {
+             ALOGE("%s: Camera %d: Unable to update recording request: %s (%d)",
+                     __FUNCTION__, mCameraId, strerror(-res), res);
+@@ -1235,9 +1235,17 @@ status_t Camera2Client::startRecordingL(Parameters &params, bool restart) {
+         }
+     }
+ 
++    const int previewStreamId = getPreviewStreamId();
++    const int recordingStreamId = getRecordingStreamId();
++    if (previewStreamId == NO_STREAM || recordingStreamId == NO_STREAM) {
++        ALOGE("%s: Camera %d: Invalid recording streams: preview=%d recording=%d",
++                __FUNCTION__, mCameraId, previewStreamId, recordingStreamId);
++        return NO_INIT;
++    }
++
+     Vector<int32_t> outputStreams;
+-    outputStreams.push(getPreviewStreamId());
+-    outputStreams.push(getRecordingStreamId());
++    outputStreams.push(previewStreamId);
++    outputStreams.push(recordingStreamId);
+ 
+     res = mStreamingProcessor->startStream(StreamingProcessor::RECORD,
+             outputStreams);
+@@ -2195,26 +2203,41 @@ status_t Camera2Client::updateProcessorStream(sp<ProcessorT> processor,
+         if (res != OK) {
+             ALOGE("%s: Camera %d: Can't pause streaming: %s (%d)",
+                     __FUNCTION__, mCameraId, strerror(-res), res);
++            return res;
+         }
+ 
+         res = mDevice->waitUntilDrained();
+         if (res != OK) {
+             ALOGE("%s: Camera %d: Waiting to stop streaming failed: %s (%d)",
+                     __FUNCTION__, mCameraId, strerror(-res), res);
++            status_t resumeRes =
++                    mStreamingProcessor->togglePauseStream(/*pause*/false);
++            if (resumeRes != OK) {
++                ALOGE("%s: Camera %d: Can't unpause streaming after drain failure: "
++                        "%s (%d)", __FUNCTION__, mCameraId,
++                        strerror(-resumeRes), resumeRes);
++            }
++            return res;
+         }
+ 
+-        res = (processorPtr->*updateStreamF)(params);
+-        if (res != OK) {
++        const status_t updateRes = (processorPtr->*updateStreamF)(params);
++        if (updateRes != OK) {
+             ALOGE("%s: Camera %d: Failed to update processing stream "
+                   " despite having halted streaming first: %s (%d)",
+-                  __FUNCTION__, mCameraId, strerror(-res), res);
++                  __FUNCTION__, mCameraId, strerror(-updateRes), updateRes);
+         }
+ 
+-        res = mStreamingProcessor->togglePauseStream(/*pause*/false);
+-        if (res != OK) {
++        const status_t resumeRes =
++                mStreamingProcessor->togglePauseStream(/*pause*/false);
++        if (resumeRes != OK) {
+             ALOGE("%s: Camera %d: Can't unpause streaming: %s (%d)",
+-                    __FUNCTION__, mCameraId, strerror(-res), res);
++                    __FUNCTION__, mCameraId, strerror(-resumeRes), resumeRes);
+         }
++
++        /* Never let a successful resume hide the stream update failure that
++         * caused this retry.  In particular, recording must not proceed with
++         * mRecordingStreamId still set to NO_STREAM. */
++        res = (updateRes != OK) ? updateRes : resumeRes;
+     }
+ 
+     return res;

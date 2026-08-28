@@ -1,0 +1,11 @@
+ba33f4a6560ebcf8b7c1f65dc3e574b4e549f35bfe266cde75a9735cbf20625d  patches/lineage-20.0/frameworks-av/0001-m86-checkpoint-validated-Android-12-baseline.patch
+13e43e21858b07fc0dcb0d0ad93e6f1e457381c84a5a38df235dc874c74858c9  patches/lineage-20.0/frameworks-av/0002-Camera-preserve-recording-stream-setup-errors.patch
+71260b84709b0c1cbbbc76a924e56e78f94c25ab3e36c6b95ce46b20d617a3ad  patches/lineage-20.0/hardware-interfaces/0001-m86-checkpoint-validated-Android-12-baseline.patch
+c20d84dbeeeacad17af9e593aa0423b6df5439ed75c792c0f0ed952247e94848  patches/lineage-20.0/hardware-samsung-slsi-linaro-graphics/0001-m86-checkpoint-validated-Android-12-baseline.patch
+1b5e4e8df30f527caf844d3a7d7e59f6948b5c6b3a573b69db19ad29f5dbd927  patches/lineage-20.0/hardware-samsung-slsi-linaro-openmax/0001-openmax-honor-board-gralloc-private-ABI.patch
+74c58ce2d5b72294535bab03c962dad3d699d8dd1929f83233816803fb5cdcf2  patches/lineage-20.0/hardware-samsung-slsi-linaro-openmax/0002-videocodec-negotiate-MFC-AVC-controls.patch
+4a29fb23adb14c0c4ec9156d71a502f86a45460e2323ff932f6b40601ae1e749  patches/lineage-20.0/hardware-samsung-slsi-linaro-openmax/0003-openmax-use-frame-tags-for-MFC-v8-AVC-timestamps.patch
+917c641908fed69700de1291a0edc38fbbbee77aa4c81abae50b87019ffdce26  patches/lineage-20.0/hardware-samsung-slsi-linaro-openmax/0004-openmax-use-frame-tags-for-MFC-v9-AVC-timestamps.patch
+67f5f818abb2fc2c81e4a004f44d370810fb3e71fb6ab83a9e2d899e6fe17797  patches/lineage-20.0/packages-apps-Camera2/0001-m86-checkpoint-validated-Android-12-baseline.patch
+d1fae3e2347f268f4b552e8b33ee19e3790c75da3c912c5b9778377d6724dc98  patches/lineage-20.0/system-bpf/0001-m86-checkpoint-validated-Android-12-baseline.patch
+1067ca2095f6bde810953ff60478249966b59b2a2ee4f39f079976e9304ac9d5  patches/lineage-20.0/system-nfc/0001-m86-checkpoint-validated-Android-12-baseline.patch

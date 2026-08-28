@@ -1,0 +1,24 @@
+From b5141467f0c6c0c003b02a08384aab83ace83383 Mon Sep 17 00:00:00 2001
+From: M86 Builder <m86-builder@localhost>
+Date: Mon, 24 Aug 2026 12:44:48 +0000
+Subject: [PATCH] m86: checkpoint validated Android 12 baseline
+
+Change-Id: Ic2031526d22cd292d547e25a1c2d0b7ab845b70d
+---
+ src/com/android/camera/CameraActivity.java | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/src/com/android/camera/CameraActivity.java b/src/com/android/camera/CameraActivity.java
+index 073f81e2f..9029bd9d3 100644
+--- a/src/com/android/camera/CameraActivity.java
++++ b/src/com/android/camera/CameraActivity.java
+@@ -1644,9 +1644,6 @@ public class CameraActivity extends QuickActivity
+ 
+         preloadFilmstripItems();
+ 
+-        // Candidate for deletion as Android Beam is deprecated in Android Q
+-        setupNfcBeamPush();
+-
+         mLocalImagesObserver = new FilmstripContentObserver();
+         mLocalVideosObserver = new FilmstripContentObserver();
+ 

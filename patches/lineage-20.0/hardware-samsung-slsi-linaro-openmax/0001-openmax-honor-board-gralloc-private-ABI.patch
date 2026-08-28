@@ -1,0 +1,24 @@
+From 730a5e06c7366db70abbcc2351d7bc6fbdbe8223 Mon Sep 17 00:00:00 2001
+From: M86 Builder <m86-builder@localhost>
+Date: Wed, 26 Aug 2026 10:42:55 +0000
+Subject: [PATCH 1/4] openmax: honor board gralloc private ABI
+
+---
+ openmax/osal/Android.mk | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/openmax/osal/Android.mk b/openmax/osal/Android.mk
+index c77bdf3..e2cd1e1 100644
+--- a/openmax/osal/Android.mk
++++ b/openmax/osal/Android.mk
+@@ -174,7 +174,10 @@ LOCAL_SHARED_LIBRARIES += \
+ LOCAL_CFLAGS += -DOMX_USES_EPIC
+ endif
+ 
++# A gralloc0 product may own a private_handle_t ABI that differs from the
++# generic SLSI definition. Its canonical include must take precedence here.
+ LOCAL_C_INCLUDES := \
++	$(BOARD_EXYNOS_OMX_GRALLOC_PRIV_INCLUDE) \
+ 	$(EXYNOS_OMX_TOP)/core \
+ 	$(EXYNOS_OMX_INC)/exynos \
+ 	$(EXYNOS_OMX_TOP)/osal \

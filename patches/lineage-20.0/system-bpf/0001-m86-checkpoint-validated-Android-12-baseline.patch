@@ -1,0 +1,35 @@
+From c40b8b9270db15d2df8f425101056914c2ca3b49 Mon Sep 17 00:00:00 2001
+From: M86 Builder <m86-builder@localhost>
+Date: Mon, 24 Aug 2026 12:44:48 +0000
+Subject: [PATCH] m86: checkpoint validated Android 12 baseline
+
+Change-Id: Ib8f81a5315946d61d577bab04a327a26c1cf4aaf
+---
+ bpfloader/BpfLoader.cpp | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/bpfloader/BpfLoader.cpp b/bpfloader/BpfLoader.cpp
+index 5cd80b7..dca25f1 100644
+--- a/bpfloader/BpfLoader.cpp
++++ b/bpfloader/BpfLoader.cpp
+@@ -178,6 +178,20 @@ int main(int argc, char** argv) {
+     (void)argc;
+     android::base::InitLogging(argv, &android::base::KernelLogger);
+ 
++    // m86 legacy-kernel compatibility: the 3.10 kernel has no bpf() syscall,
++    // so bpfloader would always fail and Android 13 would reboot with
++    // reboot,bpfloader-failed. When the product declares that eBPF is
++    // unavailable, mark the BPF programs as loaded without touching /sys/fs/bpf
++    // and let the netd legacy qtaguid path take over.
++    if (!android::base::GetBoolProperty("ro.kernel.ebpf.supported", true)) {
++        ALOGI("ro.kernel.ebpf.supported is false; skipping BPF program load");
++        if (!android::base::SetProperty("bpf.progs_loaded", "1")) {
++            ALOGE("Failed to set bpf.progs_loaded property");
++            return 1;
++        }
++        return 0;
++    }
++
+     // Create all the pin subdirectories
+     // (this must be done first to allow selinux_context and pin_subdir functionality,
+     //  which could otherwise fail with ENOENT during object pinning or renaming,
