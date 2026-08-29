@@ -463,7 +463,7 @@ validate_m1_boot_and_ownership() {
   require_fixed 'M86_DEVICE_PATH := $(LOCAL_PATH)' "$android_makefile"
   require_fixed 'M86_STOCK_DTB := $(M86_DEVICE_PATH)/prebuilt/dtb.img' \
     "$android_makefile"
-  require_fixed 'M86_MBACK_DTB_TOOL := $(M86_DEVICE_PATH)/tools/build-mback-dtb.py' \
+  require_fixed 'M86_RELEASE_DTB_TOOL := $(M86_DEVICE_PATH)/tools/build-mback-dtb.py' \
     "$android_makefile"
   require_fixed 'M86_FPC_BACKEND := raw-navigation' "$board_config"
   require_fixed 'M86_FPC_BACKEND := tee' "$board_config"
@@ -481,7 +481,7 @@ validate_m1_boot_and_ownership() {
   require_fixed 'INSTALLED_RADIOIMAGE_TARGET += $(M86_INSTALLED_DTB)' \
     "$android_makefile"
   require_absent 'M86_KERNEL_DTB' "$android_makefile"
-  require_fixed 'expected_dtb_hash="8b9121f25a78716ac1710536cea562967bd77ad0cf2df283ae25715808cff1cc"' \
+  require_fixed 'expected_dtb_hash="c820fe2b3dd5077875f655bd8694df9e799b47d0e17809c07aaa39740bea02b6"' \
     "$build_worker"
   require_fixed 'M3-DTB.txt' "$build_worker"
   require_fixed '--verify "$release_dtb"' "$build_worker"
@@ -509,7 +509,7 @@ validate_m1_boot_and_ownership() {
       python3 "$mback_dtb_tool" \
         --stock "$local_stock_dtb" --output "$mback_dtb" | \
         grep -F -x -q \
-          'mback_dtb_sha256=8b9121f25a78716ac1710536cea562967bd77ad0cf2df283ae25715808cff1cc'
+          'release_dtb_sha256=c820fe2b3dd5077875f655bd8694df9e799b47d0e17809c07aaa39740bea02b6'
       python3 "$mback_dtb_tool" \
         --stock "$local_stock_dtb" --verify "$mback_dtb" >/dev/null
     ); then
@@ -729,9 +729,11 @@ validate_m3_storage_usb_input() {
   require_fixed 'SPI_PATH = "/spi@14d70000"' "$mback_dtb_tool"
   require_fixed 'FPC_PATH = SPI_PATH + "/securefpc_spidev@0"' \
     "$mback_dtb_tool"
+  require_fixed 'UNUSED_SENSOR_PATHS = (' "$mback_dtb_tool"
   require_fixed 'struct.pack_into(">I", output, nop_offset, FDT_NOP)' \
     "$mback_dtb_tool"
-  require_fixed 'changed_bytes != 4' "$mback_dtb_tool"
+  require_fixed 'expected_changed_bytes = 8 + (0 if args.preserve_secure_mode else 4)' \
+    "$mback_dtb_tool"
   require_fixed 'output_properties.get(FPC_PATH) != stock_properties.get(FPC_PATH)' \
     "$mback_dtb_tool"
   require_fixed 'encryptable=/cache/metadata' \
@@ -872,7 +874,8 @@ validate_m3_storage_usb_input() {
   require_fixed 'expected_kernel_config=cm_pro5_fingerprint_experiment_defconfig' \
     "$build_worker"
   require_fixed 'expected_fpc_backend=tee' "$build_worker"
-  require_fixed 'fingerprint_dtb=stock-secure-mode' "$build_worker"
+  require_fixed 'fingerprint_dtb=derived-secure-mode-unused-sensors-disabled' \
+    "$build_worker"
   require_fixed '# CONFIG_SECURE_OS_BOOSTER_API is not set' "$build_worker"
   require_fixed 'audit-fingerprint-output.sh" "$product_out" experiment' \
     "$build_worker"
