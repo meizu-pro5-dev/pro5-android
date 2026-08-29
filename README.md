@@ -67,12 +67,12 @@ m bacon
 
 ## Current scope
 
-The Android 13 checkpoint builds the native Exynos7420 Camera3 modules,
-`bootimage` and `systemimage`. Camera migration is deliberately limited to the
-completed 74xx implementation; the SLSI 34xx camera tree is unchanged from its
-Android 13 Exynos7420 base. A full `bacon` build still requires the locally
-staged, hash-locked stock Flyme `device/meizu/m86/prebuilt/dtb.img`; device
-runtime validation remains pending.
+The Android 13 checkpoint completes a full `bacon` build, including the native
+Exynos7420 Camera3 modules, boot/recovery/system images and the non-A/B OTA.
+Camera migration is deliberately limited to the completed 74xx implementation;
+the SLSI 34xx camera tree is unchanged from its Android 13 Exynos7420 base. The
+OTA packages the locally staged, hash-locked stock Flyme DTB for the dedicated
+`dtb` partition. Device runtime validation remains pending.
 A property-gated no-BPF patch queue is included to unblock the first boot on
 the 3.10 kernel, but networking remains unqualified and may lack accounting or
 policy enforcement. The coherent eBPF/cgroup backport used by the other

@@ -92,15 +92,16 @@ Exact repository and tree IDs are recorded in
 
 ## Build checkpoint
 
-The current source checkpoint successfully builds `libexynoscamera3_m86`,
-`camera.m86`, `bootimage`, the temporary no-BPF `init`/`netd`/Connectivity/
-NetworkStack targets, the m86 power service, the legacy Wi-Fi HAL service and
-`systemimage`. The resulting system image was produced from a clean Android 13
-dependency build after the arm64 WebView LFS object was populated.
+The current source checkpoint successfully completes a full `m bacon` build,
+including `libexynoscamera3_m86`, `camera.m86`, the temporary no-BPF
+`init`/`netd`/Connectivity/NetworkStack targets, the m86 power service, the
+legacy Wi-Fi HAL service, boot/recovery/system images, target-files and the
+non-A/B OTA package. The build was produced after populating the arm64 WebView
+LFS object and staging the deliberately untracked, hash-locked stock Flyme DTB.
 
-The first blocker in a full `bacon` build is the deliberately untracked,
-hash-locked stock input `device/meizu/m86/prebuilt/dtb.img`. Do not replace it
-with a kernel-generated DTB: the device tree currently specifies the stock
-Flyme DTB ABI. The build may expose further issues after that input is staged.
-On-device validation remains pending, including boot, RIL, Wi-Fi, mobile data,
-traffic accounting/policy, camera capture and recording.
+The packaged `dtb.img`, target-files `RADIO/dtb.img` and source input all match
+the locked Flyme SHA-256, and the generated updater script installs it to the
+dedicated m86 `dtb` partition. Do not replace it with a kernel-generated DTB:
+the device tree currently specifies the stock Flyme DTB ABI. On-device
+validation remains pending, including boot, RIL, Wi-Fi, mobile data, traffic
+accounting/policy, camera capture and recording.
