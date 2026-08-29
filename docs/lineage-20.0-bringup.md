@@ -101,14 +101,16 @@ legacy Wi-Fi HAL service, boot/recovery/system images, target-files and the
 non-A/B OTA package. The build was produced after populating the arm64 WebView
 LFS object and staging the deliberately untracked, hash-locked stock Flyme DTB.
 
-The packaged `dtb.img` and target-files `RADIO/dtb.img` are reproducibly
-derived from the locked Flyme input: the two unpopulated camera sensor nodes
-are disabled in place, while the selected fingerprint backend controls whether
-SPI4 secure-mode is retained. The generated updater script installs it to the
+The packaged `dtb.img`, target-files `RADIO/dtb.img` and source input all match
+the locked Flyme SHA-256, and the generated updater script installs it to the
 dedicated m86 `dtb` partition. Do not replace it with a kernel-generated DTB:
-the device tree currently specifies the stock Flyme DTB ABI. On-device
-validation remains pending, including boot, RIL, Wi-Fi, mobile data, traffic
-accounting/policy, camera capture and recording.
+the device tree currently specifies the stock Flyme DTB ABI. Disabling the
+apparently unpopulated FIMC-IS sensor2 and sensor3 nodes caused an immediate
+Meizu-logo reboot loop; flashing the byte-identical stock DTB with the same
+build restored Android boot. Keep both nodes enabled until the Exynos7420
+camera topology dependency is removed in source. On-device validation remains
+pending for RIL, Wi-Fi, mobile data, traffic accounting/policy, camera capture
+and recording.
 
 ## First runtime evidence
 

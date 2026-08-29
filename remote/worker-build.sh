@@ -729,7 +729,7 @@ cp -a "$mback_policy_log" "$artifact_dir/M3-MBACK-POLICY-TEST.txt"
 kernel_out="$product_out/obj/KERNEL_OBJ"
 kernel_dtb="$kernel_out/arch/arm64/boot/dts/exynos7420-m86-codegen.dtb"
 release_dtb="$product_out/dtb.img"
-expected_dtb_hash="c820fe2b3dd5077875f655bd8694df9e799b47d0e17809c07aaa39740bea02b6"
+expected_dtb_hash="8b9121f25a78716ac1710536cea562967bd77ad0cf2df283ae25715808cff1cc"
 actual_dtb_hash="not-audited-for-$target"
 if ((!module_only_target)); then
   if [[ ! -s "$kernel_dtb" ]]; then
@@ -742,12 +742,13 @@ if ((!module_only_target)); then
   fi
   actual_dtb_hash="$(sha256sum "$release_dtb" | awk '{ print $1 }')"
   if ((fingerprint_enabled)); then
-    python3 "$source_root/device/meizu/m86/tools/build-mback-dtb.py" \
-      --stock "$source_root/device/meizu/m86/prebuilt/dtb.img" \
-      --preserve-secure-mode \
-      --verify "$release_dtb" | tee "$artifact_dir/M8-FP-DTB.txt"
-    printf 'fingerprint_dtb=derived-secure-mode-unused-sensors-disabled\n' \
-      | tee -a "$artifact_dir/M8-FP-DTB.txt"
+    if ! cmp --quiet "$release_dtb" \
+        "$source_root/device/meizu/m86/prebuilt/dtb.img"; then
+      printf 'Installed fingerprint experiment DTB differs from the stock secure-mode DTB.\n' >&2
+      exit 1
+    fi
+    printf 'fingerprint_dtb=stock-secure-mode\n' \
+      | tee "$artifact_dir/M8-FP-DTB.txt"
     for required_fp_kernel_setting in \
       '# CONFIG_FINGERPRINT_FPC_FPC1020_FAMILY is not set' \
       CONFIG_FINGERPRINT_FPC_TEE=y \
@@ -2148,14 +2149,10 @@ assert_m3_target_files() {
   fi
 
   if ((fingerprint_enabled)); then
-    if ! cmp --quiet "$packaged_dtb" "$release_dtb"; then
-      printf 'Packaged fingerprint DTB differs from the verified release DTB.\n' >&2
+    if ! cmp --quiet "$packaged_dtb" "$source_stock_dtb"; then
+      printf 'Packaged fingerprint DTB differs from the stock secure-mode DTB.\n' >&2
       exit 1
     fi
-    python3 "$source_mback_dtb_tool" \
-      --stock "$source_stock_dtb" \
-      --preserve-secure-mode \
-      --verify "$packaged_dtb" >> "$artifact_dir/M8-FP-DTB.txt"
   else
     if ! cmp --quiet "$packaged_dtb" "$release_dtb"; then
       printf 'Packaged M3 DTB differs from the verified mBack DTB.\n' >&2
