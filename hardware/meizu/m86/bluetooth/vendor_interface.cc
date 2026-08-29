@@ -47,6 +47,7 @@ struct {
 bool lpm_wake_deasserted;
 uint32_t lpm_timeout_ms;
 bool recent_activity_flag;
+bool sco_configuration_pending;
 
 VendorInterface* g_vendor_interface = nullptr;
 std::mutex wakeup_mutex_;
@@ -99,6 +100,7 @@ void firmware_config_cb(bt_vendor_op_result_t result) {
 
 void sco_config_cb(bt_vendor_op_result_t result) {
   ALOGD("%s result: %d", __func__, result);
+  VendorInterface::get()->OnFirmwareConfigured(result);
 }
 
 void low_power_mode_cb(bt_vendor_op_result_t result) {
@@ -265,6 +267,7 @@ bool VendorInterface::Open(InitializeCompleteCallback initialize_complete_cb,
 
   // Initially, the power management is off.
   lpm_wake_deasserted = true;
+  sco_configuration_pending = false;
 
   // Start configuring the firmware
   firmware_startup_timer_ = new FirmwareStartupTimer();
@@ -330,20 +333,32 @@ size_t VendorInterface::Send(uint8_t type, const uint8_t* data, size_t length) {
 void VendorInterface::OnFirmwareConfigured(uint8_t result) {
   ALOGD("%s result: %d", __func__, result);
 
+  // Keep the controller in vendor-initialization ownership until the SCO
+  // routing command has completed. Android 13's Bluetooth stack starts GD HCI
+  // reset immediately after initialize_complete_cb_; issuing 0xfc6d after
+  // that callback races the reset and can abort controller bring-up.
+  if (result == BT_VND_OP_RESULT_SUCCESS && !sco_configuration_pending) {
+    sco_configuration_pending = true;
+    lib_interface_->op(BT_VND_OP_SCO_CFG, nullptr);
+    return;
+  }
+  const bool initialize_success =
+      result == BT_VND_OP_RESULT_SUCCESS || sco_configuration_pending;
+  if (sco_configuration_pending && result != BT_VND_OP_RESULT_SUCCESS) {
+    ALOGW("%s: SCO routing configuration failed; continuing HCI bring-up",
+          __func__);
+  }
+  sco_configuration_pending = false;
+
   if (firmware_startup_timer_ != nullptr) {
     delete firmware_startup_timer_;
     firmware_startup_timer_ = nullptr;
   }
 
   if (initialize_complete_cb_ != nullptr) {
-    initialize_complete_cb_(result == 0);
+    initialize_complete_cb_(initialize_success);
     initialize_complete_cb_ = nullptr;
   }
-
-  // Flyme's Broadcom interface requires SCO routing to be configured after
-  // the controller firmware is ready. Keep this device ABI quirk inside the
-  // m86 wrapper instead of modifying the platform HIDL implementation.
-  lib_interface_->op(BT_VND_OP_SCO_CFG, nullptr);
 
   lib_interface_->op(BT_VND_OP_GET_LPM_IDLE_TIMEOUT, &lpm_timeout_ms);
   ALOGI("%s: lpm_timeout_ms %d", __func__, lpm_timeout_ms);
