@@ -1,0 +1,185 @@
+From 71a900b9d7472871a53139d162dfdca104e250a9 Mon Sep 17 00:00:00 2001
+From: 404698-FDU <228693120+404698-FDU@users.noreply.github.com>
+Date: Sat, 29 Aug 2026 06:00:08 +0000
+Subject: [PATCH] Connectivity: tolerate missing BPF maps on legacy kernels
+
+Change-Id: I2789f6d96e9dc163fdd1d79e06f80e5ad1912e20
+---
+ .../libs/libnetworkstats/BpfNetworkStats.cpp  | 27 +++++----
+ .../server/net/NetworkStatsFactory.java       |  8 ++-
+ .../server/net/NetworkStatsService.java       | 58 +++++++++++--------
+ 3 files changed, 55 insertions(+), 38 deletions(-)
+
+diff --git a/service-t/native/libs/libnetworkstats/BpfNetworkStats.cpp b/service-t/native/libs/libnetworkstats/BpfNetworkStats.cpp
+index 9ebef4d6d2..097bfca32e 100644
+--- a/service-t/native/libs/libnetworkstats/BpfNetworkStats.cpp
++++ b/service-t/native/libs/libnetworkstats/BpfNetworkStats.cpp
+@@ -100,18 +100,23 @@ int bpfGetIfaceStatsInternal(const char* iface, Stats* stats,
+ }
+ 
+ int bpfGetIfaceStats(const char* iface, Stats* stats) {
+-    BpfMapRO<uint32_t, StatsValue> ifaceStatsMap(IFACE_STATS_MAP_PATH);
+-    int ret;
+-    if (!ifaceStatsMap.isValid()) {
+-        ret = -errno;
+-        ALOGE("get ifaceStats map fd failed: %s", strerror(errno));
+-        return ret;
++    // Legacy kernels may deliberately run without eBPF. Use the fallible map
++    // initializer instead of the pathname constructor, which aborts when the
++    // pinned map is absent. Legacy-kernel mode selects xt_qtaguid in the
++    // NetworkStats factory, while direct TrafficStats calls fail gracefully.
++    BpfMapRO<uint32_t, StatsValue> ifaceStatsMap;
++    const auto ifaceStatsResult = ifaceStatsMap.init(IFACE_STATS_MAP_PATH);
++    if (!ifaceStatsResult.ok()) {
++        const int error = ifaceStatsResult.error().code();
++        ALOGE("get ifaceStats map fd failed: %s", strerror(error));
++        return -error;
+     }
+-    BpfMapRO<uint32_t, IfaceValue> ifaceIndexNameMap(IFACE_INDEX_NAME_MAP_PATH);
+-    if (!ifaceIndexNameMap.isValid()) {
+-        ret = -errno;
+-        ALOGE("get ifaceIndexName map fd failed: %s", strerror(errno));
+-        return ret;
++    BpfMapRO<uint32_t, IfaceValue> ifaceIndexNameMap;
++    const auto ifaceNameResult = ifaceIndexNameMap.init(IFACE_INDEX_NAME_MAP_PATH);
++    if (!ifaceNameResult.ok()) {
++        const int error = ifaceNameResult.error().code();
++        ALOGE("get ifaceIndexName map fd failed: %s", strerror(error));
++        return -error;
+     }
+     return bpfGetIfaceStatsInternal(iface, stats, ifaceStatsMap, ifaceIndexNameMap);
+ }
+diff --git a/service-t/src/com/android/server/net/NetworkStatsFactory.java b/service-t/src/com/android/server/net/NetworkStatsFactory.java
+index 3b93f1a190..59a73487b7 100644
+--- a/service-t/src/com/android/server/net/NetworkStatsFactory.java
++++ b/service-t/src/com/android/server/net/NetworkStatsFactory.java
+@@ -30,6 +30,7 @@ import android.net.UnderlyingNetworkInfo;
+ import android.os.ServiceSpecificException;
+ import android.os.StrictMode;
+ import android.os.SystemClock;
++import android.os.SystemProperties;
+ 
+ import com.android.internal.annotations.GuardedBy;
+ import com.android.internal.annotations.VisibleForTesting;
+@@ -75,6 +76,7 @@ public class NetworkStatsFactory {
+ 
+     private final Context mContext;
+ 
++    @Nullable
+     private final BpfNetMaps mBpfNetMaps;
+ 
+     /**
+@@ -164,7 +166,8 @@ public class NetworkStatsFactory {
+     }
+ 
+     public NetworkStatsFactory(@NonNull Context ctx) {
+-        this(ctx, new File("/proc/"), true);
++        this(ctx, new File("/proc/"),
++                SystemProperties.getBoolean("ro.kernel.ebpf.supported", true));
+     }
+ 
+     @VisibleForTesting
+@@ -173,7 +176,7 @@ public class NetworkStatsFactory {
+         mStatsXtIfaceFmt = new File(procRoot, "net/xt_qtaguid/iface_stat_fmt");
+         mStatsXtUid = new File(procRoot, "net/xt_qtaguid/stats");
+         mUseBpfStats = useBpfStats;
+-        mBpfNetMaps = new BpfNetMaps();
++        mBpfNetMaps = useBpfStats ? new BpfNetMaps() : null;
+         synchronized (mPersistentDataLock) {
+             mPersistSnapshot = new NetworkStats(SystemClock.elapsedRealtime(), -1);
+             mTunAnd464xlatAdjustedStats = new NetworkStats(SystemClock.elapsedRealtime(), -1);
+@@ -302,6 +305,7 @@ public class NetworkStatsFactory {
+ 
+     @GuardedBy("mPersistentDataLock")
+     private void requestSwapActiveStatsMapLocked() throws IOException {
++        if (mBpfNetMaps == null) return;
+         try {
+             // Do a active map stats swap. Once the swap completes, this code
+             // can read and clean the inactive map without races.
+diff --git a/service-t/src/com/android/server/net/NetworkStatsService.java b/service-t/src/com/android/server/net/NetworkStatsService.java
+index 4f0f3411a5..b566fefe0b 100644
+--- a/service-t/src/com/android/server/net/NetworkStatsService.java
++++ b/service-t/src/com/android/server/net/NetworkStatsService.java
+@@ -2401,6 +2401,7 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
+ 
+     private <K extends StatsMapKey, V extends StatsMapValue> void deleteStatsMapTagData(
+             IBpfMap<K, V> statsMap, int uid) {
++        if (statsMap == null) return;
+         try {
+             statsMap.forEach((key, value) -> {
+                 if (key.uid == uid) {
+@@ -2421,39 +2422,46 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
+      * @param uid
+      */
+     private void deleteKernelTagData(int uid) {
+-        try {
+-            mCookieTagMap.forEach((key, value) -> {
+-                // If SkDestroyListener deletes the socket tag while this code is running,
+-                // forEach will either restart iteration from the beginning or return null,
+-                // depending on when the deletion happens.
+-                // If it returns null, continue iteration to delete the data and in fact it would
+-                // just iterate from first key because BpfMap#getNextKey would return first key
+-                // if the current key is not exist.
+-                if (value != null && value.uid == uid) {
+-                    try {
+-                        mCookieTagMap.deleteEntry(key);
+-                    } catch (ErrnoException e) {
+-                        logErrorIfNotErrNoent(e, "Failed to delete data(cookie = " + key + ")");
++        if (mCookieTagMap != null) {
++            try {
++                mCookieTagMap.forEach((key, value) -> {
++                    // If SkDestroyListener deletes the socket tag while this code is running,
++                    // forEach will either restart iteration from the beginning or return null,
++                    // depending on when the deletion happens.
++                    // If it returns null, continue iteration to delete the data and in fact it
++                    // would just iterate from first key because BpfMap#getNextKey would return
++                    // first key if the current key is not exist.
++                    if (value != null && value.uid == uid) {
++                        try {
++                            mCookieTagMap.deleteEntry(key);
++                        } catch (ErrnoException e) {
++                            logErrorIfNotErrNoent(e,
++                                    "Failed to delete data(cookie = " + key + ")");
++                        }
+                     }
+-                }
+-            });
+-        } catch (ErrnoException e) {
+-            Log.e(TAG, "Failed to delete tag data from cookie tag map", e);
++                });
++            } catch (ErrnoException e) {
++                Log.e(TAG, "Failed to delete tag data from cookie tag map", e);
++            }
+         }
+ 
+         deleteStatsMapTagData(mStatsMapA, uid);
+         deleteStatsMapTagData(mStatsMapB, uid);
+ 
+-        try {
+-            mUidCounterSetMap.deleteEntry(new U32(uid));
+-        } catch (ErrnoException e) {
+-            logErrorIfNotErrNoent(e, "Failed to delete tag data from uid counter set map");
++        if (mUidCounterSetMap != null) {
++            try {
++                mUidCounterSetMap.deleteEntry(new U32(uid));
++            } catch (ErrnoException e) {
++                logErrorIfNotErrNoent(e, "Failed to delete tag data from uid counter set map");
++            }
+         }
+ 
+-        try {
+-            mAppUidStatsMap.deleteEntry(new UidStatsMapKey(uid));
+-        } catch (ErrnoException e) {
+-            logErrorIfNotErrNoent(e, "Failed to delete tag data from app uid stats map");
++        if (mAppUidStatsMap != null) {
++            try {
++                mAppUidStatsMap.deleteEntry(new UidStatsMapKey(uid));
++            } catch (ErrnoException e) {
++                logErrorIfNotErrNoent(e, "Failed to delete tag data from app uid stats map");
++            }
+         }
+     }
+ 
+-- 
+2.34.1
+

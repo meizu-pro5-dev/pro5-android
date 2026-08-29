@@ -1,0 +1,37 @@
+From 0617427dccf5a6287dd715e1b566654ff8264cee Mon Sep 17 00:00:00 2001
+From: 404698-FDU <228693120+404698-FDU@users.noreply.github.com>
+Date: Sat, 29 Aug 2026 06:00:08 +0000
+Subject: [PATCH] NetworkStack: use netd observer on legacy kernels
+
+Change-Id: I1c056a69f0ab5c1f1be609fb70503c02defc90a2
+---
+ src/android/net/ip/IpClientLinkObserver.java | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/src/android/net/ip/IpClientLinkObserver.java b/src/android/net/ip/IpClientLinkObserver.java
+index bebe7c91..6aa894d3 100644
+--- a/src/android/net/ip/IpClientLinkObserver.java
++++ b/src/android/net/ip/IpClientLinkObserver.java
+@@ -39,6 +39,7 @@ import android.net.LinkProperties;
+ import android.net.RouteInfo;
+ import android.net.util.SharedLog;
+ import android.os.Handler;
++import android.os.SystemProperties;
+ import android.system.OsConstants;
+ import android.util.Log;
+ 
+@@ -215,6 +216,11 @@ public class IpClientLinkObserver implements NetworkObserver {
+     }
+ 
+     private boolean isNetlinkEventParsingEnabled() {
++        // The Android 13 parser assumes newer kernel netlink behaviour. Keep
++        // using netd callbacks on explicitly declared legacy no-BPF kernels.
++        if (!SystemProperties.getBoolean("ro.kernel.ebpf.supported", true)) {
++            return false;
++        }
+         return mDependencies.isFeatureEnabled(mContext, IPCLIENT_PARSE_NETLINK_EVENTS_VERSION,
+                 isAtLeastT() /* default value */);
+     }
+-- 
+2.34.1
+

@@ -28,12 +28,35 @@ directly from the pinned Samsung SLSI repositories.
 
 The Android 12 `system/bpf` compatibility patch is retained only as a build
 checkpoint. It does not make the 3.10 kernel satisfy Android 13 networking.
+
+For the first Android 13 boot, the patch queue now provides an explicit
+temporary no-BPF mode selected by the device property
+`ro.kernel.ebpf.supported=false`. The mode:
+
+- lets init continue when the 3.10 cgroup layout cannot create an Android 13
+  process group;
+- lets netd continue without a cgroup v2 root, BPF handler initialization or
+  bandwidth-controller initialization;
+- makes NetworkStats tolerate missing pinned BPF maps and retain its legacy
+  `xt_qtaguid` fallback;
+- keeps IpClient on netd callbacks instead of the Android 13 direct-netlink
+  parser.
+
+The changes are narrowly property-gated: devices that do not explicitly set
+the property to false retain the upstream fail-closed paths. They were adapted
+from the `8890q/patches` LineageOS 20 no-BPF pattern, with the map-result checks
+corrected and the m86-specific missing-cgroup-v2 failure covered. This is a
+boot-enablement path, not a networking qualification. Per-UID traffic
+accounting, Data Saver/firewall enforcement and tethering/offload may be
+incomplete until they are tested on hardware.
+
 The reference Exynos7420 LineageOS 20 kernel uses a coherent eBPF/cgroup
 backport, enables `CONFIG_BPF`, `CONFIG_BPF_SYSCALL`, `CONFIG_CGROUP_BPF`,
 `CONFIG_NET_CLS_BPF`, `CONFIG_NET_ACT_BPF` and `CONFIG_BPF_JIT`, and reports a
 newer kernel version to `bpfloader`. The m86 kernel does not yet contain that
-stack. Runtime networking must therefore remain an explicit bring-up blocker;
-do not restore the old `system/netd` qtaguid bypass as the final solution.
+stack. Runtime networking therefore remains an explicit bring-up blocker. Once
+the kernel backport is implemented, remove the false property and retire this
+temporary no-BPF queue; it must not become the final networking architecture.
 
 Reference branch:
 `samsungexynos7420/android_kernel_samsung_universal7420`,
@@ -58,14 +81,26 @@ itself.
 3. Run `tools/install-lineage-20.0-hardware.sh` with the Android source root.
 4. Run `tools/apply-lineage-20.0-patches.sh` with the same root.
 5. Populate proprietary files from a legally obtained stock Flyme image.
-6. Select `lineage_m86-userdebug` and build.
+6. Ensure the arm64 Chromium WebView Git LFS object is checked out; a pointer
+   file is not a valid input APK.
+7. Stage the stock Flyme DTB at `device/meizu/m86/prebuilt/dtb.img` and verify
+   it with the device repository's hash-locked prebuilt checks.
+8. Select `lineage_m86-userdebug` and build.
 
 Exact repository and tree IDs are recorded in
 `locks/lineage-20.0-revisions.tsv`.
 
 ## Build checkpoint
 
-The initial source checkpoint successfully builds `libexynoscamera3_m86`,
-`camera.m86` and `bootimage`. A full `bacon` build and on-device validation
-remain pending, including boot, RIL, Wi-Fi, mobile data, camera capture and
-recording.
+The current source checkpoint successfully builds `libexynoscamera3_m86`,
+`camera.m86`, `bootimage`, the temporary no-BPF `init`/`netd`/Connectivity/
+NetworkStack targets, the m86 power service, the legacy Wi-Fi HAL service and
+`systemimage`. The resulting system image was produced from a clean Android 13
+dependency build after the arm64 WebView LFS object was populated.
+
+The first blocker in a full `bacon` build is the deliberately untracked,
+hash-locked stock input `device/meizu/m86/prebuilt/dtb.img`. Do not replace it
+with a kernel-generated DTB: the device tree currently specifies the stock
+Flyme DTB ABI. The build may expose further issues after that input is staged.
+On-device validation remains pending, including boot, RIL, Wi-Fi, mobile data,
+traffic accounting/policy, camera capture and recording.

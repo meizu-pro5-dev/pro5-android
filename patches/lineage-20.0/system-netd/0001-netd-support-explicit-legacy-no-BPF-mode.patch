@@ -1,0 +1,86 @@
+From e5fcdbcb8a47f18fa7f8a0a4fb43fc23f8e404e3 Mon Sep 17 00:00:00 2001
+From: 404698-FDU <228693120+404698-FDU@users.noreply.github.com>
+Date: Sat, 29 Aug 2026 06:00:08 +0000
+Subject: [PATCH] netd: support explicit legacy no-BPF mode
+
+Change-Id: I47b0824b6782506d4a5d76b405c45044b2231260
+---
+ server/Controllers.cpp |  9 +++++++--
+ server/main.cpp        | 15 +++++++++++----
+ 2 files changed, 18 insertions(+), 6 deletions(-)
+
+diff --git a/server/Controllers.cpp b/server/Controllers.cpp
+index 00ee186d..cab5d8ea 100644
+--- a/server/Controllers.cpp
++++ b/server/Controllers.cpp
+@@ -19,6 +19,7 @@
+ #include <set>
+ #include <string>
+ 
++#include <android-base/properties.h>
+ #include <android-base/stringprintf.h>
+ #include <android-base/strings.h>
+ #include <netdutils/Stopwatch.h>
+@@ -284,9 +285,13 @@ void Controllers::init() {
+         // As such simply exit netd.  This may crash loop the system, but by failing
+         // to bootup we will trigger rollback and thus this offers us protection against
+         // a mainline update breaking things.
+-        exit(1);
++        if (android::base::GetBoolProperty("ro.kernel.ebpf.supported", true)) {
++            exit(1);
++        }
++        gLog.warn("Continuing without bandwidth control in explicit no-BPF mode");
++    } else {
++        gLog.info("Enabling bandwidth control: %" PRId64 "us", s.getTimeAndResetUs());
+     }
+-    gLog.info("Enabling bandwidth control: %" PRId64 "us", s.getTimeAndResetUs());
+ 
+     if (int ret = RouteController::Init(NetworkController::LOCAL_NET_ID)) {
+         gLog.error("Failed to initialize RouteController (%s)", strerror(-ret));
+diff --git a/server/main.cpp b/server/main.cpp
+index 0e81d4e5..0e0d6936 100644
+--- a/server/main.cpp
++++ b/server/main.cpp
+@@ -32,6 +32,7 @@
+ 
+ #include "log/log.h"
+ 
++#include <android-base/properties.h>
+ #include <binder/IPCThreadState.h>
+ #include <binder/IServiceManager.h>
+ #include <netdutils/Stopwatch.h>
+@@ -111,6 +112,8 @@ bool initDnsResolver() {
+ int main() {
+     Stopwatch s;
+     gLog.info("netd 1.0 starting");
++    const bool legacyNoBpf =
++            !android::base::GetBoolProperty("ro.kernel.ebpf.supported", true);
+ 
+     android::net::process::removePidFile(PID_FILE_PATH);
+     gLog.info("Pid file removed");
+@@ -129,14 +132,18 @@ int main() {
+     std::string cg2_path;
+     if (!CgroupGetControllerPath(CGROUPV2_CONTROLLER_NAME, &cg2_path)) {
+         ALOGE("Failed to find cgroup v2 root %s", strerror(errno));
+-        exit(1);
++        if (!legacyNoBpf) exit(1);
++        ALOGW("Continuing without cgroup v2 in explicit no-BPF mode");
+     }
+ 
+-    if (libnetd_updatable_init(cg2_path.c_str())) {
++    const int bpfInitResult = libnetd_updatable_init(cg2_path.c_str());
++    if (bpfInitResult) {
+         ALOGE("libnetd_updatable_init failed");
+-        exit(1);
++        if (!legacyNoBpf) exit(1);
++        ALOGW("Continuing without libnetd BPF initialization in explicit no-BPF mode");
++    } else {
++        gLog.info("libnetd_updatable_init success");
+     }
+-    gLog.info("libnetd_updatable_init success");
+ 
+     NetlinkManager *nm = NetlinkManager::Instance();
+     if (nm == nullptr) {
+-- 
+2.34.1
+
