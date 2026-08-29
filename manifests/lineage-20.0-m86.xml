@@ -12,12 +12,12 @@
       path="device/meizu/m86"
       name="android_device_meizu_m86"
       remote="pro5-dev"
-      revision="lineage-20.0-hardware-fixes" />
+      revision="lineage-20.0" />
   <project
       path="kernel/meizu/m86"
       name="android_kernel_meizu_m86"
       remote="pro5-dev"
-      revision="lineage-20.0-hardware-fixes" />
+      revision="lineage-20.0" />
   <project
       path="vendor/meizu/m86"
       name="android_vendor_meizu_m86"
@@ -27,7 +27,7 @@
       path="hardware/samsung_slsi-linaro/exynos"
       name="android_hardware_samsung_slsi-linaro_exynos"
       remote="pro5-dev"
-      revision="lineage-20.0-hardware-fixes" />
+      revision="lineage-20.0" />
 
   <!-- m86 Camera3 changes live in Exynos74xx; libcamera/34xx stays upstream. -->
 
