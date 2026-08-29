@@ -1,4 +1,5 @@
 # repository	base revision	validated revision	patch
+frameworks/native	915ad642e331e0f8ea107b5f5519f2c6f1e7e01c	4a999f2b182bade2b3aafe8b5ad77f6c4afd4382	patches/lineage-20.0/frameworks-native/0001-gpuservice-skip-accounting-in-legacy-no-BPF-mode.patch
 frameworks/av	9309f12a7c62e505cf74435f8235684a0e0db4db	807387494023151f9543578e49cdd9981475aa2a	patches/lineage-20.0/frameworks-av/0001-m86-checkpoint-validated-Android-12-baseline.patch
 frameworks/av	9309f12a7c62e505cf74435f8235684a0e0db4db	807387494023151f9543578e49cdd9981475aa2a	patches/lineage-20.0/frameworks-av/0002-Camera-preserve-recording-stream-setup-errors.patch
 hardware/interfaces	2f83e1bda9536aaf406352c868a8192cc3526a69	2d825cf62e7cb538a8219ac2d6840a155cd5b1c2	patches/lineage-20.0/hardware-interfaces/0001-m86-checkpoint-validated-Android-12-baseline.patch

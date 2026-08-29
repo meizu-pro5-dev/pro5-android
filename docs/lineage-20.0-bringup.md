@@ -37,6 +37,8 @@ temporary no-BPF mode selected by the device property
   process group;
 - lets netd continue without a cgroup v2 root, BPF handler initialization or
   bandwidth-controller initialization;
+- keeps gpuservice alive while disabling only its GPU memory/work BPF
+  accounting collectors;
 - makes NetworkStats tolerate missing pinned BPF maps and retain its legacy
   `xt_qtaguid` fallback;
 - keeps IpClient on netd callbacks instead of the Android 13 direct-netlink
@@ -105,3 +107,20 @@ dedicated m86 `dtb` partition. Do not replace it with a kernel-generated DTB:
 the device tree currently specifies the stock Flyme DTB ABI. On-device
 validation remains pending, including boot, RIL, Wi-Fi, mobile data, traffic
 accounting/policy, camera capture and recording.
+
+## First runtime evidence
+
+The first Android 13 device log and tombstone bundle reached zygote,
+SurfaceFlinger and `system_server`, then blocked in `StartAudioService` waiting
+for `media.audio_policy`. The generic Android 13 audio service aborted before
+HAL registration with `Binder threadpool cannot be shrunk after starting`:
+it started the legacy vndbinder pool and then attempted to reduce the same
+libbinder process pool through libbinder_ndk. The m86 product now owns the
+proven Exynos7420 HIDL-only audio service boundary and does not link
+libbinder_ndk.
+
+The same evidence showed gpuservice aborting in the pinned `GpuWork` map
+constructor after the 3.10 kernel returned `ENOSYS` for syscall 280 (`bpf`).
+The property-gated no-BPF queue now skips the two GPU accounting collectors;
+this preserves the GPU binder service but intentionally leaves those optional
+statistics unavailable until the kernel eBPF backport is completed.
