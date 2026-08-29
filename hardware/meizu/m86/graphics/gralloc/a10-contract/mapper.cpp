@@ -429,7 +429,7 @@ int gralloc_unlock(gralloc_module_t const* module,
     return 0;
 }
 
-int gralloc_lock_ycbcr(gralloc_module_t const* module __unused,
+int gralloc_lock_ycbcr(gralloc_module_t const* module,
                         buffer_handle_t handle, int usage,
                         int l __unused, int t __unused, int w __unused, int h __unused,
                         android_ycbcr *ycbcr)
@@ -444,6 +444,17 @@ int gralloc_lock_ycbcr(gralloc_module_t const* module __unused,
 
     private_handle_t* hnd = (private_handle_t*)handle;
 
+    if (!hnd->base &&
+            !(hnd->flags & (GRALLOC_USAGE_PROTECTED | GRALLOC_USAGE_NOZEROED))) {
+        int err = gralloc_map(module, hnd);
+        if (err != 0)
+            return err;
+    }
+    if (!hnd->base || hnd->base == (uint64_t)MAP_FAILED) {
+        ALOGE("gralloc_lock_ycbcr buffer is not CPU mapped");
+        return -EINVAL;
+    }
+
     // Calculate offsets to underlying YUV data
     size_t yStride;
     size_t cStride;
@@ -452,6 +463,29 @@ int gralloc_lock_ycbcr(gralloc_module_t const* module __unused,
     size_t vOffset;
     size_t cStep;
     switch (hnd->format) {
+    case HAL_PIXEL_FORMAT_EXYNOS_YCrCb_420_SP_M:
+    case HAL_PIXEL_FORMAT_EXYNOS_YCrCb_420_SP_M_FULL:
+        if (!hnd->base1 || hnd->base1 == (uint64_t)MAP_FAILED) {
+            ALOGE("gralloc_lock_ycbcr chroma buffer is not CPU mapped");
+            return -EINVAL;
+        }
+        yStride = cStride = hnd->stride;
+        ycbcr->y = INT_TO_PTR(hnd->base);
+        ycbcr->cr = INT_TO_PTR(hnd->base1);
+        ycbcr->cb = INT_TO_PTR((hnd->base1 + 1));
+        cStep = 2;
+        break;
+    case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SP_M:
+        if (!hnd->base1 || hnd->base1 == (uint64_t)MAP_FAILED) {
+            ALOGE("gralloc_lock_ycbcr chroma buffer is not CPU mapped");
+            return -EINVAL;
+        }
+        yStride = cStride = hnd->stride;
+        ycbcr->y = INT_TO_PTR(hnd->base);
+        ycbcr->cb = INT_TO_PTR(hnd->base1);
+        ycbcr->cr = INT_TO_PTR((hnd->base1 + 1));
+        cStep = 2;
+        break;
     case HAL_PIXEL_FORMAT_YCrCb_420_SP:
         yStride = cStride = hnd->width;
         yOffset = 0;
