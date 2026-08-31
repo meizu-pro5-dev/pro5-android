@@ -107,22 +107,18 @@ explicitly excluded.
 
 ### Camera boundary
 
-The final Flyme 8 32-bit `camera.m86.so` and `libexynoscamera.so` are locked
-to SHA-256 `f04fd70069e88822bca2c8c8650f0d823c3da4f4c573ae8b0f170775c830d250`
-and `f82f5fead94fe3c187da0bcf5aa6ce121c3ff3922e78568bd49eedcc7110f15f`.
-Android 10's 32-bit Camera Provider 2.4 loads `camera.m86` directly; the Galaxy
-`camera.exynos5` wrapper and its sensor policy are not inherited.
+The product has one camera implementation: the source-built 32-bit
+`camera.m86` module linked to `libexynoscamera3_m86`. The Flyme HAL1 engine,
+the universal7420 donor stack, their ABI bridges and their conditional vendor
+copy rules are not part of the product. Stock camera firmware, sensor setfiles
+and audited Meizu image-processing dependencies remain proprietary inputs.
 
-Static symbol comparison reduces the compatibility delta to the legacy
-`Fence` D1 entry point, `androidGetTid`, the inert Meizu `set_value` hook, and
-two vendor CameraParameters strings (`point-blue` and `nv21`). The source-built
-`libm86camera_shim` defines only those five symbols. It also has an explicit
-`libsensor` dependency because SensorManager moved out of `libgui` after the
-blob's Android generation; the imported method signatures remain identical.
-Camera, front-camera, autofocus, and flash declarations reflect physical m86
-hardware, but FULL/RAW capability is deliberately withheld. Runtime acceptance
-still requires provider enumeration, preview, both sensors, still capture,
-recording, autofocus, flash/torch, rotation, suspend/resume, and repeated open.
+The output audit requires both installed modules to be ELF32, verifies that
+`camera.m86` exports `HMI` and links `libexynoscamera3_m86.so`, rejects retired
+HAL1/donor/shim dependencies, and compares installed files with their
+source-built intermediates. Runtime acceptance still requires provider
+enumeration, preview, both sensors, still capture, recording, autofocus,
+flash/torch, rotation, suspend/resume and repeated open.
 
 ## Milestone policy
 

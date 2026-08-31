@@ -1360,7 +1360,8 @@ validate_m7_media_camera() {
     "$project_root/hardware/meizu/m86/media/product.mk"
   require_fixed 'libOMX.Exynos.VP9.Decoder' \
     "$project_root/hardware/meizu/m86/media/product.mk"
-  require_fixed 'libm86camera_shim' "$device_makefile"
+  require_absent 'libm86camera_shim' "$device_makefile"
+  require_fixed 'libexynoscamera3_m86' "$device_makefile"
   require_fixed 'compile_multilib: "32"' "$device_root/camera/Android.bp"
   require_fixed 'audit-camera-abi.sh' "$build_worker"
 }

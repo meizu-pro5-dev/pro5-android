@@ -20,6 +20,7 @@ fingerprint_ta="$system_out/app/mcRegistry/04010000000000000000000000000000.tlbi
 fingerprint_service="$vendor_out/bin/hw/android.hardware.biometrics.fingerprint@2.1-service"
 fingerprint_rc="$vendor_out/etc/init/android.hardware.biometrics.fingerprint@2.1-service.rc"
 vendor_manifest="$vendor_out/etc/vintf/manifest.xml"
+fingerprint_manifest="$vendor_out/etc/vintf/manifest/android.hardware.biometrics.fingerprint@2.1-service.xml"
 fingerprint_permission="$vendor_out/etc/permissions/android.hardware.fingerprint.xml"
 shadow_fingerprint_hal="$vendor_out/lib64/hw/fingerprint.m86.so"
 gatekeeper_hal32="$system_out/lib/hw/gatekeeper.m86.so"
@@ -41,6 +42,7 @@ case "$mode" in
       "$fingerprint_ta" \
       "$fingerprint_service" \
       "$fingerprint_rc" \
+      "$fingerprint_manifest" \
       "$fingerprint_permission" \
       "$shadow_fingerprint_hal" \
       "$gatekeeper_hal32" \
@@ -99,6 +101,7 @@ for required_output in \
   "$fingerprint_service" \
   "$fingerprint_rc" \
   "$vendor_manifest" \
+  "$fingerprint_manifest" \
   "$fingerprint_permission" \
   "$gatekeeper_hal32" \
   "$gatekeeper_hal64" \
@@ -175,8 +178,8 @@ for manifest_contract in \
   '<version>2.1</version>' \
   '<name>IBiometricsFingerprint</name>' \
   '<instance>default</instance>'; do
-  if ! grep -F -q "$manifest_contract" "$vendor_manifest"; then
-    printf 'Vendor manifest omits fingerprint contract: %s\n' \
+  if ! grep -F -q "$manifest_contract" "$fingerprint_manifest"; then
+    printf 'Fingerprint manifest fragment omits contract: %s\n' \
       "$manifest_contract" >&2
     exit 1
   fi

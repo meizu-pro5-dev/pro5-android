@@ -28,6 +28,7 @@ hash_lock="$remote_root/logs/m86-proprietary-sha256s.txt"
 for required in \
   "$source_root/vendor/lineage/build/tools/extract_utils.sh" \
   "$stock_dump/PROPRIETARY_SHA256SUMS" \
+  "$stock_dump/PROPRIETARY_FILE_SIZES" \
   "$stock_source" \
   "$blob_list" \
   "$extract_script"; do

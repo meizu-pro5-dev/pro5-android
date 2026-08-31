@@ -2877,10 +2877,7 @@ if ((full_zip_target)); then
   } |
     tee "$artifact_dir/PROPRIETARY-OUTPUT.txt"
 
-  "$local_root/tools/audit-camera-abi.sh" \
-    "$source_root" \
-    "$out_root" \
-    "$product_out/system/lib/libm86camera_shim.so" |
+  "$local_root/tools/audit-camera-abi.sh" "$product_out" |
     tee "$artifact_dir/CAMERA-ABI.txt"
   if ((fingerprint_enabled)); then
     "$local_root/tools/audit-fingerprint-output.sh" "$product_out" experiment |

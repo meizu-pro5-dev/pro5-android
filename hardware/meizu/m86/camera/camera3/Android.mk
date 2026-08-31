@@ -1,8 +1,7 @@
 # Copyright (C) 2026 The LineageOS Project
 # SPDX-License-Identifier: Apache-2.0
 #
-# m86-owned Camera3 module. The product variable selects either the verified
-# legacy-engine wrapper or the native common_v2/libcamera3 engine.
+# m86-owned native common_v2/libcamera3 Camera3 module.
 
 LOCAL_PATH := $(call my-dir)
 
@@ -13,10 +12,6 @@ LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_MODULE_TAGS := optional
 LOCAL_MULTILIB := 32
 
-ifeq ($(M86_USE_PREBUILT_EXYNOS_HAL3),true)
-LOCAL_SRC_FILES := camera_m86_prebuilt3_wrapper.cpp
-LOCAL_PROPRIETARY_MODULE := true
-else ifeq ($(M86_USE_NATIVE_EXYNOS_HAL3),true)
 LOCAL_SRC_FILES := \
     camera_m86_native3_module.cpp \
     ExynosCamera3StreamRouterM86.cpp
@@ -28,9 +23,6 @@ LOCAL_C_INCLUDES += \
 LOCAL_CFLAGS += \
     -DM86_NATIVE_HAL3 \
     -DM86_NATIVE_HAL3_NO_VRA
-else
-LOCAL_SRC_FILES := camera_m86_module.cpp
-endif
 
 LOCAL_SHARED_LIBRARIES := \
     liblog \
@@ -43,22 +35,9 @@ LOCAL_SHARED_LIBRARIES := \
     libui \
     libsync
 
-ifeq ($(M86_USE_PREBUILT_EXYNOS_HAL3),true)
-LOCAL_SHARED_LIBRARIES += libm86camera3_bridge libbinder libdl
-else ifeq ($(M86_USE_NATIVE_EXYNOS_HAL3),true)
 LOCAL_SHARED_LIBRARIES += libexynoscamera3_m86 libbinder
-else ifeq ($(M86_STOCK_ENGINE),true)
-# Plan-3 experiment: link the HAL3 shell against the Flyme stock
-# libexynoscamera.so (recorded as DT_NEEDED libexynoscamera.so) instead of
-# the source-built engine. The device image already ships the stock engine.
-LOCAL_SHARED_LIBRARIES += libexynoscamera
-LOCAL_CFLAGS += -DM86_STOCK_ENGINE
-else
-LOCAL_SHARED_LIBRARIES += libexynoscamera_m86
-endif
 
 LOCAL_C_INCLUDES += \
-    $(LOCAL_PATH)/../libexynoscamera_m86 \
     $(TOP)/hardware/meizu/m86/graphics/gralloc/a10-contract \
     $(TOP)/hardware/samsung_slsi-linaro/exynos/libcamera/74xx \
     $(TOP)/hardware/samsung_slsi-linaro/exynos/libcamera/74xx/JpegEncoderForCamera \

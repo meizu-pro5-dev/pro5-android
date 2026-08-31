@@ -75,9 +75,8 @@ treated as a production release.
 ## Publication policy
 
 No proprietary library, stock firmware, device evidence, build output or
-flashable artifact is committed here. In particular,
-`hardware/meizu/m86/camera/libexynoscamera_stock/libexynoscamera.so` is a local
-input only and is explicitly ignored.
+flashable artifact is committed here. The product camera path is the
+source-built m86 native Exynos HAL3 implementation.
 
 See `LICENSING.md`, `NOTICE`, `CONTRIBUTING.md` and `SECURITY.md` before
 redistributing or contributing changes.
