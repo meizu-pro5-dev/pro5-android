@@ -26,7 +26,7 @@
       path="hardware/samsung_slsi-linaro/exynos"
       name="android_hardware_samsung_slsi-linaro_exynos"
       remote="pro5-dev"
-      revision="37ed79080c8a01e71598cca7aa24832694c295bf" />
+      revision="75ad09dab0af3a256d007713ec04261b767a0e76" />
 
   <project
       path="device/samsung/universal7420-common"
