@@ -11,12 +11,12 @@
       path="device/meizu/m86"
       name="android_device_meizu_m86"
       remote="pro5-dev"
-      revision="23b3ec1e2a893214c5028c131a9000c1c4282ad9" />
+      revision="8db841f2239cccb3f3659ed9b1c6bf681369cbef" />
   <project
       path="kernel/meizu/m86"
       name="android_kernel_meizu_m86"
       remote="pro5-dev"
-      revision="5332b19802bf39b4f8a3675173e234ab317c650b" />
+      revision="8fbef6bf936fe99a5596cb66a98bc5bf4e86124f" />
   <project
       path="vendor/meizu/m86"
       name="android_vendor_meizu_m86"
