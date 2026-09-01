@@ -11,7 +11,7 @@
       path="device/meizu/m86"
       name="android_device_meizu_m86"
       remote="pro5-dev"
-      revision="beb90886890e48f4d9d56befa9a08e4e2736df81" />
+      revision="3fa9205369a46d01bc824b96b731ac0552c529fb" />
   <project
       path="kernel/meizu/m86"
       name="android_kernel_meizu_m86"
@@ -21,7 +21,7 @@
       path="vendor/meizu/m86"
       name="android_vendor_meizu_m86"
       remote="pro5-dev"
-      revision="c0cfce12051df252131d8dddc9f1e3589a8bd45e" />
+      revision="18a07ba50c8b1616f585b553f7241fd8b33c2f33" />
   <project
       path="hardware/samsung_slsi-linaro/exynos"
       name="android_hardware_samsung_slsi-linaro_exynos"
