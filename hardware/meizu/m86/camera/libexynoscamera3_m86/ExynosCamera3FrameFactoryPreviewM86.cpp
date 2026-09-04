@@ -386,37 +386,47 @@ status_t ExynosCamera3FrameFactoryPreviewM86::setStopFlag(void)
 status_t ExynosCamera3FrameFactoryPreviewM86::stopPipes(void)
 {
     status_t ret = NO_ERROR;
+    status_t firstError = NO_ERROR;
     ALOGI("M86_NATIVE3_FLUSH stop begin leader=PIPE_3AA");
 
     if (m_pipes[INDEX(PIPE_GSC)] != nullptr &&
         m_pipes[INDEX(PIPE_GSC)]->isThreadRunning()) {
         ret = stopThread(INDEX(PIPE_GSC));
         if (ret != NO_ERROR) {
-            return INVALID_OPERATION;
+            if (firstError == NO_ERROR)
+                firstError = ret;
         }
     }
     if (m_pipes[INDEX(PIPE_GSC_VIDEO)] != nullptr &&
         m_pipes[INDEX(PIPE_GSC_VIDEO)]->isThreadRunning()) {
         ret = stopThread(INDEX(PIPE_GSC_VIDEO));
         if (ret != NO_ERROR) {
-            return INVALID_OPERATION;
+            if (firstError == NO_ERROR)
+                firstError = ret;
         }
     }
     if (m_pipes[INDEX(PIPE_3AA)] != nullptr &&
         m_pipes[INDEX(PIPE_3AA)]->isThreadRunning()) {
         ret = m_pipes[INDEX(PIPE_3AA)]->stopThread();
         if (ret != NO_ERROR) {
-            return INVALID_OPERATION;
+            if (firstError == NO_ERROR)
+                firstError = ret;
         }
     }
     if (m_pipes[INDEX(PIPE_FLITE)] != nullptr) {
         ret = m_pipes[INDEX(PIPE_FLITE)]->sensorStream(false);
         if (ret != NO_ERROR) {
-            return INVALID_OPERATION;
+            ALOGW("M86_PIPELINE FLITE sensor disable ret=%d; continue cleanup",
+                  ret);
+            if (firstError == NO_ERROR)
+                firstError = ret;
         }
         ret = m_pipes[INDEX(PIPE_FLITE)]->stop();
         if (ret != NO_ERROR) {
-            return INVALID_OPERATION;
+            ALOGE("M86_PIPELINE FLITE stop ret=%d; software cleanup completed",
+                  ret);
+            if (firstError == NO_ERROR)
+                firstError = ret;
         }
     }
     if (m_pipes[INDEX(PIPE_3AA)] != nullptr &&
@@ -428,7 +438,9 @@ status_t ExynosCamera3FrameFactoryPreviewM86::stopPipes(void)
         }
         ret = m_pipes[INDEX(PIPE_3AA)]->stop();
         if (ret != NO_ERROR) {
-            return INVALID_OPERATION;
+            ALOGE("M86_PIPELINE 3AA stop ret=%d; continue cleanup", ret);
+            if (firstError == NO_ERROR)
+                firstError = ret;
         }
     }
     if (m_pipes[INDEX(PIPE_GSC)] != nullptr) {
@@ -443,8 +455,8 @@ status_t ExynosCamera3FrameFactoryPreviewM86::stopPipes(void)
             ALOGW("M86_NATIVE3_FLUSH video GSC drain ret=%d", waitRet);
         }
     }
-    ALOGI("M86_NATIVE3_FLUSH stop complete ret=%d", ret);
-    return ret;
+    ALOGI("M86_NATIVE3_FLUSH stop complete ret=%d", firstError);
+    return firstError;
 }
 
 int ExynosCamera3FrameFactoryPreviewM86::resolveLeaderPipe(int pipeId) const

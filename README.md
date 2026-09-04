@@ -73,11 +73,11 @@ Camera migration is deliberately limited to the completed 74xx implementation;
 the SLSI 34xx camera tree is unchanged from its Android 13 Exynos7420 base. The
 OTA packages the locally staged, hash-locked stock Flyme DTB for the dedicated
 `dtb` partition. Device runtime validation remains pending.
-A property-gated no-BPF patch queue is included to unblock the first boot on
-the 3.10 kernel, but networking remains unqualified and may lack accounting or
-policy enforcement. GPU memory/work BPF accounting is also disabled in that
-mode so gpuservice remains available. The coherent eBPF/cgroup backport used by the other
-Exynos7420 LineageOS 20 devices remains the required final implementation.
+The temporary property-gated no-BPF platform queue has been retired. The
+Android 13 source state now requires the device cgroup-v2 configuration and
+the coherent native kernel eBPF backport used by the other Exynos7420
+LineageOS 20 devices. Networking and GPU BPF accounting remain runtime gates
+until that source-owned path is validated on hardware.
 
 ## Publication policy
 

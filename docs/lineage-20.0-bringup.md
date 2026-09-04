@@ -16,6 +16,27 @@ The Android 13 build adaptations are split between:
 - the device-owned `hardware/meizu/m86/camera/libexynoscamera3_m86` target;
 - the graphics, OpenMAX, framework and Camera2 compatibility queue.
 
+## Platform queue boundary
+
+The maintained LineageOS 20 queue contains eleven hardware compatibility
+patches. Ten are Android 13 adaptations of the final LineageOS 19.1 fixes:
+two `frameworks/av` patches, one `hardware/interfaces` patch, one SLSI graphics
+patch, four SLSI OpenMAX patches, one Camera2 patch and one NFC patch. The
+eleventh is the LineageOS 20-specific legacy Wi-Fi RTT enum compatibility patch
+under `hardware/lineage/interfaces`.
+
+Two fixes added to LineageOS 19.1 after this branch was opened are carried
+directly rather than as platform patches:
+
+- `tools/extract-stock-files.py` accepts both integer and enum-like inode mode
+  values;
+- the m86 `ExynosCamera3FrameFactoryPreviewM86.cpp` records the first stop
+  error while continuing the complete FLITE/3AA/GSC software cleanup.
+
+The broader Android 12 stock-extraction and native-only camera-route cleanup
+is not copied wholesale: LineageOS 20 retains its version-specific camera
+rollback and stock-DTB topology boundaries.
+
 ## Device-common independence
 
 The m86 product does not sync, inherit or parse
@@ -26,39 +47,24 @@ directly from the pinned Samsung SLSI repositories.
 
 ## Network status
 
-The Android 12 `system/bpf` compatibility patch is retained only as a build
-checkpoint. It does not make the 3.10 kernel satisfy Android 13 networking.
+The temporary Android 12 `system/bpf` checkpoint and the property-gated
+no-BPF platform queue have been retired. `frameworks/native`,
+`packages/modules/Connectivity`, `packages/modules/NetworkStack`, `system/bpf`,
+`system/core` and `system/netd` therefore remain byte-for-byte at their
+manifest-pinned LineageOS 20 bases.
 
-For the first Android 13 boot, the patch queue now provides an explicit
-temporary no-BPF mode selected by the device property
-`ro.kernel.ebpf.supported=false`. The mode:
-
-- lets init continue when the 3.10 cgroup layout cannot create an Android 13
-  process group;
-- lets netd continue without a cgroup v2 root, BPF handler initialization or
-  bandwidth-controller initialization;
-- keeps gpuservice alive while disabling only its GPU memory/work BPF
-  accounting collectors;
-- makes NetworkStats tolerate missing pinned BPF maps and retain its legacy
-  `xt_qtaguid` fallback;
-- keeps IpClient on netd callbacks instead of the Android 13 direct-netlink
-  parser.
-
-The changes are narrowly property-gated: devices that do not explicitly set
-the property to false retain the upstream fail-closed paths. They were adapted
-from the `8890q/patches` LineageOS 20 no-BPF pattern, with the map-result checks
-corrected and the m86-specific missing-cgroup-v2 failure covered. This is a
-boot-enablement path, not a networking qualification. Per-UID traffic
-accounting, Data Saver/firewall enforcement and tethering/offload may be
-incomplete until they are tested on hardware.
+The Android 13 source state requires device-owned cgroup-v2 configuration and
+a coherent native kernel eBPF backport. Per-UID traffic accounting, Data
+Saver/firewall enforcement, tethering/offload and GPU BPF accounting remain
+runtime qualification gates until that path is validated on hardware.
 
 The reference Exynos7420 LineageOS 20 kernel uses a coherent eBPF/cgroup
 backport, enables `CONFIG_BPF`, `CONFIG_BPF_SYSCALL`, `CONFIG_CGROUP_BPF`,
 `CONFIG_NET_CLS_BPF`, `CONFIG_NET_ACT_BPF` and `CONFIG_BPF_JIT`, and reports a
-newer kernel version to `bpfloader`. The m86 kernel does not yet contain that
-stack. Runtime networking therefore remains an explicit bring-up blocker. Once
-the kernel backport is implemented, remove the false property and retire this
-temporary no-BPF queue; it must not become the final networking architecture.
+newer kernel version to `bpfloader`. The m86 port now follows that subsystem
+model instead of carrying platform bypasses. Device and kernel revision locks
+must be advanced only after the native source state passes build and runtime
+validation.
 
 Reference branch:
 `samsungexynos7420/android_kernel_samsung_universal7420`,
@@ -94,11 +100,12 @@ Exact repository and tree IDs are recorded in
 
 ## Build checkpoint
 
-The current source checkpoint successfully completes a full `m bacon` build,
-including `libexynoscamera3_m86`, `camera.m86`, the temporary no-BPF
-`init`/`netd`/Connectivity/NetworkStack targets, the m86 power service, the
+The previous source checkpoint successfully completed a full `m bacon` build,
+including `libexynoscamera3_m86`, `camera.m86`, the m86 power service, the
 legacy Wi-Fi HAL service, boot/recovery/system images, target-files and the
-non-A/B OTA package. The build was produced after populating the arm64 WebView
+non-A/B OTA package. That result predates retirement of the no-BPF queue and
+does not validate the native eBPF transition. The build was produced after
+populating the arm64 WebView
 LFS object and staging the deliberately untracked, hash-locked stock Flyme DTB.
 
 The packaged `dtb.img`, target-files `RADIO/dtb.img` and source input all match
@@ -125,6 +132,5 @@ libbinder_ndk.
 
 The same evidence showed gpuservice aborting in the pinned `GpuWork` map
 constructor after the 3.10 kernel returned `ENOSYS` for syscall 280 (`bpf`).
-The property-gated no-BPF queue now skips the two GPU accounting collectors;
-this preserves the GPU binder service but intentionally leaves those optional
-statistics unavailable until the kernel eBPF backport is completed.
+That failure must now be resolved by the native kernel eBPF implementation;
+the platform queue no longer suppresses either GPU accounting collector.

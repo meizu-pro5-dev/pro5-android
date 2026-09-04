@@ -59,7 +59,8 @@ def extract_file(inode: File, destination: Path) -> tuple[str, int]:
                 target.write(chunk)
                 digest.update(chunk)
                 size += len(chunk)
-        os.chmod(temporary, stat.S_IMODE(int(inode.i_mode)))
+        mode = getattr(inode.i_mode, "value", inode.i_mode)
+        os.chmod(temporary, stat.S_IMODE(int(mode)))
         os.replace(temporary, destination)
     finally:
         if temporary.exists():

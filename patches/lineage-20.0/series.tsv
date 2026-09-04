@@ -1,5 +1,4 @@
 # repository	base revision	validated revision	patch
-frameworks/native	915ad642e331e0f8ea107b5f5519f2c6f1e7e01c	4a999f2b182bade2b3aafe8b5ad77f6c4afd4382	patches/lineage-20.0/frameworks-native/0001-gpuservice-skip-accounting-in-legacy-no-BPF-mode.patch
 frameworks/av	9309f12a7c62e505cf74435f8235684a0e0db4db	807387494023151f9543578e49cdd9981475aa2a	patches/lineage-20.0/frameworks-av/0001-m86-checkpoint-validated-Android-12-baseline.patch
 frameworks/av	9309f12a7c62e505cf74435f8235684a0e0db4db	807387494023151f9543578e49cdd9981475aa2a	patches/lineage-20.0/frameworks-av/0002-Camera-preserve-recording-stream-setup-errors.patch
 hardware/interfaces	2f83e1bda9536aaf406352c868a8192cc3526a69	2d825cf62e7cb538a8219ac2d6840a155cd5b1c2	patches/lineage-20.0/hardware-interfaces/0001-m86-checkpoint-validated-Android-12-baseline.patch
@@ -10,9 +9,4 @@ hardware/samsung_slsi-linaro/openmax	0faa3d4cad375a31bf43dea0d0bfea274c5972d7	70
 hardware/samsung_slsi-linaro/openmax	0faa3d4cad375a31bf43dea0d0bfea274c5972d7	70ecaae851935e17023269535d4a7bb6dd419825	patches/lineage-20.0/hardware-samsung-slsi-linaro-openmax/0003-openmax-use-frame-tags-for-MFC-v8-AVC-timestamps.patch
 hardware/samsung_slsi-linaro/openmax	0faa3d4cad375a31bf43dea0d0bfea274c5972d7	70ecaae851935e17023269535d4a7bb6dd419825	patches/lineage-20.0/hardware-samsung-slsi-linaro-openmax/0004-openmax-use-frame-tags-for-MFC-v9-AVC-timestamps.patch
 packages/apps/Camera2	f04b4a92ec480d7810fab7af5efcc9ad1afae589	b5141467f0c6c0c003b02a08384aab83ace83383	patches/lineage-20.0/packages-apps-Camera2/0001-m86-checkpoint-validated-Android-12-baseline.patch
-packages/modules/Connectivity	205270f5728b3c1fda246ec413ee39e83a73df03	71a900b9d7472871a53139d162dfdca104e250a9	patches/lineage-20.0/packages-modules-Connectivity/0001-Connectivity-tolerate-missing-BPF-maps-on-legacy-ker.patch
-packages/modules/NetworkStack	f6272676a666dd6277b171105f10bd62f9ec9da7	0617427dccf5a6287dd715e1b566654ff8264cee	patches/lineage-20.0/packages-modules-NetworkStack/0001-NetworkStack-use-netd-observer-on-legacy-kernels.patch
-system/bpf	52121cd0ee9eb6a5624665d3cf8922f7244ef1cd	c40b8b9270db15d2df8f425101056914c2ca3b49	patches/lineage-20.0/system-bpf/0001-m86-checkpoint-validated-Android-12-baseline.patch
-system/core	c0500ffe2cc283d61f1e3db1b2c979bfbd9beb8c	3e31e9ebaa3e60ccd20b7d2a5c733e742850495f	patches/lineage-20.0/system-core/0001-init-permit-explicit-legacy-no-BPF-process-groups.patch
-system/netd	43d137e94717639b96f5020607920f734433be92	e5fcdbcb8a47f18fa7f8a0a4fb43fc23f8e404e3	patches/lineage-20.0/system-netd/0001-netd-support-explicit-legacy-no-BPF-mode.patch
 system/nfc	99dcb4312dbe28fb7f102344c707dab82e8bf9cb	10472c1999f83601bd4d5da1748b605e5621818f	patches/lineage-20.0/system-nfc/0001-m86-checkpoint-validated-Android-12-baseline.patch
