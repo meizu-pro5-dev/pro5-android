@@ -100,6 +100,10 @@ Exact repository and tree IDs are recorded in
 
 ## Build checkpoint
 
+The newer [codec2 checkpoint](lineage-20.0-codec2-checkpoint.md) builds the
+native eBPF source state and validates both OTA forms on host. The account
+below describes the earlier build and its historical limitations.
+
 The previous source checkpoint successfully completed a full `m bacon` build,
 including `libexynoscamera3_m86`, `camera.m86`, the m86 power service, the
 legacy Wi-Fi HAL service, boot/recovery/system images, target-files and the

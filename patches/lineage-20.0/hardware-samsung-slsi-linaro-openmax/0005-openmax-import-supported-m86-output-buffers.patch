@@ -1,0 +1,172 @@
+Subject: [PATCH] openmax: import supported m86 output buffers
+
+Select ordinary NV12M for m86, propagate mapper errors, and handle optional
+legacy 10-bit queries without hiding unexpected driver failures.
+
+diff --git a/openmax/component/video/dec/Exynos_OMX_Vdec.c b/openmax/component/video/dec/Exynos_OMX_Vdec.c
+index 8da000b..802fb62 100644
+--- a/openmax/component/video/dec/Exynos_OMX_Vdec.c
++++ b/openmax/component/video/dec/Exynos_OMX_Vdec.c
+@@ -1463,6 +1463,19 @@ OMX_ERRORTYPE Exynos_OMX_DstInputBufferProcess(OMX_HANDLETYPE hComponent)
+                         if (ret != OMX_ErrorNone) {
+                             dstInputUseBuffer->dataValid = OMX_FALSE;
+                             Exynos_OSAL_MutexUnlock(dstInputUseBuffer->bufferMutex);
++                            /* A failed native-buffer import is fatal during playback.
++                             * Report it instead of silently exhausting the output queue.
++                             * Flush and port reconfiguration may invalidate buffers normally. */
++                            if (!CHECK_PORT_BEING_FLUSHED(exynosOutputPort) &&
++                                (exynosOutputPort->exceptionFlag == GENERAL_STATE) &&
++                                !pVideoDec->bExitBufferProcessThread) {
++                                Exynos_OSAL_Log(EXYNOS_LOG_ERROR,
++                                                "[%p][%s] output buffer import failed (0x%x)",
++                                                pExynosComponent, __FUNCTION__, ret);
++                                pExynosComponent->pCallbacks->EventHandler(pOMXComponent,
++                                                pExynosComponent->callbackData,
++                                                OMX_EventError, ret, 0, NULL);
++                            }
+                             break;
+                         }
+ #ifdef USE_ANDROID
+diff --git a/openmax/osal/Android.mk b/openmax/osal/Android.mk
+index e2cd1e1..748d1e6 100644
+--- a/openmax/osal/Android.mk
++++ b/openmax/osal/Android.mk
+@@ -203,6 +203,9 @@ endif
+ ifeq ($(BOARD_USES_EXYNOS_GRALLOC_VERSION), 0)
+ LOCAL_CFLAGS += -DGRALLOC_VERSION0
+ LOCAL_CFLAGS += -DUSE_PRIV_FORMAT
++ifeq ($(BOARD_EXYNOS_OMX_USE_NONPRIVATE_NV12), true)
++LOCAL_CFLAGS += -DUSE_NONPRIVATE_NV12
++endif
+ LOCAL_HEADER_LIBRARIES := libgralloc_headers_exynos
+ else
+ LOCAL_CFLAGS += -DUSE_PRIV_USAGE
+diff --git a/openmax/osal/Exynos_OSAL_Android.cpp b/openmax/osal/Exynos_OSAL_Android.cpp
+index a14337c..5d2629f 100644
+--- a/openmax/osal/Exynos_OSAL_Android.cpp
++++ b/openmax/osal/Exynos_OSAL_Android.cpp
+@@ -1122,16 +1122,17 @@ static OMX_ERRORTYPE lockBuffer(
+ 
+         if (err != ::android::NO_ERROR) {
+ #else
++        Error mapperError = Error::BAD_VALUE;
+         auto err = mapper->lock(buffer, OMX_GRALLOC_USAGE_LOCK, bounds, acquireFenceHandle,
+                         [&](const auto& tmpError, const auto& tmpData)
+                         {
+-                            if (tmpError != Error::NONE)
+-                                return -1;
+-
+-                            vaddr = tmpData;
+-                            return 0;
++                            mapperError = tmpError;
++                            if (tmpError == Error::NONE)
++                                vaddr = tmpData;
+                         });
+-        if (!err.isOk()) {
++        if (!err.isOk() || mapperError != Error::NONE) {
++            Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "[%s] mapper lock failed (error: %d, format: 0x%x)",
++                            __FUNCTION__, (int)mapperError, (unsigned int)format);
+ #endif
+             Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "[%s] Failed to mapper.lock()", __FUNCTION__);
+             ret = OMX_ErrorUndefined;
+@@ -1160,16 +1161,17 @@ static OMX_ERRORTYPE lockBuffer(
+ 
+         if (err != ::android::NO_ERROR) {
+ #else
++        Error mapperError = Error::BAD_VALUE;
+         auto err = mapper->lockYCbCr(buffer, OMX_GRALLOC_USAGE_LOCK, bounds, acquireFenceHandle,
+                         [&](const auto& tmpError, const auto& tmpLayout)
+                         {
+-                            if (tmpError != Error::NONE)
+-                                return -1;
+-
+-                            outLayout = tmpLayout;
+-                            return 0;
++                            mapperError = tmpError;
++                            if (tmpError == Error::NONE)
++                                outLayout = tmpLayout;
+                         });
+-        if (!err.isOk()) {
++        if (!err.isOk() || mapperError != Error::NONE) {
++            Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "[%s] mapper lock failed (error: %d, format: 0x%x)",
++                            __FUNCTION__, (int)mapperError, (unsigned int)format);
+ #endif
+             Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "[%s] Failed to mapper.lock()", __FUNCTION__);
+             ret = OMX_ErrorUndefined;
+@@ -1197,16 +1199,17 @@ static OMX_ERRORTYPE lockBuffer(
+ 
+         if (err != ::android::NO_ERROR) {
+ #else
++        Error mapperError = Error::BAD_VALUE;
+         auto err = mapper->lockYCbCr(buffer, OMX_GRALLOC_USAGE_LOCK, bounds, acquireFenceHandle,
+                         [&](const auto& tmpError, const auto& tmpLayout)
+                         {
+-                            if (tmpError != Error::NONE)
+-                                return -1;
+-
+-                            outLayout = tmpLayout;
+-                            return 0;
++                            mapperError = tmpError;
++                            if (tmpError == Error::NONE)
++                                outLayout = tmpLayout;
+                         });
+-        if (!err.isOk()) {
++        if (!err.isOk() || mapperError != Error::NONE) {
++            Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "[%s] mapper lock failed (error: %d, format: 0x%x)",
++                            __FUNCTION__, (int)mapperError, (unsigned int)format);
+ #endif
+             Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "[%s] Failed to mapper.lock()", __FUNCTION__);
+             ret = OMX_ErrorUndefined;
+diff --git a/openmax/osal/Exynos_OSAL_ETC.c b/openmax/osal/Exynos_OSAL_ETC.c
+index 84174e9..a6e6002 100644
+--- a/openmax/osal/Exynos_OSAL_ETC.c
++++ b/openmax/osal/Exynos_OSAL_ETC.c
+@@ -728,6 +728,13 @@ unsigned int Exynos_OSAL_OMX2HALPixelFormat(
+         }
+     }
+ 
++#ifdef USE_NONPRIVATE_NV12
++    /* Some gralloc0 implementations allocate the private format but cannot
++     * lock its YCbCr planes. Keep HAL2OMX recognition for input buffers. */
++    if (nHALFormat == HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SP_M_PRIV)
++        nHALFormat = HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SP_M;
++#endif
++
+     if (nHALFormat == 0)
+         goto EXIT;
+ 
+diff --git a/videocodec/dec/ExynosVideoDecoder.c b/videocodec/dec/ExynosVideoDecoder.c
+index e3d70de..8622aeb 100644
+--- a/videocodec/dec/ExynosVideoDecoder.c
++++ b/videocodec/dec/ExynosVideoDecoder.c
+@@ -1313,7 +1313,7 @@ static ExynosVideoErrorType MFC_Decoder_Get_Geometry_Outbuf(
+ 
+     CodecOSAL_Format fmt;
+     CodecOSAL_Crop   crop;
+-    int i, value;
++    int i, value = 0;
+ 
+     if (pCtx == NULL) {
+         ALOGE("%s: Video context info must be supplied", __FUNCTION__);
+@@ -1402,7 +1402,20 @@ static ExynosVideoErrorType MFC_Decoder_Get_Geometry_Outbuf(
+         break;
+     default:
+         /* for backward compatibility : MFC D/D only supports g_ctrl */
+-        Codec_OSAL_GetControl(pCtx, CODEC_OSAL_CID_DEC_GET_10BIT_INFO, &value);
++        if (Codec_OSAL_GetControl(pCtx, CODEC_OSAL_CID_DEC_GET_10BIT_INFO, &value) != 0) {
++            int queryErrno = errno;
++
++            if ((queryErrno != EINVAL) && (queryErrno != ENOTTY)) {
++                ALOGE("%s: 10-bit query failed (%d - %s)",
++                      __FUNCTION__, queryErrno, strerror(queryErrno));
++                ret = VIDEO_ERROR_APIFAIL;
++                goto EXIT;
++            }
++
++            /* An older driver may expose only an ordinary 8-bit G_FMT. */
++            value = 0;
++            ALOGW("%s: 10-bit query unsupported; retaining G_FMT 8-bit format", __FUNCTION__);
++        }
+         if (value == 1) {
+             /* supports only S10B format */
+             pCodecBufferConf->eFilledDataType = DATA_8BIT_WITH_2BIT;

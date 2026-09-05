@@ -79,6 +79,10 @@ the coherent native kernel eBPF backport used by the other Exynos7420
 LineageOS 20 devices. Networking and GPU BPF accounting remain runtime gates
 until that source-owned path is validated on hardware.
 
+The [codec2 source checkpoint](docs/lineage-20.0-codec2-checkpoint.md) records
+the current fixes, reproducible patch queue, build/OTA checks and remaining
+hardware validation.
+
 ## Publication policy
 
 No proprietary library, stock firmware, device evidence, build output or

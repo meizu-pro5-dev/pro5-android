@@ -1,0 +1,23 @@
+From cfa4c7e21ac1718d0890a9dec6576909f2ad8854 Mon Sep 17 00:00:00 2001
+From: 404698-FDU <228693120+404698-FDU@users.noreply.github.com>
+Date: Sat, 5 Sep 2026 16:01:28 +0000
+Subject: [PATCH] releasetools: hash zero blocks as bytes on Python 3
+
+Change-Id: Ie810f2845e46d9b174744b7c9499f256cbf734a1
+---
+ tools/releasetools/common.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tools/releasetools/common.py b/tools/releasetools/common.py
+index a5fe89dd9..c5f63c2a0 100644
+--- a/tools/releasetools/common.py
++++ b/tools/releasetools/common.py
+@@ -3439,7 +3439,7 @@ class BlockDifference(object):
+ 
+   def _HashZeroBlocks(self, num_blocks):  # pylint: disable=no-self-use
+     """Return the hash value for all zero blocks."""
+-    zero_block = '\x00' * 4096
++    zero_block = b'\x00' * 4096
+     ctx = sha1()
+     for _ in range(num_blocks):
+       ctx.update(zero_block)
