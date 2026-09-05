@@ -1,4 +1,4 @@
-domain	repository	patch	retired_by	exit_evidence
+domain	repository	historical_patch	retired_by	exit_evidence
 M1	build/make	patches/build-make/0001-releasetools-allow-full-ota-without-cache-size.patch	M1 cache geometry cleanup	removed from series; full OTA uses explicit cache geometry and m86 releasetools
 M1	system/core	patches/system-core/0001-adbd-support-legacy-android-usb-transport.patch	M1 basic ADB cleanup	removed from series; ro.adb.legacy_android_usb was never enabled
 M1	system/core	patches/system-core/0002-adbd-enter-native-android-usb-without-functionfs.patch	M1 basic ADB cleanup	removed from series; generic synchronous FunctionFS is the active owner

@@ -35,6 +35,9 @@ follow the repository rules below so changes stay reviewable and reproducible.
 7. Update `docs/domain-gates.tsv`, `docs/module-ownership.tsv`,
    `docs/platform-debt.tsv` / `docs/retired-platform-debt.tsv`, and
    `patches/series.tsv` when ownership changes.
+   The retired ledger keeps historical patch paths for provenance, but retired
+   patch artifacts are removed. Resync an old builder checkout instead of
+   relying on the workspace to reverse retired changes.
 8. Every runtime-sensitive change needs build evidence and, where the gate
    demands it, device evidence with a recorded hash.
 

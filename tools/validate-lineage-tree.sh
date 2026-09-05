@@ -91,10 +91,6 @@ audio_abi_contract="$hardware_audio_root/LegacyAudioAbiContract.h"
 audio_wrapper_readme="$hardware_audio_root/README.md"
 audio_abi_auditor="$project_root/tools/audit-m86-audio-abi.py"
 audio_abi_test="$project_root/tools/test-m86-audio-abi-contract.sh"
-audio_hifi_patch="$project_root/patches/frameworks-base/0003-audio-restore-meizu-hifi-routing.patch"
-audio_hifi_global_patch="$project_root/patches/frameworks-base/0005-audio-hifi-global-settings.patch"
-audio_hifi_settings_patch="$project_root/patches/packages-apps-settings/0001-system-add-meizu-hifi-sound.patch"
-audio_hifi_audioflinger_patch="$project_root/patches/frameworks-av/0002-audioflinger-route-meizu-hifi-state-to-output.patch"
 audio_hifi_settings_activity="$device_root/parts/M86Parts/src/org/lineageos/settings/m86/hifi/HifiSettingsActivity.java"
 audio_hifi_settings_fragment="$device_root/parts/M86Parts/src/org/lineageos/settings/m86/hifi/HifiSettingsFragment.java"
 audio_hifi_policy="$device_root/parts/M86Parts/src/org/lineageos/settings/m86/hifi/HifiPolicy.java"
@@ -274,8 +270,8 @@ if [[ -e "$project_root/tools/build-pro5-hybrid-dtb.py" ]]; then
   fail "retired top-level hybrid DTB tool still has a duplicate owner"
 fi
 require_fixed 'tools/build-pro5-hybrid-dtb.py' "$retired_debt_ledger"
-require_fixed 'workspace\ tooling)' "$apply_worker"
-require_fixed 'Retired workspace tool is still present' "$apply_worker"
+require_absent 'retired-platform-debt.tsv' "$apply_worker"
+require_absent 'Retired and reversed:' "$apply_worker"
 
 # Both full-system targets consume the WebView prebuilt. A Git LFS pointer is
 # sufficient for boot/recovery iteration, but must be materialized and verified
@@ -361,12 +357,21 @@ validate_m0_ledgers() {
 
   awk -F '\t' '
     NR == 1 {
-      if (NF != 5 || $1 != "domain" || $4 != "retired_by") exit 1
+      if (NF != 5 || $1 != "domain" || $3 != "historical_patch" || $4 != "retired_by") exit 1
       next
     }
     NF != 5 || $1 !~ /^M(1|2|3|4|5|7|8)$/ { exit 1 }
     END { if (NR < 9) exit 1 }
   ' "$retired_debt_ledger" || fail "invalid retired platform debt ledger"
+
+  while IFS= read -r retired_patch; do
+    [[ ! -e "$project_root/$retired_patch" ]] ||
+      fail "retired patch artifact remains: $retired_patch"
+  done < <(
+    awk -F '\t' '
+      NR > 1 && $3 ~ /^patches\/.*\.patch$/ { print $3 }
+    ' "$retired_debt_ledger"
+  )
 
   awk -F '\t' '
     NR == 1 {
@@ -626,10 +631,6 @@ validate_m2_graphics() {
   require_fixed \
     'patches/hardware-samsung-slsi-exynos/0001-gralloc-harden-fbdev-copy-post.patch' \
     "$retired_debt_ledger"
-  require_fixed 'Retired and reversed:' \
-    "$project_root/remote/apply-patches.sh"
-  require_fixed 'Already absent (touched paths clean):' \
-    "$project_root/remote/apply-patches.sh"
   require_fixed 'hardware/meizu/m86' "$install_worker"
   require_fixed \
     'include hardware/meizu/m86/graphics/gralloc/Android.mk' \
